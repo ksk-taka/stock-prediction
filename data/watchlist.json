@@ -1,0 +1,59 @@
+{
+  "stocks": [
+    {
+      "symbol": "7203.T",
+      "name": "トヨタ自動車",
+      "market": "JP",
+      "sector": "自動車"
+    },
+    {
+      "symbol": "7011.T",
+      "name": "三菱重工業",
+      "market": "JP",
+      "sector": "重工業"
+    },
+    {
+      "symbol": "6701.T",
+      "name": "NEC",
+      "market": "JP",
+      "sector": "電機"
+    },
+    {
+      "symbol": "6503.T",
+      "name": "三菱電機",
+      "market": "JP",
+      "sector": "電機"
+    },
+    {
+      "symbol": "6758.T",
+      "name": "ソニーグループ",
+      "market": "JP",
+      "sector": "電機"
+    },
+    {
+      "symbol": "8035.T",
+      "name": "東京エレクトロン",
+      "market": "JP",
+      "sector": "半導体"
+    },
+    {
+      "symbol": "8306.T",
+      "name": "三菱UFJフィナンシャル・グループ",
+      "market": "JP",
+      "sector": "銀行"
+    },
+    {
+      "symbol": "1605.T",
+      "name": "INPEX",
+      "market": "JP",
+      "sector": "石油"
+    },
+    {
+      "symbol": "6501.T",
+      "name": "日立製作所",
+      "market": "JP",
+      "sector": "電機"
+    }
+  ],
+  "updatedAt": "2026-02-06T05:00:00.000Z"
+}
