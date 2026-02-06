@@ -1,6 +1,7 @@
 import YahooFinance from "yahoo-finance2";
 import type { PriceData } from "@/types";
 import { getStartDate, type Period } from "@/lib/utils/date";
+import { yfQueue } from "@/lib/utils/requestQueue";
 
 const yf = new YahooFinance();
 
@@ -42,11 +43,13 @@ export async function getHistoricalPrices(
 
   const yfIntraday = intradayIntervals[period];
   if (yfIntraday) {
-    const result = await yf.chart(symbol, {
-      period1: startDate,
-      period2: new Date(),
-      interval: yfIntraday,
-    });
+    const result = await yfQueue.add(() =>
+      yf.chart(symbol, {
+        period1: startDate,
+        period2: new Date(),
+        interval: yfIntraday,
+      })
+    );
 
     return result.quotes
       .filter((row) => {
@@ -75,11 +78,13 @@ export async function getHistoricalPrices(
   };
   const yfInterval = intervalMap[period] ?? "1d";
 
-  const result = await yf.historical(symbol, {
-    period1: startDate,
-    period2: new Date(),
-    interval: yfInterval,
-  });
+  const result = await yfQueue.add(() =>
+    yf.historical(symbol, {
+      period1: startDate,
+      period2: new Date(),
+      interval: yfInterval,
+    })
+  );
 
   return result.map((row) => ({
     date:
@@ -99,7 +104,7 @@ export async function getHistoricalPrices(
  * 現在の株価情報を取得
  */
 export async function getQuote(symbol: string) {
-  const result = await yf.quote(symbol);
+  const result = await yfQueue.add(() => yf.quote(symbol));
   const r = result as Record<string, unknown>;
   return {
     symbol: result.symbol,
@@ -128,7 +133,9 @@ export async function getQuote(symbol: string) {
  */
 export async function getFinancialData(symbol: string) {
   try {
-    const result = await yf.quoteSummary(symbol, { modules: ["financialData", "defaultKeyStatistics"] });
+    const result = await yfQueue.add(() =>
+      yf.quoteSummary(symbol, { modules: ["financialData", "defaultKeyStatistics"] })
+    );
     const fd = result.financialData;
     const ks = result.defaultKeyStatistics;
     const debtToEquity = (fd as Record<string, unknown> | undefined)?.debtToEquity as number | null ?? null;
@@ -154,7 +161,7 @@ export async function getFinancialData(symbol: string) {
  * 銘柄を検索
  */
 export async function searchSymbol(query: string) {
-  const result = await yf.search(query);
+  const result = await yfQueue.add(() => yf.search(query));
   return result.quotes
     .filter(
       (q): q is typeof q & { symbol: string } =>

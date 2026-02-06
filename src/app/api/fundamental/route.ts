@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchFundamentalResearch } from "@/lib/api/perplexity";
-import { runFundamentalAnalysis, validateSignal } from "@/lib/api/ollama";
+import { runFundamentalAnalysis, validateSignal } from "@/lib/api/llm";
 import { getQuote, getFinancialData } from "@/lib/api/yahooFinance";
 import {
   getCachedResearch,

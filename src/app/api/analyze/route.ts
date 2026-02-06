@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { runAnalysis, analyzeSentiment } from "@/lib/api/ollama";
+import { runAnalysis, analyzeSentiment } from "@/lib/api/llm";
 import { getHistoricalPrices, getQuote } from "@/lib/api/yahooFinance";
 import { getCachedNews } from "@/lib/cache/newsCache";
 import { getCachedAnalysis, setCachedAnalysis } from "@/lib/cache/analysisCache";

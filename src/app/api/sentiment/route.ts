@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { analyzeSentiment } from "@/lib/api/ollama";
+import { analyzeSentiment } from "@/lib/api/llm";
 import { getCachedNews } from "@/lib/cache/newsCache";
 import { getCachedAnalysis, setCachedAnalysis } from "@/lib/cache/analysisCache";
 

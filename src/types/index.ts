@@ -3,6 +3,7 @@ export interface Stock {
   symbol: string;           // 銘柄コード（例: "7203.T", "AAPL"）
   name: string;             // 銘柄名
   market: "JP" | "US";      // 市場
+  marketSegment?: "プライム" | "スタンダード" | "グロース";  // 市場区分
   sectors?: string[];        // セクター（複数可）
   fundamental?: {
     judgment: "bullish" | "neutral" | "bearish";

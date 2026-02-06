@@ -1,23 +1,106 @@
 import type { LLMAnalysis, SentimentData, NewsItem, PriceData, FundamentalAnalysis, SignalValidation } from "@/types";
 import { sentimentLabel } from "@/lib/utils/format";
 
-const OLLAMA_BASE_URL =
-  process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
-const MODEL = "qwen2.5:14b";
+// ============================================================
+// Provider configuration
+// ============================================================
 
-/**
- * Ollamaにリクエストを送信
- */
-async function ollamaGenerate(prompt: string, system?: string, timeoutMs = 120000): Promise<string> {
+type ProviderName = "gemini" | "groq" | "ollama";
+
+const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
+
+class ProviderError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ProviderError";
+  }
+}
+
+function resolveProviderChain(): ProviderName[] {
+  const forced = process.env.LLM_PROVIDER as ProviderName | undefined;
+  if (forced && ["gemini", "groq", "ollama"].includes(forced)) {
+    return [forced];
+  }
+  const chain: ProviderName[] = [];
+  if (process.env.GEMINI_API_KEY) chain.push("gemini");
+  if (process.env.GROQ_API_KEY) chain.push("groq");
+  chain.push("ollama");
+  return chain;
+}
+
+// ============================================================
+// Provider implementations
+// ============================================================
+
+async function callGemini(prompt: string, system: string | undefined, timeoutMs: number): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY!;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+  const body: Record<string, unknown> = {
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
+  };
+  if (system) {
+    body.systemInstruction = { parts: [{ text: system }] };
+  }
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-
   try {
-    const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new ProviderError(`Gemini ${res.status}`);
+    const data = await res.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function callGroq(prompt: string, system: string | undefined, timeoutMs: number): Promise<string> {
+  const apiKey = process.env.GROQ_API_KEY!;
+  const messages: Array<{ role: string; content: string }> = [];
+  if (system) messages.push({ role: "system", content: system });
+  messages.push({ role: "user", content: prompt });
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages,
+        temperature: 0.3,
+        max_tokens: 8192,
+      }),
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new ProviderError(`Groq ${res.status}`);
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content ?? "";
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function callOllama(prompt: string, system: string | undefined, timeoutMs: number): Promise<string> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: MODEL,
+        model: "qwen2.5:14b",
         prompt,
         system,
         stream: false,
@@ -25,16 +108,39 @@ async function ollamaGenerate(prompt: string, system?: string, timeoutMs = 12000
       }),
       signal: controller.signal,
     });
-
-    if (!response.ok) {
-      throw new Error(`Ollama error: ${response.status}`);
-    }
-
-    const data = await response.json();
+    if (!res.ok) throw new ProviderError(`Ollama ${res.status}`);
+    const data = await res.json();
     return data.response ?? "";
   } finally {
     clearTimeout(timer);
   }
+}
+
+// ============================================================
+// Fallback orchestrator
+// ============================================================
+
+const providerFns: Record<ProviderName, (p: string, s: string | undefined, t: number) => Promise<string>> = {
+  gemini: callGemini,
+  groq: callGroq,
+  ollama: callOllama,
+};
+
+async function llmGenerate(prompt: string, system?: string, timeoutMs = 120000): Promise<string> {
+  const chain = resolveProviderChain();
+  let lastError: Error | null = null;
+
+  for (const provider of chain) {
+    try {
+      const result = await providerFns[provider](prompt, system, timeoutMs);
+      console.log(`[LLM] provider: ${provider}`);
+      return result;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      console.warn(`[LLM] ${provider} failed: ${lastError.message}, trying next...`);
+    }
+  }
+  throw lastError ?? new Error("No LLM providers available");
 }
 
 /**
@@ -65,7 +171,7 @@ ${analystRating}
 }`;
 
   try {
-    const response = await ollamaGenerate(prompt);
+    const response = await llmGenerate(prompt);
     const jsonMatch = response.match(/\{[\s\S]*?\}/);
     if (!jsonMatch) throw new Error("No JSON in response");
 
@@ -86,7 +192,7 @@ ${analystRating}
       },
     };
   } catch {
-    // Ollama未起動時のフォールバック
+    // LLM未接続時のフォールバック
     return {
       score: 0,
       label: "neutral",
@@ -160,7 +266,7 @@ ${analystRating}
 }`;
 
   try {
-    const response = await ollamaGenerate(prompt);
+    const response = await llmGenerate(prompt);
     const jsonMatch = response.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("No JSON in response");
 
@@ -178,7 +284,7 @@ ${analystRating}
   } catch {
     return {
       summary:
-        "Ollamaに接続できませんでした。Ollamaが起動しているか確認してください。",
+        "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
       outlook: "neutral",
       keyPoints: [],
       risks: [],
@@ -251,7 +357,7 @@ ${newsSummary ? `\n### 2.5 直近ニュース・市場の反応\n${newsSummary}\
 }`;
 
   try {
-    const response = await ollamaGenerate(prompt);
+    const response = await llmGenerate(prompt);
     const jsonMatch = response.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("No JSON in response");
 
@@ -276,7 +382,7 @@ ${newsSummary ? `\n### 2.5 直近ニュース・市場の反応\n${newsSummary}\
         growthDriver: "",
       },
       riskScenario: "",
-      summary: "Ollamaに接続できませんでした。Ollamaが起動しているか確認してください。",
+      summary: "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
       analyzedAt: new Date().toISOString(),
     };
   }
@@ -345,7 +451,7 @@ ${perplexitySummary}
 }`;
 
   try {
-    const response = await ollamaGenerate(prompt);
+    const response = await llmGenerate(prompt);
     const jsonMatch = response.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("No JSON in response");
 
@@ -364,7 +470,7 @@ ${perplexitySummary}
       signalEvaluation: "",
       riskFactor: "",
       catalyst: "",
-      summary: "Ollamaに接続できませんでした。Ollamaが起動しているか確認してください。",
+      summary: "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
       validatedAt: new Date().toISOString(),
     };
   }

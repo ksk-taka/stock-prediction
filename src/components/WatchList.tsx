@@ -44,12 +44,14 @@ interface FilterPreset {
   name: string;
   sectors: string[];
   strategies: string[];
+  segments: string[];
   signalAgeDays: number | null;
   decision: string | null;
   judgment: string | null;
 }
 
 const PRESETS_KEY = "watchlist-filter-presets";
+const PAGE_SIZE = 50;
 
 function loadPresets(): FilterPreset[] {
   if (typeof window === "undefined") return [];
@@ -72,17 +74,34 @@ export default function WatchList() {
   const [signals, setSignals] = useState<Record<string, SignalSummary>>({});
   const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // フィルター
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedSectors, setSelectedSectors] = useState<Set<string>>(new Set());
   const [selectedStrategies, setSelectedStrategies] = useState<Set<string>>(new Set());
-  const [signalAgeDays, setSignalAgeDays] = useState<number | null>(null); // null=全期間
-  const [selectedDecision, setSelectedDecision] = useState<string | null>(null); // "entry" | "wait" | "avoid" | null
-  const [selectedJudgment, setSelectedJudgment] = useState<string | null>(null); // "bullish" | "neutral" | "bearish" | null
+  const [selectedSegments, setSelectedSegments] = useState<Set<string>>(new Set());
+  const [signalAgeDays, setSignalAgeDays] = useState<number | null>(null);
+  const [selectedDecision, setSelectedDecision] = useState<string | null>(null);
+  const [selectedJudgment, setSelectedJudgment] = useState<string | null>(null);
   const [filterPresets, setFilterPresets] = useState<FilterPreset[]>([]);
   const [activePresetName, setActivePresetName] = useState<string | null>(null);
+
+  // 表示件数制御
+  const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
+
+  // 可視カード追跡（自動更新用）
+  const visibleSymbolsRef = useRef<Set<string>>(new Set());
+  // データ取得済みシンボル追跡
+  const fetchedSymbolsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     setFilterPresets(loadPresets());
   }, []);
+
+  // フィルタ変更時に表示件数をリセット
+  useEffect(() => {
+    setDisplayCount(PAGE_SIZE);
+  }, [searchQuery, selectedSectors, selectedStrategies, selectedSegments, signalAgeDays, selectedDecision, selectedJudgment]);
 
   const fetchWatchlist = useCallback(async () => {
     try {
@@ -100,107 +119,106 @@ export default function WatchList() {
     fetchWatchlist();
   }, [fetchWatchlist]);
 
-  // 株価を取得（インクリメンタル更新）
-  const fetchQuotes = useCallback(async () => {
-    if (stocks.length === 0) return;
-    await Promise.allSettled(
-      stocks.map(async (stock) => {
-        try {
-          const res = await fetch(
-            `/api/price?symbol=${encodeURIComponent(stock.symbol)}&period=daily`
-          );
-          const data = await res.json();
-          if (data.quote) {
-            setQuotes((prev) => ({
-              ...prev,
-              [stock.symbol]: {
-                symbol: stock.symbol,
-                price: data.quote.price,
-                changePercent: data.quote.changePercent,
-              },
-            }));
-          }
-        } catch {
-          // skip
-        }
-      })
-    );
-  }, [stocks]);
+  // 個別銘柄データ取得（遅延ロード用）
+  const fetchDataForSymbol = useCallback(async (symbol: string) => {
+    if (fetchedSymbolsRef.current.has(symbol)) return;
+    fetchedSymbolsRef.current.add(symbol);
 
+    const [priceRes, statsRes, sigRes, valRes] = await Promise.allSettled([
+      fetch(`/api/price?symbol=${encodeURIComponent(symbol)}&period=daily`),
+      fetch(`/api/stats?symbol=${encodeURIComponent(symbol)}`),
+      fetch(`/api/signals?symbol=${encodeURIComponent(symbol)}`),
+      fetch(`/api/fundamental?symbol=${encodeURIComponent(symbol)}&step=validations`),
+    ]);
+
+    if (priceRes.status === "fulfilled" && priceRes.value.ok) {
+      const data = await priceRes.value.json();
+      if (data.quote) {
+        setQuotes((prev) => ({
+          ...prev,
+          [symbol]: {
+            symbol,
+            price: data.quote.price,
+            changePercent: data.quote.changePercent,
+          },
+        }));
+      }
+    }
+
+    if (statsRes.status === "fulfilled" && statsRes.value.ok) {
+      const data = await statsRes.value.json();
+      setStats((prev) => ({
+        ...prev,
+        [symbol]: {
+          per: data.per ?? null,
+          pbr: data.pbr ?? null,
+          roe: data.roe ?? null,
+          eps: data.eps ?? null,
+        },
+      }));
+    }
+
+    const summary: SignalSummary = {};
+    if (sigRes.status === "fulfilled" && sigRes.value.ok) {
+      const data = await sigRes.value.json();
+      summary.activeSignals = data.activeSignals;
+    }
+    if (valRes.status === "fulfilled" && valRes.value.ok) {
+      const data = await valRes.value.json();
+      if (data.validations && Object.keys(data.validations).length > 0) {
+        summary.validations = data.validations;
+      }
+    }
+    setSignals((prev) => ({ ...prev, [symbol]: summary }));
+  }, []);
+
+  // カード可視状態管理
+  const handleCardVisible = useCallback(
+    (symbol: string, isVisible: boolean) => {
+      if (isVisible) {
+        visibleSymbolsRef.current.add(symbol);
+        fetchDataForSymbol(symbol);
+      } else {
+        visibleSymbolsRef.current.delete(symbol);
+      }
+    },
+    [fetchDataForSymbol]
+  );
+
+  // 取引時間中の自動更新（30秒間隔、表示中カードのみ）
   useEffect(() => {
     if (stocks.length === 0) return;
+    const tick = async () => {
+      const anyMarketOpen = isJPMarketOpen() || isUSMarketOpen();
+      if (!anyMarketOpen || visibleSymbolsRef.current.size === 0) return;
 
-    fetchQuotes();
-
-    // stats は初回のみ取得（インクリメンタル更新）
-    const fetchStats = async () => {
+      const symbolsToUpdate = Array.from(visibleSymbolsRef.current);
       await Promise.allSettled(
-        stocks.map(async (stock) => {
+        symbolsToUpdate.map(async (symbol) => {
           try {
             const res = await fetch(
-              `/api/stats?symbol=${encodeURIComponent(stock.symbol)}`
+              `/api/price?symbol=${encodeURIComponent(symbol)}&period=daily`
             );
             const data = await res.json();
-            setStats((prev) => ({
-              ...prev,
-              [stock.symbol]: {
-                per: data.per ?? null,
-                pbr: data.pbr ?? null,
-                roe: data.roe ?? null,
-                eps: data.eps ?? null,
-              },
-            }));
+            if (data.quote) {
+              setQuotes((prev) => ({
+                ...prev,
+                [symbol]: {
+                  symbol,
+                  price: data.quote.price,
+                  changePercent: data.quote.changePercent,
+                },
+              }));
+            }
           } catch {
             // skip
           }
         })
       );
     };
-    fetchStats();
-
-    // アクティブシグナル検出 + Go/No Goキャッシュ取得（初回のみ、インクリメンタル更新）
-    const fetchSignals = async () => {
-      await Promise.allSettled(
-        stocks.map(async (stock) => {
-          try {
-            const [sigRes, valRes] = await Promise.allSettled([
-              fetch(`/api/signals?symbol=${encodeURIComponent(stock.symbol)}`),
-              fetch(`/api/fundamental?symbol=${encodeURIComponent(stock.symbol)}&step=validations`),
-            ]);
-            const summary: SignalSummary = {};
-            if (sigRes.status === "fulfilled" && sigRes.value.ok) {
-              const data = await sigRes.value.json();
-              summary.activeSignals = data.activeSignals;
-            }
-            if (valRes.status === "fulfilled" && valRes.value.ok) {
-              const data = await valRes.value.json();
-              if (data.validations && Object.keys(data.validations).length > 0) {
-                summary.validations = data.validations;
-              }
-            }
-            setSignals((prev) => ({ ...prev, [stock.symbol]: summary }));
-          } catch {
-            // skip
-          }
-        })
-      );
-    };
-    fetchSignals();
-  }, [stocks, fetchQuotes]);
-
-  // 取引時間中の自動更新（30秒間隔）
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  useEffect(() => {
-    if (stocks.length === 0) return;
-    const tick = () => {
-      const anyMarketOpen = isJPMarketOpen() || isUSMarketOpen();
-      if (anyMarketOpen) fetchQuotes();
-    };
-    intervalRef.current = setInterval(tick, 30_000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [stocks, fetchQuotes]);
+    const interval = setInterval(tick, 30_000);
+    return () => clearInterval(interval);
+  }, [stocks]);
 
   const handleAddStock = (stock: Stock) => {
     setStocks((prev) => [...prev, stock]);
@@ -226,6 +244,9 @@ export default function WatchList() {
     new Set(stocks.flatMap((s) => s.sectors ?? []))
   ).sort();
 
+  // 市場区分一覧
+  const allSegments: ("プライム" | "スタンダード" | "グロース")[] = ["プライム", "スタンダード", "グロース"];
+
   // アクティブシグナルの戦略一覧を抽出
   const allActiveStrategies = Array.from(
     new Map(
@@ -240,6 +261,17 @@ export default function WatchList() {
 
   // フィルタ適用
   const filteredStocks = stocks.filter((stock) => {
+    // テキスト検索
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      const symbolMatch = stock.symbol.toLowerCase().includes(q);
+      const nameMatch = stock.name.toLowerCase().includes(q);
+      if (!symbolMatch && !nameMatch) return false;
+    }
+    // 市場区分フィルタ
+    if (selectedSegments.size > 0) {
+      if (!stock.marketSegment || !selectedSegments.has(stock.marketSegment)) return false;
+    }
     // セクターフィルタ
     if (selectedSectors.size > 0) {
       const match = stock.sectors?.some((s) => selectedSectors.has(s));
@@ -263,7 +295,7 @@ export default function WatchList() {
       });
       if (!match) return false;
     }
-    // Go/No Go フィルタ（アクティブシグナルに紐づくvalidationのみ対象）
+    // Go/No Go フィルタ
     if (selectedDecision !== null) {
       const sig = signals[stock.symbol];
       const validations = sig?.validations;
@@ -284,6 +316,10 @@ export default function WatchList() {
     return true;
   });
 
+  // 表示する銘柄（Load More制御）
+  const displayedStocks = filteredStocks.slice(0, displayCount);
+  const hasMore = displayCount < filteredStocks.length;
+
   const toggleSector = (sector: string) => {
     setSelectedSectors((prev) => {
       const next = new Set(prev);
@@ -302,7 +338,27 @@ export default function WatchList() {
     });
   };
 
-  const hasAnyFilter = selectedSectors.size > 0 || selectedStrategies.size > 0 || signalAgeDays !== null || selectedDecision !== null || selectedJudgment !== null;
+  const toggleSegment = (segment: string) => {
+    setSelectedSegments((prev) => {
+      const next = new Set(prev);
+      if (next.has(segment)) next.delete(segment);
+      else next.add(segment);
+      return next;
+    });
+  };
+
+  const hasAnyFilter = searchQuery !== "" || selectedSectors.size > 0 || selectedStrategies.size > 0 || selectedSegments.size > 0 || signalAgeDays !== null || selectedDecision !== null || selectedJudgment !== null;
+
+  const clearAllFilters = () => {
+    setSearchQuery("");
+    setSelectedSectors(new Set());
+    setSelectedStrategies(new Set());
+    setSelectedSegments(new Set());
+    setSignalAgeDays(null);
+    setSelectedDecision(null);
+    setSelectedJudgment(null);
+    setActivePresetName(null);
+  };
 
   const handleSavePreset = () => {
     const name = prompt("フィルタ名を入力してください");
@@ -311,6 +367,7 @@ export default function WatchList() {
       name: name.trim(),
       sectors: Array.from(selectedSectors),
       strategies: Array.from(selectedStrategies),
+      segments: Array.from(selectedSegments),
       signalAgeDays,
       decision: selectedDecision,
       judgment: selectedJudgment,
@@ -324,6 +381,7 @@ export default function WatchList() {
   const handleApplyPreset = (preset: FilterPreset) => {
     setSelectedSectors(new Set(preset.sectors));
     setSelectedStrategies(new Set(preset.strategies));
+    setSelectedSegments(new Set(preset.segments ?? []));
     setSignalAgeDays(preset.signalAgeDays);
     setSelectedDecision(preset.decision);
     setSelectedJudgment(preset.judgment);
@@ -366,9 +424,51 @@ export default function WatchList() {
         </button>
       </div>
 
-      {/* フィルター */}
+      {/* 検索 + フィルター */}
       {stocks.length > 0 && (
         <div className="mb-4 space-y-3">
+          {/* テキスト検索 */}
+          <div className="relative">
+            <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+            </svg>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="銘柄コードまたは会社名で検索（例: 7203, トヨタ）"
+              className="w-full rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 py-2 pl-10 pr-4 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-slate-500 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+
+          {/* 市場区分フィルタ */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-gray-500 dark:text-slate-400">市場区分:</span>
+            {allSegments.map((segment) => (
+              <button
+                key={segment}
+                onClick={() => toggleSegment(segment)}
+                className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                  selectedSegments.has(segment)
+                    ? "border-cyan-400 bg-cyan-50 text-cyan-700 dark:border-cyan-500 dark:bg-cyan-900/30 dark:text-cyan-300"
+                    : "border-gray-300 bg-white text-gray-500 hover:border-gray-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-500"
+                }`}
+              >
+                {segment}
+              </button>
+            ))}
+          </div>
+
           {/* 保存済みプリセット */}
           {filterPresets.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
@@ -399,6 +499,7 @@ export default function WatchList() {
               ))}
             </div>
           )}
+
           {/* 保有中シグナル（戦略別）フィルタ */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-medium text-gray-500 dark:text-slate-400">保有中:</span>
@@ -422,14 +523,7 @@ export default function WatchList() {
             {hasAnyFilter && (
               <>
                 <button
-                  onClick={() => {
-                    setSelectedSectors(new Set());
-                    setSelectedStrategies(new Set());
-                    setSignalAgeDays(null);
-                    setSelectedDecision(null);
-                    setSelectedJudgment(null);
-                    setActivePresetName(null);
-                  }}
+                  onClick={clearAllFilters}
                   className="ml-1 text-xs text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300"
                 >
                   フィルタ解除
@@ -446,6 +540,7 @@ export default function WatchList() {
               </>
             )}
           </div>
+
           {/* シグナル検知日フィルタ */}
           {allActiveStrategies.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
@@ -469,6 +564,7 @@ export default function WatchList() {
               ))}
             </div>
           )}
+
           {/* Go/No Go フィルタ */}
           {Object.values(signals).some((s) => s.validations && Object.keys(s.validations).length > 0) && (
             <div className="flex flex-wrap items-center gap-2">
@@ -492,6 +588,7 @@ export default function WatchList() {
               ))}
             </div>
           )}
+
           {/* ファンダ判定フィルタ */}
           {stocks.some((s) => s.fundamental?.judgment) && (
             <div className="flex flex-wrap items-center gap-2">
@@ -515,6 +612,7 @@ export default function WatchList() {
               ))}
             </div>
           )}
+
           {/* セクターフィルタ */}
           <div className="flex flex-wrap gap-1.5">
             {allSectors.map((sector) => (
@@ -547,36 +645,58 @@ export default function WatchList() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredStocks.length === 0 ? (
-            <div className="col-span-full rounded-lg border border-dashed border-gray-300 dark:border-slate-600 p-8 text-center">
-              <p className="text-sm text-gray-500 dark:text-slate-400">
-                該当する銘柄がありません
-              </p>
-            </div>
-          ) : (
-            filteredStocks.map((stock) => {
-              const q = quotes[stock.symbol];
-              const s = stats[stock.symbol];
-              const sig = signals[stock.symbol];
-              return (
-                <StockCard
-                  key={stock.symbol}
-                  stock={stock}
-                  price={q?.price}
-                  change={q?.changePercent}
-                  per={s?.per ?? undefined}
-                  pbr={s?.pbr ?? undefined}
-                  roe={s?.roe ?? undefined}
-                  signals={sig}
-                  fundamentalJudgment={stock.fundamental?.judgment}
-                  fundamentalMemo={stock.fundamental?.memo}
-                  onDelete={handleDeleteStock}
-                />
-              );
-            })
+        <>
+          {/* 件数表示 */}
+          {!hasAnyFilter && (
+            <p className="mb-2 text-xs text-gray-400 dark:text-slate-500">
+              {Math.min(displayCount, filteredStocks.length)}/{filteredStocks.length}件表示中
+            </p>
           )}
-        </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {displayedStocks.length === 0 ? (
+              <div className="col-span-full rounded-lg border border-dashed border-gray-300 dark:border-slate-600 p-8 text-center">
+                <p className="text-sm text-gray-500 dark:text-slate-400">
+                  該当する銘柄がありません
+                </p>
+              </div>
+            ) : (
+              displayedStocks.map((stock) => {
+                const q = quotes[stock.symbol];
+                const s = stats[stock.symbol];
+                const sig = signals[stock.symbol];
+                return (
+                  <StockCard
+                    key={stock.symbol}
+                    stock={stock}
+                    price={q?.price}
+                    change={q?.changePercent}
+                    per={s?.per ?? undefined}
+                    pbr={s?.pbr ?? undefined}
+                    roe={s?.roe ?? undefined}
+                    signals={sig}
+                    fundamentalJudgment={stock.fundamental?.judgment}
+                    fundamentalMemo={stock.fundamental?.memo}
+                    onDelete={handleDeleteStock}
+                    onVisible={handleCardVisible}
+                  />
+                );
+              })
+            )}
+          </div>
+
+          {/* もっと見る */}
+          {hasMore && (
+            <div className="mt-6 text-center">
+              <button
+                onClick={() => setDisplayCount((prev) => prev + PAGE_SIZE)}
+                className="rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-6 py-2.5 text-sm font-medium text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+              >
+                もっと見る（残り {filteredStocks.length - displayCount} 件）
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       <AddStockModal

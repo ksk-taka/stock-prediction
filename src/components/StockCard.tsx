@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { formatChange } from "@/lib/utils/format";
 import type { Stock } from "@/types";
@@ -17,6 +18,7 @@ interface StockCardProps {
   fundamentalJudgment?: "bullish" | "neutral" | "bearish";
   fundamentalMemo?: string;
   onDelete?: (symbol: string) => void;
+  onVisible?: (symbol: string, isVisible: boolean) => void;
 }
 
 export default function StockCard({
@@ -31,8 +33,26 @@ export default function StockCard({
   fundamentalJudgment,
   fundamentalMemo,
   onDelete,
+  onVisible,
 }: StockCardProps) {
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // IntersectionObserver: 画面に入ったらデータ取得をトリガー
+  useEffect(() => {
+    if (!cardRef.current || !onVisible) return;
+    const el = cardRef.current;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        onVisible(stock.symbol, entry.isIntersecting);
+      },
+      { rootMargin: "200px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [stock.symbol, onVisible]);
+
   const isPositive = (change ?? 0) >= 0;
+  const hasData = price !== undefined;
 
   // アクティブシグナル（保有中ポジション）
   const activeSignals: { period: string; signal: ActiveSignalInfo }[] = [];
@@ -81,7 +101,7 @@ export default function StockCard({
   };
 
   return (
-    <div className="relative rounded-lg bg-white dark:bg-slate-800 p-4 shadow dark:shadow-slate-900/50 transition hover:shadow-md">
+    <div ref={cardRef} className="relative rounded-lg bg-white dark:bg-slate-800 p-4 shadow dark:shadow-slate-900/50 transition hover:shadow-md">
       {onDelete && (
         <button
           onClick={(e) => {
@@ -105,7 +125,12 @@ export default function StockCard({
       <div className="flex items-start justify-between">
         <div>
           <h3 className="font-semibold text-gray-900 dark:text-white">{stock.name}</h3>
-          <p className="text-sm text-gray-500 dark:text-slate-400">{stock.symbol}</p>
+          <p className="text-sm text-gray-500 dark:text-slate-400">
+            {stock.symbol}
+            {stock.marketSegment && (
+              <span className="ml-1.5 text-[10px] text-gray-400 dark:text-slate-500">{stock.marketSegment}</span>
+            )}
+          </p>
         </div>
         {stock.sectors && stock.sectors.length > 0 && (
           <div className="mr-5 flex flex-wrap gap-1">
@@ -119,12 +144,14 @@ export default function StockCard({
       </div>
       <div className="mt-3 flex items-end justify-between">
         <div>
-          {price !== undefined ? (
+          {hasData ? (
             <p className="text-2xl font-bold text-gray-900 dark:text-white">
               {price.toLocaleString()}
             </p>
           ) : (
-            <p className="text-2xl font-bold text-gray-300 dark:text-slate-600">---</p>
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-24 animate-pulse rounded bg-gray-200 dark:bg-slate-700" />
+            </div>
           )}
           {change !== undefined && (
             <p

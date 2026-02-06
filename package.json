@@ -9,7 +9,8 @@
     "lint": "eslint",
     "monitor:signals": "npx tsx scripts/monitor-signals.ts",
     "monitor:signals:dry": "npx tsx scripts/monitor-signals.ts --dry-run",
-    "test:slack": "npx tsx scripts/test-slack.ts"
+    "test:slack": "npx tsx scripts/test-slack.ts",
+    "fetch:stocks": "npx tsx scripts/fetch-all-stocks.ts"
   },
   "dependencies": {
     "date-fns": "^4.1.0",
@@ -28,6 +29,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "xlsx": "^0.18.5"
   }
 }
