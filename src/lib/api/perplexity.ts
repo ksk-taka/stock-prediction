@@ -1,4 +1,4 @@
-import type { NewsItem } from "@/types";
+import type { NewsItem, FundamentalResearchData } from "@/types";
 
 const PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions";
 
@@ -115,4 +115,234 @@ export async function fetchNewsAndSentiment(
   } catch {
     return { news: [], snsOverview: content, analystRating: "" };
   }
+}
+
+// --- ファンダメンタルズ調査 ---
+
+const FUNDAMENTAL_SYSTEM_PROMPT = `あなたは日本株式市場のファンダメンタルズ分析を専門とするリサーチャーです。
+指定された銘柄について、投資判断に必要な事実情報を収集してください。
+出力は日本語の箇条書きで、事実と数値を重視してください。`;
+
+function buildFundamentalQuery(
+  name: string,
+  ticker: string,
+  pbr: number,
+  per: number
+): string {
+  return `日本株の「${name} (証券コード: ${ticker})」について、投資判断に必要な事実情報を収集してください。
+**現在、PBRは${pbr}倍、PERは${per}倍で推移しています。**
+
+この「現在の評価」を前提に、以下の観点で直近1年以内のニュースや開示情報をレポートしてください。
+
+1. **【割安/割高の理由】（最重要）**:
+   - 現在のPBR ${pbr}倍 という評価は、何らかの悪材料（訴訟、減損、市場縮小懸念）によるものか？
+   - それとも業績は堅調だが、単に放置されているだけか？
+
+2. **【資本政策・是正アクション】**:
+   - 経営陣は「PBR1倍割れ」や「株価低迷」に対して具体的なコメントや対策（自社株買い・増配）を発表しているか？
+   - 中期経営計画でのROE目標値とその進捗。
+
+3. **【直近の業績トレンド】**:
+   - 直近決算はコンセンサス予想に対してどうだったか？
+   - 一過性の特益（資産売却益など）を除いた「本業」は伸びているか？
+
+4. **【カタリスト・リスク】**:
+   - アクティビストの保有や、M&A、事業再編の動き。
+   - 今後の業績を下押しする具体的なリスク要因。
+
+出力は日本語の箇条書きで、事実と数値を重視してください。`;
+}
+
+/**
+ * Perplexity APIでファンダメンタルズ情報を収集
+ */
+export async function fetchFundamentalResearch(
+  symbol: string,
+  name: string,
+  ticker: string,
+  stats: { pbr: number; per: number }
+): Promise<FundamentalResearchData> {
+  const apiKey = process.env.PERPLEXITY_API_KEY;
+  if (!apiKey || apiKey === "pplx-xxxx") {
+    return {
+      valuationReason: "APIキー未設定のためデータなし",
+      capitalPolicy: "APIキー未設定のためデータなし",
+      earningsTrend: "APIキー未設定のためデータなし",
+      catalystAndRisk: "APIキー未設定のためデータなし",
+      rawText: "Perplexity APIキーが未設定のため、サンプルデータを表示しています。",
+    };
+  }
+
+  const response = await fetch(PERPLEXITY_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "sonar",
+      messages: [
+        { role: "system", content: FUNDAMENTAL_SYSTEM_PROMPT },
+        { role: "user", content: buildFundamentalQuery(name, ticker, stats.pbr, stats.per) },
+      ],
+      temperature: 0.1,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Perplexity API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const content: string = data.choices?.[0]?.message?.content ?? "";
+
+  return parseFundamentalResponse(content);
+}
+
+/**
+ * Perplexityのテキスト応答を【】ヘッダーでセクション分割
+ */
+function parseFundamentalResponse(text: string): FundamentalResearchData {
+  const sections: Record<string, string> = {};
+  let currentKey = "";
+  const lines = text.split("\n");
+
+  for (const line of lines) {
+    const headerMatch = line.match(/【(.+?)】/);
+    if (headerMatch) {
+      currentKey = headerMatch[1];
+      sections[currentKey] = "";
+    } else if (currentKey) {
+      sections[currentKey] += line + "\n";
+    }
+  }
+
+  // セクションキーのマッチング（部分一致）
+  const find = (keywords: string[]): string => {
+    for (const key of Object.keys(sections)) {
+      if (keywords.some((kw) => key.includes(kw))) {
+        return sections[key].trim();
+      }
+    }
+    return "";
+  };
+
+  return {
+    valuationReason: find(["割安", "割高", "理由"]),
+    capitalPolicy: find(["資本政策", "是正", "アクション"]),
+    earningsTrend: find(["業績", "トレンド"]),
+    catalystAndRisk: find(["カタリスト", "リスク"]),
+    rawText: text,
+  };
+}
+
+// --- 市場インテリジェンス ---
+
+export interface MarketIntelligence {
+  summary: string;
+  sectorHighlights: string;
+  macroFactors: string;
+  risks: string;
+  opportunities: string;
+  rawText: string;
+}
+
+/**
+ * Perplexity APIで市場全体の市況情報を収集
+ */
+export async function fetchMarketIntelligence(): Promise<MarketIntelligence> {
+  const apiKey = process.env.PERPLEXITY_API_KEY;
+  if (!apiKey || apiKey === "pplx-xxxx") {
+    return {
+      summary: "APIキー未設定のためデータなし",
+      sectorHighlights: "",
+      macroFactors: "",
+      risks: "",
+      opportunities: "",
+      rawText: "Perplexity APIキーが未設定のため、サンプルデータを表示しています。",
+    };
+  }
+
+  const query = `日本株式市場の最新市況について、以下の観点でレポートしてください。
+
+1. **【市場概況】**
+   - 日経平均・TOPIXの直近トレンドとテクニカル水準（サポート/レジスタンス）
+   - 売買代金、外国人投資家の動向
+
+2. **【注目セクター】**
+   - 直近1週間で特に強い/弱いセクター
+   - 高市政権「重点投資対象17分野」に関連する動き
+     （AI・半導体、量子、核融合、航空・宇宙、防衛、サイバーセキュリティ、
+      バイオ、創薬・医療、フードテック、マテリアル、エネルギー・GX、
+      造船、港湾ロジスティクス、海洋、防災・国土強靭化、情報通信、コンテンツ）
+
+3. **【マクロ要因】**
+   - 金利（日銀・FRB）、為替、GDP等の投資判断に影響する要因
+
+4. **【リスク要因】**
+   - 現在の市場リスク
+
+5. **【投資機会】**
+   - 注目すべきテーマや動き
+
+出力は日本語の箇条書きで、事実と数値を重視してください。`;
+
+  const response = await fetch(PERPLEXITY_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "sonar",
+      messages: [
+        { role: "system", content: "あなたは日本株式市場の専門エコノミストです。市場全体の動向を分析してください。出力は日本語の箇条書きで、事実と数値を重視してください。" },
+        { role: "user", content: query },
+      ],
+      temperature: 0.1,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Perplexity API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const content: string = data.choices?.[0]?.message?.content ?? "";
+
+  return parseMarketIntelligence(content);
+}
+
+function parseMarketIntelligence(text: string): MarketIntelligence {
+  const sections: Record<string, string> = {};
+  let currentKey = "";
+  const lines = text.split("\n");
+
+  for (const line of lines) {
+    const headerMatch = line.match(/【(.+?)】/);
+    if (headerMatch) {
+      currentKey = headerMatch[1];
+      sections[currentKey] = "";
+    } else if (currentKey) {
+      sections[currentKey] += line + "\n";
+    }
+  }
+
+  const find = (keywords: string[]): string => {
+    for (const key of Object.keys(sections)) {
+      if (keywords.some((kw) => key.includes(kw))) {
+        return sections[key].trim();
+      }
+    }
+    return "";
+  };
+
+  return {
+    summary: find(["市場", "概況"]),
+    sectorHighlights: find(["セクター", "注目"]),
+    macroFactors: find(["マクロ", "要因"]),
+    risks: find(["リスク"]),
+    opportunities: find(["投資", "機会"]),
+    rawText: text,
+  };
 }

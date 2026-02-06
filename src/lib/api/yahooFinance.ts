@@ -131,15 +131,22 @@ export async function getFinancialData(symbol: string) {
     const result = await yf.quoteSummary(symbol, { modules: ["financialData", "defaultKeyStatistics"] });
     const fd = result.financialData;
     const ks = result.defaultKeyStatistics;
+    const debtToEquity = (fd as Record<string, unknown> | undefined)?.debtToEquity as number | null ?? null;
+    // 自己資本比率 = 100 / (1 + D/E ratio / 100)
+    const equityRatio = debtToEquity != null && debtToEquity >= 0
+      ? Math.round((100 / (1 + debtToEquity / 100)) * 10) / 10
+      : null;
+
     return {
       roe: (fd as Record<string, unknown> | undefined)?.returnOnEquity as number | null ?? null,
       roa: (fd as Record<string, unknown> | undefined)?.returnOnAssets as number | null ?? null,
-      debtToEquity: (fd as Record<string, unknown> | undefined)?.debtToEquity as number | null ?? null,
+      debtToEquity,
+      equityRatio,
       forwardEps: (ks as Record<string, unknown> | undefined)?.forwardEps as number | null ?? null,
       pegRatio: (ks as Record<string, unknown> | undefined)?.pegRatio as number | null ?? null,
     };
   } catch {
-    return { roe: null, roa: null, debtToEquity: null, forwardEps: null, pegRatio: null };
+    return { roe: null, roa: null, debtToEquity: null, equityRatio: null, forwardEps: null, pegRatio: null };
   }
 }
 

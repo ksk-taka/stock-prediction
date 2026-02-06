@@ -1,4 +1,4 @@
-import type { LLMAnalysis, SentimentData, NewsItem, PriceData } from "@/types";
+import type { LLMAnalysis, SentimentData, NewsItem, PriceData, FundamentalAnalysis, SignalValidation } from "@/types";
 import { sentimentLabel } from "@/lib/utils/format";
 
 const OLLAMA_BASE_URL =
@@ -8,25 +8,33 @@ const MODEL = "qwen2.5:14b";
 /**
  * Ollamaにリクエストを送信
  */
-async function ollamaGenerate(prompt: string, system?: string): Promise<string> {
-  const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: MODEL,
-      prompt,
-      system,
-      stream: false,
-      options: { temperature: 0.3 },
-    }),
-  });
+async function ollamaGenerate(prompt: string, system?: string, timeoutMs = 120000): Promise<string> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-  if (!response.ok) {
-    throw new Error(`Ollama error: ${response.status}`);
+  try {
+    const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: MODEL,
+        prompt,
+        system,
+        stream: false,
+        options: { temperature: 0.3, num_ctx: 8192 },
+      }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Ollama error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.response ?? "";
+  } finally {
+    clearTimeout(timer);
   }
-
-  const data = await response.json();
-  return data.response ?? "";
 }
 
 /**
@@ -177,6 +185,187 @@ ${analystRating}
       opportunities: [],
       confidence: "low",
       analyzedAt: new Date().toISOString(),
+    };
+  }
+}
+
+/**
+ * ファンダメンタルズ分析（PBR=PER×ROE分解）
+ */
+export async function runFundamentalAnalysis(
+  symbol: string,
+  name: string,
+  stats: {
+    per: number | null;
+    pbr: number | null;
+    roe: number | null;
+    dividendYield: number | null;
+    equityRatio: number | null;
+  },
+  perplexitySummary: string,
+  newsSummary?: string
+): Promise<FundamentalAnalysis> {
+  const fmt = (v: number | null, suffix: string) =>
+    v != null ? `${v}${suffix}` : "N/A";
+
+  const prompt = `以下の銘柄について、ファンダメンタルズの観点から「投資価値」を分析せよ。
+
+### 対象銘柄
+${name} (${symbol})
+
+### 1. 定量データ（現在の通信簿）
+* PER: ${fmt(stats.per, "倍")}
+* PBR: ${fmt(stats.pbr, "倍")}
+* ROE: ${stats.roe != null ? fmt(Math.round(stats.roe * 1000) / 10, "%") : "N/A"}
+* 配当利回り: ${stats.dividendYield != null ? fmt(Math.round(stats.dividendYield * 1000) / 10, "%") : "N/A"}
+* 自己資本比率: ${fmt(stats.equityRatio, "%")}
+
+### 2. 定性情報（Perplexity調査結果）
+${perplexitySummary}
+${newsSummary ? `\n### 2.5 直近ニュース・市場の反応\n${newsSummary}\n` : ""}
+### 3. 分析タスク（思考プロセス）
+
+**Step 1: PBR = PER × ROE の分解**
+* 現在のPBR（${fmt(stats.pbr, "倍")}）は、ROE（${stats.roe != null ? fmt(Math.round(stats.roe * 1000) / 10, "%") : "N/A"}）の実力に見合っているか？
+* 「PBRが低い理由」は、市場の誤解か、それとも妥当な評価（低収益・成長性なし）か？定性情報から推測せよ。
+
+**Step 2: ROE向上のシナリオ検証**
+* 分子（利益）を増やす具体的な「成長エンジン」はあるか？
+* 分母（資本）を減らす「還元アクション（自社株買い・増配）」はあるか？
+* ※注意: 「検討中」は評価せず、「決定/実行」のみを評価せよ。
+
+**Step 3: バリュートラップ（安かろう悪かろう）の排除**
+* 数字は割安だが、将来的に事業が縮小するリスク（特需剥落、構造不況など）はないか？
+
+### 4. 出力フォーマット
+余計な前置きは省略し、以下のJSON形式のみで出力してください。
+{
+  "judgment": "bullish" | "neutral" | "bearish",
+  "analysisLogic": {
+    "valuationReason": "なぜ今安いのか、その理由は解消されるか",
+    "roeCapitalPolicy": "経営陣の本気度と具体的なアクション",
+    "growthDriver": "本業の伸びしろ"
+  },
+  "riskScenario": "投資前提が崩れる最悪のケース",
+  "summary": "200字程度の総合判定"
+}`;
+
+  try {
+    const response = await ollamaGenerate(prompt);
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON in response");
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    return {
+      judgment: parsed.judgment ?? "neutral",
+      analysisLogic: {
+        valuationReason: parsed.analysisLogic?.valuationReason ?? "",
+        roeCapitalPolicy: parsed.analysisLogic?.roeCapitalPolicy ?? "",
+        growthDriver: parsed.analysisLogic?.growthDriver ?? "",
+      },
+      riskScenario: parsed.riskScenario ?? "",
+      summary: parsed.summary ?? "分析結果を取得できませんでした",
+      analyzedAt: new Date().toISOString(),
+    };
+  } catch {
+    return {
+      judgment: "neutral",
+      analysisLogic: {
+        valuationReason: "",
+        roeCapitalPolicy: "",
+        growthDriver: "",
+      },
+      riskScenario: "",
+      summary: "Ollamaに接続できませんでした。Ollamaが起動しているか確認してください。",
+      analyzedAt: new Date().toISOString(),
+    };
+  }
+}
+
+/**
+ * シグナル検証（Go/No Go判定）
+ */
+export async function validateSignal(
+  symbol: string,
+  name: string,
+  signal: { description: string; strategyName: string; confidence?: string },
+  stats: {
+    per: number | null;
+    pbr: number | null;
+    roe: number | null;
+    dividendYield: number | null;
+  },
+  perplexitySummary: string
+): Promise<SignalValidation> {
+  const fmt = (v: number | null, suffix: string) =>
+    v != null ? `${v}${suffix}` : "N/A";
+
+  const prompt = `あなたは「テクニカルとファンダメンタルズを統合して判断する」ポートフォリオマネージャーです。
+私の開発したアルゴリズムが**「買いシグナル」**を出しましたが、それが「本物」か「ダマシ（罠）」かを判定してください。
+
+### 対象銘柄
+${name} (${symbol})
+
+### 1. 入力されたシグナル（俺のシステム）
+* **判定結果**: ${signal.description}
+* **戦略**: ${signal.strategyName}
+${signal.confidence ? `* **信頼度**: ${signal.confidence}` : ""}
+
+### 2. 定量データ（現在のバリュエーション）
+* PER: ${fmt(stats.per, "倍")}
+* PBR: ${fmt(stats.pbr, "倍")}
+* ROE: ${stats.roe != null ? fmt(Math.round(stats.roe * 1000) / 10, "%") : "N/A"}
+* 配当利回り: ${stats.dividendYield != null ? fmt(Math.round(stats.dividendYield * 1000) / 10, "%") : "N/A"}
+
+### 3. 定性情報（Perplexity調査結果）
+${perplexitySummary}
+
+### 4. 最終判定タスク
+以下のロジックで「Go / No Go」を判定せよ。
+
+**Step 1: 「落ちるナイフ」チェック**
+* テクニカルは「買い」と言っているが、Perplexityの情報に「決算ミス」「不祥事」「減配」などの**明確な悪材料**はないか？
+* 悪材料がある場合、シグナルは「一時的なリバウンド（ダマシ）」の可能性が高い。
+
+**Step 2: 「田端メソッド」適合チェック**
+* PBR × PER × ROE の観点で、株価が上昇する余地（割安是正や成長）があるか？
+* 特に「PBR1倍割れ」かつ「改善策あり」の場合、テクニカルの買いシグナルは**特大のチャンス**となる。
+
+**Step 3: 結論**
+* テクニカルのシグナルに乗るべきか、見送るべきか。
+
+### 5. 出力フォーマット
+余計な前置きは省略し、以下のJSON形式のみで出力してください。
+{
+  "decision": "entry" | "wait" | "avoid",
+  "signalEvaluation": "テクニカルのシグナルを、ファンダメンタルズが支持しているか？",
+  "riskFactor": "シグナルを打ち消すほどの悪材料があるか？",
+  "catalyst": "上昇を加速させる材料",
+  "summary": "100字程度の結論"
+}`;
+
+  try {
+    const response = await ollamaGenerate(prompt);
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON in response");
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    return {
+      decision: parsed.decision ?? "wait",
+      signalEvaluation: parsed.signalEvaluation ?? "",
+      riskFactor: parsed.riskFactor ?? "",
+      catalyst: parsed.catalyst ?? "",
+      summary: parsed.summary ?? "判定結果を取得できませんでした",
+      validatedAt: new Date().toISOString(),
+    };
+  } catch {
+    return {
+      decision: "wait",
+      signalEvaluation: "",
+      riskFactor: "",
+      catalyst: "",
+      summary: "Ollamaに接続できませんでした。Ollamaが起動しているか確認してください。",
+      validatedAt: new Date().toISOString(),
     };
   }
 }

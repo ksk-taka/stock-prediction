@@ -19,17 +19,22 @@ export default function ThemeProvider({
   children: React.ReactNode;
 }) {
   const [theme, setTheme] = useState<Theme>("light");
+  const [mounted, setMounted] = useState(false);
 
+  // マウント時に localStorage / system preference から読み込み
   useEffect(() => {
     const stored = localStorage.getItem("theme") as Theme | null;
-    if (stored) {
+    if (stored === "dark" || stored === "light") {
       setTheme(stored);
     } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
       setTheme("dark");
     }
+    setMounted(true);
   }, []);
 
+  // mounted 後のみ DOM 操作 + localStorage 書き込み
   useEffect(() => {
+    if (!mounted) return;
     const root = document.documentElement;
     if (theme === "dark") {
       root.classList.add("dark");
@@ -37,7 +42,7 @@ export default function ThemeProvider({
       root.classList.remove("dark");
     }
     localStorage.setItem("theme", theme);
-  }, [theme]);
+  }, [theme, mounted]);
 
   const toggle = () => setTheme((prev) => (prev === "dark" ? "light" : "dark"));
 

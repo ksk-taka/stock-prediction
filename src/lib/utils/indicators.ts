@@ -128,7 +128,7 @@ export interface BollingerPoint {
  */
 export function calcBollingerBands(
   data: PriceData[],
-  period: number = 20
+  period: number = 25
 ): BollingerPoint[] {
   const result: BollingerPoint[] = data.map(() => ({
     middle: null,

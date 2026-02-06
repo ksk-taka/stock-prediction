@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getWatchList, addStock, removeStock } from "@/lib/data/watchlist";
+import { getWatchList, addStock, removeStock, updateStockFundamental } from "@/lib/data/watchlist";
 import type { Stock } from "@/types";
 
 export async function GET() {
@@ -30,6 +30,26 @@ export async function POST(request: NextRequest) {
     console.error("Watchlist POST error:", error);
     return NextResponse.json(
       { error: "Failed to add stock" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const { symbol, fundamental } = await request.json();
+    if (!symbol || !fundamental) {
+      return NextResponse.json(
+        { error: "symbol and fundamental are required" },
+        { status: 400 }
+      );
+    }
+    const list = updateStockFundamental(symbol, fundamental);
+    return NextResponse.json(list);
+  } catch (error) {
+    console.error("Watchlist PATCH error:", error);
+    return NextResponse.json(
+      { error: "Failed to update fundamental" },
       { status: 500 }
     );
   }

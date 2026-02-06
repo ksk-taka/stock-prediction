@@ -2,17 +2,28 @@
 
 import { useState, useEffect } from "react";
 
+interface MarketIntelligence {
+  summary: string;
+  sectorHighlights: string;
+  macroFactors: string;
+  risks: string;
+  opportunities: string;
+  rawText: string;
+}
+
 interface MarketData {
   sentiment: "bullish" | "bearish" | "neutral";
   price: number;
   ma25: number;
   diff: number;
   diffPct: number;
+  intelligence?: MarketIntelligence | null;
 }
 
 export default function MarketSentiment() {
   const [data, setData] = useState<MarketData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -67,28 +78,89 @@ export default function MarketSentiment() {
     },
   }[data.sentiment];
 
+  const intel = data.intelligence;
+
   return (
-    <div
-      className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${config.bg} ${config.border}`}
-    >
-      <div className="flex items-center gap-1.5">
-        <span className={`inline-block h-2.5 w-2.5 rounded-full ${config.dot}`} />
-        <span className={`text-sm font-bold ${config.text}`}>
-          {config.icon} 地合い: {config.label}
-        </span>
+    <div className={`rounded-lg border ${config.bg} ${config.border}`}>
+      {/* ヘッダー行 */}
+      <div
+        className="flex cursor-pointer items-center gap-3 px-3 py-2"
+        onClick={() => intel && setExpanded(!expanded)}
+      >
+        <div className="flex items-center gap-1.5">
+          <span className={`inline-block h-2.5 w-2.5 rounded-full ${config.dot}`} />
+          <span className={`text-sm font-bold ${config.text}`}>
+            {config.icon} 地合い: {config.label}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400">
+          <span>
+            日経平均 {data.price.toLocaleString()}
+          </span>
+          <span className="text-gray-300 dark:text-slate-600">|</span>
+          <span>
+            25日MA {data.ma25.toLocaleString()}
+          </span>
+          <span className={config.text}>
+            ({data.diffPct >= 0 ? "+" : ""}{data.diffPct}%)
+          </span>
+        </div>
+        {intel && (
+          <svg
+            className={`ml-auto h-4 w-4 text-gray-400 transition-transform ${expanded ? "rotate-180" : ""}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+          </svg>
+        )}
       </div>
-      <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400">
-        <span>
-          日経平均 {data.price.toLocaleString()}
-        </span>
-        <span className="text-gray-300 dark:text-slate-600">|</span>
-        <span>
-          25日MA {data.ma25.toLocaleString()}
-        </span>
-        <span className={config.text}>
-          ({data.diffPct >= 0 ? "+" : ""}{data.diffPct}%)
-        </span>
-      </div>
+
+      {/* 展開可能な市況詳細 */}
+      {expanded && intel && (
+        <div className="border-t border-gray-200 dark:border-slate-700 px-3 py-3 space-y-3">
+          {intel.summary && (
+            <IntelSection title="市場概況" content={intel.summary} />
+          )}
+          {intel.sectorHighlights && (
+            <IntelSection title="注目セクター" content={intel.sectorHighlights} />
+          )}
+          {intel.macroFactors && (
+            <IntelSection title="マクロ要因" content={intel.macroFactors} />
+          )}
+          {intel.risks && (
+            <IntelSection title="リスク要因" content={intel.risks} color="red" />
+          )}
+          {intel.opportunities && (
+            <IntelSection title="投資機会" content={intel.opportunities} color="green" />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function IntelSection({
+  title,
+  content,
+  color,
+}: {
+  title: string;
+  content: string;
+  color?: "red" | "green";
+}) {
+  const titleClass = color === "red"
+    ? "text-red-600 dark:text-red-400"
+    : color === "green"
+      ? "text-green-600 dark:text-green-400"
+      : "text-gray-700 dark:text-slate-300";
+
+  return (
+    <div>
+      <h5 className={`mb-1 text-xs font-semibold ${titleClass}`}>{title}</h5>
+      <p className="whitespace-pre-wrap text-xs text-gray-600 dark:text-slate-400">{content}</p>
     </div>
   );
 }

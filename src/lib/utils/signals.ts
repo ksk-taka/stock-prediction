@@ -111,7 +111,7 @@ function detectShitabanare(data: PriceData[], bb: ReturnType<typeof calcBollinge
 export function detectBuySignals(data: PriceData[]): BuySignal[] {
   if (data.length < 25) return []; // 最低限のデータが必要
 
-  const bb = calcBollingerBands(data, 20);
+  const bb = calcBollingerBands(data, 25);
 
   const bbSignals = detectBBReversal(data, bb);
   const shitabanareSignals = detectShitabanare(data, bb);

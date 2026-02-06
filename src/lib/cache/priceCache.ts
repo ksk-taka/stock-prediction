@@ -2,8 +2,9 @@ import fs from "fs";
 import path from "path";
 import type { PriceData } from "@/types";
 import { isMarketOpen } from "@/lib/utils/date";
+import { getCacheBaseDir } from "./cacheDir";
 
-const CACHE_DIR = path.join(process.cwd(), ".cache", "prices");
+const CACHE_DIR = path.join(getCacheBaseDir(), "prices");
 
 function ensureDir() {
   if (!fs.existsSync(CACHE_DIR)) {
@@ -29,14 +30,18 @@ export function getCachedPrices(
   period: string,
   market: "JP" | "US"
 ): PriceData[] | null {
-  ensureDir();
-  const file = cacheFile(symbol, period);
-  if (!fs.existsSync(file)) return null;
+  try {
+    ensureDir();
+    const file = cacheFile(symbol, period);
+    if (!fs.existsSync(file)) return null;
 
-  const entry: CacheEntry = JSON.parse(fs.readFileSync(file, "utf-8"));
-  if (Date.now() - entry.cachedAt > getTTL(market)) return null;
+    const entry: CacheEntry = JSON.parse(fs.readFileSync(file, "utf-8"));
+    if (Date.now() - entry.cachedAt > getTTL(market)) return null;
 
-  return entry.data;
+    return entry.data;
+  } catch {
+    return null;
+  }
 }
 
 export function setCachedPrices(
@@ -44,8 +49,12 @@ export function setCachedPrices(
   period: string,
   data: PriceData[]
 ): void {
-  ensureDir();
-  const file = cacheFile(symbol, period);
-  const entry: CacheEntry = { data, cachedAt: Date.now() };
-  fs.writeFileSync(file, JSON.stringify(entry), "utf-8");
+  try {
+    ensureDir();
+    const file = cacheFile(symbol, period);
+    const entry: CacheEntry = { data, cachedAt: Date.now() };
+    fs.writeFileSync(file, JSON.stringify(entry), "utf-8");
+  } catch {
+    // ignore write errors
+  }
 }

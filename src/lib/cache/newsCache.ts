@@ -1,8 +1,9 @@
 import fs from "fs";
 import path from "path";
 import type { NewsItem } from "@/types";
+import { getCacheBaseDir } from "./cacheDir";
 
-const CACHE_DIR = path.join(process.cwd(), ".cache", "news");
+const CACHE_DIR = path.join(getCacheBaseDir(), "news");
 const NEWS_CACHE_TTL = 6 * 60 * 60 * 1000; // 6時間
 
 function ensureDir() {
@@ -23,14 +24,18 @@ interface NewsCacheEntry {
 }
 
 export function getCachedNews(symbol: string): NewsCacheEntry | null {
-  ensureDir();
-  const file = cacheFile(symbol);
-  if (!fs.existsSync(file)) return null;
+  try {
+    ensureDir();
+    const file = cacheFile(symbol);
+    if (!fs.existsSync(file)) return null;
 
-  const entry: NewsCacheEntry = JSON.parse(fs.readFileSync(file, "utf-8"));
-  if (Date.now() - entry.cachedAt > NEWS_CACHE_TTL) return null;
+    const entry: NewsCacheEntry = JSON.parse(fs.readFileSync(file, "utf-8"));
+    if (Date.now() - entry.cachedAt > NEWS_CACHE_TTL) return null;
 
-  return entry;
+    return entry;
+  } catch {
+    return null;
+  }
 }
 
 export function setCachedNews(
@@ -39,13 +44,17 @@ export function setCachedNews(
   snsOverview: string,
   analystRating: string
 ): void {
-  ensureDir();
-  const file = cacheFile(symbol);
-  const entry: NewsCacheEntry = {
-    news,
-    snsOverview,
-    analystRating,
-    cachedAt: Date.now(),
-  };
-  fs.writeFileSync(file, JSON.stringify(entry), "utf-8");
+  try {
+    ensureDir();
+    const file = cacheFile(symbol);
+    const entry: NewsCacheEntry = {
+      news,
+      snsOverview,
+      analystRating,
+      cachedAt: Date.now(),
+    };
+    fs.writeFileSync(file, JSON.stringify(entry), "utf-8");
+  } catch {
+    // ignore write errors
+  }
 }

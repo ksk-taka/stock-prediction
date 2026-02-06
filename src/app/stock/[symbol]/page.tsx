@@ -4,17 +4,18 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import PriceChart, { PERIODS } from "@/components/PriceChart";
 import SentimentGauge from "@/components/SentimentGauge";
-import SentimentChart from "@/components/SentimentChart";
+import FundamentalHistoryChart from "@/components/FundamentalHistoryChart";
 import NewsPanel from "@/components/NewsPanel";
 import AnalysisCard from "@/components/AnalysisCard";
 import BacktestPanel from "@/components/BacktestPanel";
+import FundamentalPanel from "@/components/FundamentalPanel";
 import MarketSentiment from "@/components/MarketSentiment";
 import { formatChange } from "@/lib/utils/format";
 import { isMarketOpen } from "@/lib/utils/date";
-import type { PriceData, NewsItem, SentimentData, LLMAnalysis } from "@/types";
+import type { PriceData, NewsItem, SentimentData, LLMAnalysis, FundamentalResearchData, FundamentalAnalysis, SignalValidation } from "@/types";
 import type { Period } from "@/lib/utils/date";
 
-type Tab = "chart" | "news" | "sentiment" | "analysis" | "backtest";
+type Tab = "chart" | "news" | "sentiment" | "analysis" | "fundamental" | "backtest";
 
 export default function StockDetailPage() {
   const params = useParams();
@@ -36,9 +37,25 @@ export default function StockDetailPage() {
   const [sentiment, setSentiment] = useState<SentimentData | null>(null);
   const [analysis, setAnalysis] = useState<LLMAnalysis | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("chart");
-  const [loadingNews, setLoadingNews] = useState(true);
+  const [loadingNews, setLoadingNews] = useState(false);
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
   const [eps, setEps] = useState<number | null>(null);
+  const [activeSignals, setActiveSignals] = useState<{
+    daily: { strategyId: string; strategyName: string; buyDate: string; buyPrice: number; currentPrice: number; pnlPct: number; takeProfitPrice?: number; takeProfitLabel?: string; stopLossPrice?: number; stopLossLabel?: string }[];
+    weekly: { strategyId: string; strategyName: string; buyDate: string; buyPrice: number; currentPrice: number; pnlPct: number; takeProfitPrice?: number; takeProfitLabel?: string; stopLossPrice?: number; stopLossLabel?: string }[];
+  } | null>(null);
+
+  // ファンダメンタルズ分析
+  const [fundamentalResearch, setFundamentalResearch] = useState<FundamentalResearchData | null>(null);
+  const [fundamentalAnalysis, setFundamentalAnalysis] = useState<FundamentalAnalysis | null>(null);
+  const [loadingFundamental, setLoadingFundamental] = useState(false);
+  const [fundamentalStep, setFundamentalStep] = useState<"idle" | "research" | "research_done" | "analysis" | "complete" | "error">("idle");
+  // シグナル検証
+  const [signalValidations, setSignalValidations] = useState<Record<string, SignalValidation>>({});
+  const [validatingSignal, setValidatingSignal] = useState<string | null>(null);
+  // ニュースの追加データ
+  const [snsOverview, setSnsOverview] = useState("");
+  const [analystRating, setAnalystRating] = useState("");
 
   // 特定期間の株価データ取得
   const fetchPricesForPeriod = useCallback(
@@ -78,14 +95,16 @@ export default function StockDetailPage() {
   }, [activePeriods, fetchPricesForPeriod, pricesMap, loadingMap]);
 
   // ニュース取得
-  const fetchNews = useCallback(async () => {
+  const fetchNews = useCallback(async (forceRefresh = false) => {
     setLoadingNews(true);
     try {
       const res = await fetch(
-        `/api/news?symbol=${encodeURIComponent(symbol)}&name=${encodeURIComponent(quote?.name ?? symbol)}`
+        `/api/news?symbol=${encodeURIComponent(symbol)}&name=${encodeURIComponent(quote?.name ?? symbol)}${forceRefresh ? "&refresh=true" : ""}`
       );
       const data = await res.json();
       setNews(data.news ?? []);
+      setSnsOverview(data.snsOverview ?? "");
+      setAnalystRating(data.analystRating ?? "");
     } catch {
       console.error("Failed to fetch news");
     } finally {
@@ -110,13 +129,93 @@ export default function StockDetailPage() {
     }
   };
 
-  useEffect(() => {
-    if (quote) {
-      fetchNews();
-    }
-  }, [quote, fetchNews]);
+  // ファンダメンタルズ分析実行（2段階: Perplexity → Ollama）
+  const runFundamentalAnalysis = async (refresh = false) => {
+    const base = `/api/fundamental?symbol=${encodeURIComponent(symbol)}&name=${encodeURIComponent(quote?.name ?? symbol)}${refresh ? "&refresh=true" : ""}`;
+    setLoadingFundamental(true);
+    setFundamentalStep("research");
 
-  // EPS取得（PERバンド用）
+    try {
+      // Step 1: Perplexity調査
+      const res1 = await fetch(`${base}&step=research`);
+      const data1 = await res1.json();
+      if (data1.error) throw new Error(data1.error);
+      if (data1.research) setFundamentalResearch(data1.research);
+      setFundamentalStep("research_done");
+
+      // Step 2: Ollama分析
+      setFundamentalStep("analysis");
+      const res2 = await fetch(base);
+      const data2 = await res2.json();
+      if (data2.error) throw new Error(data2.error);
+      if (data2.research) setFundamentalResearch(data2.research);
+      if (data2.analysis) {
+        setFundamentalAnalysis(data2.analysis);
+        // ウォッチリストに判定結果を保存
+        fetch("/api/watchlist", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            symbol,
+            fundamental: {
+              judgment: data2.analysis.judgment,
+              memo: data2.analysis.summary,
+              analyzedAt: data2.analysis.analyzedAt,
+            },
+          }),
+        }).catch(() => {});
+      }
+      setFundamentalStep("complete");
+    } catch (e) {
+      console.error("Failed to run fundamental analysis", e);
+      setFundamentalStep("error");
+    } finally {
+      setLoadingFundamental(false);
+    }
+  };
+
+  // シグナル検証（Go/No Go判定）
+  const validateActiveSignal = async (strategyId: string, strategyName: string) => {
+    const signalKey = strategyId;
+    setValidatingSignal(signalKey);
+    try {
+      const res = await fetch(
+        `/api/fundamental?symbol=${encodeURIComponent(symbol)}&name=${encodeURIComponent(quote?.name ?? symbol)}&signalDesc=${encodeURIComponent(strategyName + "の買いシグナル検出")}&signalStrategy=${encodeURIComponent(strategyName)}&signalStrategyId=${encodeURIComponent(strategyId)}`
+      );
+      const data = await res.json();
+      if (data.validation) {
+        setSignalValidations((prev) => ({ ...prev, [signalKey]: data.validation }));
+      }
+    } catch {
+      console.error("Failed to validate signal");
+    } finally {
+      setValidatingSignal(null);
+    }
+  };
+
+  // 全シグナル一括検証（直列実行）
+  const [validatingAll, setValidatingAll] = useState(false);
+  const validateAllSignals = async () => {
+    if (!activeSignals) return;
+    const allSigs = [
+      ...activeSignals.daily.map((s) => ({ ...s, period: "日足" as const })),
+      ...activeSignals.weekly.map((s) => ({ ...s, period: "週足" as const })),
+    ].filter((s) => !signalValidations[s.strategyId]);
+    if (allSigs.length === 0) return;
+    setValidatingAll(true);
+    for (const s of allSigs) {
+      await validateActiveSignal(s.strategyId, s.strategyName);
+    }
+    setValidatingAll(false);
+  };
+
+  // ニュース取得 → AI分析の連鎖実行
+  const fetchNewsAndAnalyze = async () => {
+    await fetchNews(true);
+    runAnalysis();
+  };
+
+  // EPS取得（PERバンド用）+ アクティブシグナル取得
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -127,7 +226,33 @@ export default function StockDetailPage() {
         // skip
       }
     };
+    const fetchSignals = async () => {
+      try {
+        const res = await fetch(`/api/signals?symbol=${encodeURIComponent(symbol)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.activeSignals) {
+            setActiveSignals(data.activeSignals);
+            // キャッシュ済みバリデーション結果を読み込み
+            try {
+              const vRes = await fetch(`/api/fundamental?symbol=${encodeURIComponent(symbol)}&step=validations`);
+              if (vRes.ok) {
+                const vData = await vRes.json();
+                if (vData.validations && Object.keys(vData.validations).length > 0) {
+                  setSignalValidations(vData.validations);
+                }
+              }
+            } catch {
+              // skip
+            }
+          }
+        }
+      } catch {
+        // skip
+      }
+    };
     fetchStats();
+    fetchSignals();
   }, [symbol]);
 
   // 取引時間中の自動更新（30秒間隔）
@@ -184,8 +309,9 @@ export default function StockDetailPage() {
   const tabs: { value: Tab; label: string }[] = [
     { value: "chart", label: "チャート詳細" },
     { value: "news", label: "ニュース" },
-    { value: "sentiment", label: "センチメント推移" },
+    { value: "sentiment", label: "ファンダ判定推移" },
     { value: "analysis", label: "AI分析詳細" },
+    { value: "fundamental", label: "ファンダ分析" },
     { value: "backtest", label: "バックテスト" },
   ];
 
@@ -214,13 +340,30 @@ export default function StockDetailPage() {
             </span>
           </div>
         )}
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
           <button
-            onClick={runAnalysis}
-            disabled={loadingAnalysis}
-            className="rounded-lg bg-blue-500 px-3 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-50 sm:px-4"
+            onClick={fetchNewsAndAnalyze}
+            disabled={loadingNews || loadingAnalysis}
+            className="rounded-lg bg-indigo-500 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-600 disabled:opacity-50 sm:px-4"
           >
-            {loadingAnalysis ? "分析中..." : "AI分析を実行"}
+            {loadingNews
+              ? "ニュース取得中..."
+              : loadingAnalysis
+                ? "AI分析中..."
+                : "ニュース取得"}
+          </button>
+          <button
+            onClick={() => runFundamentalAnalysis()}
+            disabled={loadingFundamental}
+            className="rounded-lg bg-emerald-500 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-50 sm:px-4"
+          >
+            {loadingFundamental
+              ? fundamentalStep === "research"
+                ? "Perplexity調査中..."
+                : fundamentalStep === "analysis"
+                  ? "Ollama分析中..."
+                  : "処理中..."
+              : "ファンダ分析"}
           </button>
         </div>
       </div>
@@ -229,6 +372,144 @@ export default function StockDetailPage() {
       <div className="mb-4">
         <MarketSentiment />
       </div>
+
+      {/* アクティブシグナル（保有中ポジション） */}
+      {activeSignals && (activeSignals.daily.length > 0 || activeSignals.weekly.length > 0) && (
+        <div className="mb-4 rounded-lg bg-white dark:bg-slate-800 p-4 shadow dark:shadow-slate-900/50">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300">
+              保有中シグナル
+            </h3>
+            {(() => {
+              const allSigs = [
+                ...activeSignals!.daily,
+                ...activeSignals!.weekly,
+              ];
+              const unvalidated = allSigs.filter((s) => !signalValidations[s.strategyId]);
+              if (unvalidated.length === 0) return null;
+              return (
+                <button
+                  onClick={validateAllSignals}
+                  disabled={validatingAll || validatingSignal !== null}
+                  className="rounded bg-indigo-50 dark:bg-indigo-900/20 px-2.5 py-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 disabled:opacity-50"
+                >
+                  {validatingAll
+                    ? `検証中 (${allSigs.length - unvalidated.length}/${allSigs.length})...`
+                    : `全検証 (${unvalidated.length}件)`}
+                </button>
+              );
+            })()}
+          </div>
+          <div className="space-y-2">
+            {[
+              ...activeSignals.daily.map((s) => ({ ...s, period: "日足" as const })),
+              ...activeSignals.weekly.map((s) => ({ ...s, period: "週足" as const })),
+            ].map((s) => {
+              const diff = s.currentPrice - s.buyPrice;
+              const isProfit = diff >= 0;
+              const validation = signalValidations[s.strategyId];
+              return (
+                <div key={`${s.period}-${s.strategyId}`}>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-gray-100 dark:border-slate-700 px-3 py-2">
+                    <span className={`rounded px-1.5 py-0.5 text-xs font-bold ${
+                      s.strategyId.startsWith("choruko") ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
+                      : s.strategyId === "tabata_cwh" ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
+                      : s.strategyId === "rsi_reversal" ? "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400"
+                      : s.strategyId === "ma_cross" ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
+                      : s.strategyId === "macd_trail12" ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
+                      : "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400"
+                    }`}>
+                      {s.period}
+                    </span>
+                    <span className="text-sm font-semibold text-gray-800 dark:text-slate-200">
+                      {s.strategyName}
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-slate-400">
+                      {s.buyDate} エントリー
+                    </span>
+                    <div className="flex items-center gap-1.5 text-sm">
+                      <span className="text-gray-500 dark:text-slate-400">
+                        {s.buyPrice.toLocaleString()}
+                      </span>
+                      <span className="text-gray-400 dark:text-slate-500">→</span>
+                      <span className="font-medium text-gray-800 dark:text-slate-200">
+                        {s.currentPrice.toLocaleString()}
+                      </span>
+                    </div>
+                    <span className={`text-sm font-bold ${isProfit ? "text-green-600" : "text-red-500"}`}>
+                      {isProfit ? "+" : ""}{diff.toLocaleString()}円
+                      <span className="ml-1 text-xs font-medium">
+                        ({isProfit ? "+" : ""}{s.pnlPct.toFixed(1)}%)
+                      </span>
+                    </span>
+                    {/* 利確/損切レベル */}
+                    {(s.takeProfitPrice != null || s.stopLossPrice != null || s.takeProfitLabel || s.stopLossLabel) && (
+                      <div className="w-full flex flex-wrap gap-x-4 gap-y-0.5 pl-1 text-[11px]">
+                        {(s.takeProfitPrice != null || s.takeProfitLabel) && (
+                          <span className="text-green-600 dark:text-green-400">
+                            {s.takeProfitPrice != null ? (
+                              <>利確: <b>{s.takeProfitPrice.toLocaleString()}円</b>{s.takeProfitLabel && <span className="ml-1 text-[10px] opacity-70">({s.takeProfitLabel})</span>}</>
+                            ) : (
+                              <>利確: {s.takeProfitLabel}</>
+                            )}
+                          </span>
+                        )}
+                        {(s.stopLossPrice != null || s.stopLossLabel) && (
+                          <span className="text-red-500 dark:text-red-400">
+                            {s.stopLossPrice != null ? (
+                              <>損切: <b>{s.stopLossPrice.toLocaleString()}円</b>{s.stopLossLabel && <span className="ml-1 text-[10px] opacity-70">({s.stopLossLabel})</span>}</>
+                            ) : (
+                              <>売却条件: {s.stopLossLabel}</>
+                            )}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {/* シグナル検証ボタン */}
+                    <div className="ml-auto">
+                      {validation ? (
+                        <span className={`rounded px-2 py-0.5 text-xs font-bold ${
+                          validation.decision === "entry"
+                            ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                            : validation.decision === "avoid"
+                              ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                              : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
+                        }`}>
+                          {validation.decision === "entry" ? "Go" : validation.decision === "avoid" ? "No Go" : "様子見"}
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => validateActiveSignal(s.strategyId, s.strategyName)}
+                          disabled={validatingSignal === s.strategyId}
+                          className="rounded bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 disabled:opacity-50"
+                        >
+                          {validatingSignal === s.strategyId ? "検証中..." : "Go/No Go"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {/* 検証結果の詳細 */}
+                  {validation && (
+                    <div className="ml-8 mt-1 rounded bg-gray-50 dark:bg-slate-700/30 p-2 text-xs">
+                      <p className="text-gray-600 dark:text-slate-400">{validation.summary}</p>
+                      {validation.catalyst && (
+                        <p className="mt-1 text-green-600 dark:text-green-400">
+                          <span className="font-semibold">カタリスト:</span> {validation.catalyst}
+                        </p>
+                      )}
+                      {validation.riskFactor && (
+                        <p className="mt-1 text-red-500 dark:text-red-400">
+                          <span className="font-semibold">リスク:</span> {validation.riskFactor}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 期間マルチセレクタ */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -386,16 +667,34 @@ export default function StockDetailPage() {
           </div>
         )}
         {activeTab === "news" && (
-          <NewsPanel news={news} loading={loadingNews} />
+          <NewsPanel
+            news={news}
+            snsOverview={snsOverview}
+            analystRating={analystRating}
+            loading={loadingNews}
+            onRefresh={() => fetchNews(true)}
+          />
         )}
-        {activeTab === "sentiment" && <SentimentChart data={[]} />}
+        {activeTab === "sentiment" && <FundamentalHistoryChart symbol={symbol} />}
         {activeTab === "analysis" && (
           <AnalysisCard analysis={analysis} loading={loadingAnalysis} />
         )}
+        {activeTab === "fundamental" && (
+          <FundamentalPanel
+            analysis={fundamentalAnalysis}
+            research={fundamentalResearch}
+            loading={loadingFundamental}
+            step={fundamentalStep}
+            onRunAnalysis={() => runFundamentalAnalysis()}
+            onRefresh={() => runFundamentalAnalysis(true)}
+          />
+        )}
         {activeTab === "backtest" && (
           <BacktestPanel
-            data={pricesMap[activePeriods[0]] ?? []}
             symbol={symbol}
+            pricesMap={pricesMap}
+            fetchPricesForPeriod={fetchPricesForPeriod}
+            loadingMap={loadingMap}
           />
         )}
       </div>

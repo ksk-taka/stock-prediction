@@ -27,6 +27,23 @@ export function addStock(stock: Stock): WatchList {
 }
 
 /**
+ * ウォッチリストの銘柄にファンダメンタルズ判定を保存
+ */
+export function updateStockFundamental(
+  symbol: string,
+  fundamental: { judgment: "bullish" | "neutral" | "bearish"; memo: string; analyzedAt: string }
+): WatchList {
+  const list = getWatchList();
+  const stock = list.stocks.find((s) => s.symbol === symbol);
+  if (stock) {
+    stock.fundamental = fundamental;
+    list.updatedAt = new Date().toISOString();
+    fs.writeFileSync(WATCHLIST_PATH, JSON.stringify(list, null, 2), "utf-8");
+  }
+  return list;
+}
+
+/**
  * ウォッチリストから銘柄を削除
  */
 export function removeStock(symbol: string): WatchList {

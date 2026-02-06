@@ -27,6 +27,11 @@ import {
   type BollingerPoint,
 } from "@/lib/utils/indicators";
 import { detectBuySignals, detectCupWithHandle } from "@/lib/utils/signals";
+import {
+  computeStrategySignals,
+  type StrategySignalType,
+  type StrategySignalPoint,
+} from "@/lib/utils/strategySignals";
 
 interface PriceChartProps {
   data: PriceData[];
@@ -175,13 +180,29 @@ export default function PriceChart({
   const { theme } = useTheme();
   const bbMaskFill = theme === "dark" ? "#1e293b" : "#ffffff";
 
-  const [showMA, setShowMA] = useState({ ma5: true, ma25: true, ma75: false });
+  const [showMA, setShowMA] = useState({ ma5: true, ma10: false, ma20: false, ma25: true, ma50: false, ma75: false });
   const [showVolume, setShowVolume] = useState(false);
-  const [showIndicators, setShowIndicators] = useState({ rsi: false, macd: false });
+  const [showIndicators, setShowIndicators] = useState({ rsi: false, macd: true });
   const [showBB, setShowBB] = useState({ s1: false, s2: true, s3: false });
   const [showPERBand, setShowPERBand] = useState(false);
-  const [showBuySignals, setShowBuySignals] = useState(true);
+  const [showBuySignals, setShowBuySignals] = useState(false);
   const [showCWHSignals, setShowCWHSignals] = useState(false);
+  // 戦略シグナル表示トグル
+  const [showStratSignals, setShowStratSignals] = useState<Record<StrategySignalType, boolean>>({
+    rsi_reversal: false,
+    ma_cross: false,
+    macd_signal: false,
+    macd_trail12: true,
+  });
+  // シグナル別の利確/損切ライン表示
+  const [exitLineKeys, setExitLineKeys] = useState<Set<string>>(new Set());
+  const toggleExitLine = (key: string) =>
+    setExitLineKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   // 描画ツール
   const [drawingMode, setDrawingMode] = useState<"none" | "hline" | "trendline">("none");
   const [hLines, setHLines] = useState<{ id: string; price: number }[]>([]);
@@ -209,7 +230,10 @@ export default function PriceChart({
   // 全データの指標を一括計算
   const allIndicators = useMemo(() => ({
     ma5: calcMA(data, 5),
+    ma10: calcMA(data, 10),
+    ma20: calcMA(data, 20),
     ma25: calcMA(data, 25),
+    ma50: calcMA(data, 50),
     ma75: calcMA(data, 75),
     rsi: calcRSI(data),
     macd: calcMACD(data),
@@ -220,6 +244,17 @@ export default function PriceChart({
   const buySignals = useMemo(() => detectBuySignals(data), [data]);
   // カップウィズハンドル検出（田端式）
   const cwhSignals = useMemo(() => detectCupWithHandle(data), [data]);
+
+  // 戦略シグナル計算（RSI逆張り / MAクロス / MACD）
+  const periodType = (period === "daily" || period === "weekly") ? period : null;
+  const stratResult = useMemo(() => {
+    if (!periodType) return null;
+    const anyEnabled = Object.values(showStratSignals).some(Boolean);
+    if (!anyEnabled) return null;
+    return computeStrategySignals(data, periodType);
+  }, [data, periodType, showStratSignals]);
+  const stratSignals = stratResult?.signals ?? null;
+  const trailStopLevels = stratResult?.trailStopLevels ?? null;
 
   // 表示範囲内のシグナル（マーカー表示用）
   const visibleSignals = useMemo(() => {
@@ -237,6 +272,85 @@ export default function PriceChart({
 
   // 表示範囲
   const viewStart = Math.max(0, viewEnd - windowSize);
+
+  // 利確/損切ライン（チェックされたシグナル）
+  // BB逆張りは水平ラインを引かず、MA25タッチポイントをドットで表示する
+  const exitLines = useMemo(() => {
+    const lines: { key: string; price: number; color: string; label: string }[] = [];
+    for (const key of exitLineKeys) {
+      // ちょる子式シグナル
+      const bs = buySignals.find((s) => `${s.date}-${s.type}` === key);
+      if (bs) {
+        if (bs.type === "bb_reversal") {
+          // BB逆張り: 損切ラインのみ水平線で描画（MA25利確はタッチポイントで表示）
+          lines.push({ key: `${key}-sl`, price: bs.price, color: "#ef4444", label: `損切(安値) ${bs.price.toLocaleString()}` });
+        } else if (bs.type === "shitabanare") {
+          const gapUpper = bs.index >= 2 ? data[bs.index - 2]?.low : null;
+          if (gapUpper != null) lines.push({ key: `${key}-tp`, price: gapUpper, color: "#22c55e", label: `利確(窓上限) ${gapUpper.toLocaleString()}` });
+          lines.push({ key: `${key}-sl`, price: bs.price, color: "#ef4444", label: `損切(安値) ${bs.price.toLocaleString()}` });
+        }
+        continue;
+      }
+      // CWHシグナル
+      const cs = cwhSignals.find((s) => `cwh-${s.date}` === key);
+      if (cs) {
+        const tp = Math.round(cs.price * 1.20);
+        const sl = Math.round(cs.price * 0.93);
+        lines.push({ key: `${key}-tp`, price: tp, color: "#22c55e", label: `利確(+20%) ${tp.toLocaleString()}` });
+        lines.push({ key: `${key}-sl`, price: sl, color: "#ef4444", label: `損切(-7%) ${sl.toLocaleString()}` });
+      }
+    }
+    return lines;
+  }, [exitLineKeys, buySignals, cwhSignals, allIndicators, data]);
+
+  // BB逆張りシグナル後のMA25タッチポイント検出
+  const bbMa25TouchPoints = useMemo(() => {
+    const points: { index: number; date: string; price: number; ma25: number; signalDate: string }[] = [];
+    for (const key of exitLineKeys) {
+      const bs = buySignals.find((s) => `${s.date}-${s.type}` === key);
+      if (!bs || bs.type !== "bb_reversal") continue;
+      // エントリー後〜次のシグナルまで、MA25に終値が到達した最初のポイントを探す
+      for (let i = bs.index + 1; i < data.length; i++) {
+        const ma25val = allIndicators.ma25[i];
+        if (ma25val == null) continue;
+        if (data[i].close >= ma25val) {
+          points.push({
+            index: i,
+            date: data[i].date,
+            price: data[i].close,
+            ma25: ma25val,
+            signalDate: bs.date,
+          });
+          break;
+        }
+        // 損切ラインに先に到達したら打ち切り
+        if (data[i].close < bs.price) break;
+      }
+    }
+    return points;
+  }, [exitLineKeys, buySignals, data, allIndicators]);
+
+  // 最新足がMA25にタッチ中かどうか（BB逆張りポジション保有中）
+  const isLatestTouchingMA25 = useMemo(() => {
+    if (data.length === 0) return false;
+    const lastIdx = data.length - 1;
+    const ma25val = allIndicators.ma25[lastIdx];
+    if (ma25val == null) return false;
+    // 現在アクティブなBB逆張りポジションがあるかチェック
+    for (const key of exitLineKeys) {
+      const bs = buySignals.find((s) => `${s.date}-${s.type}` === key);
+      if (!bs || bs.type !== "bb_reversal") continue;
+      if (bs.index >= lastIdx) continue;
+      // まだ利確/損切されていない（MA25タッチポイントが見つかっていない）
+      const touched = bbMa25TouchPoints.find((p) => p.signalDate === bs.date);
+      if (!touched) {
+        // 未決済ポジション中に最新足がMA25付近（±1.5%以内）
+        const diff = Math.abs(data[lastIdx].close - ma25val) / ma25val;
+        if (diff < 0.015) return true;
+      }
+    }
+    return false;
+  }, [data, allIndicators, exitLineKeys, buySignals, bbMa25TouchPoints]);
 
   // CWHカップ可視化オーバーレイ
   const cwhOverlays = useMemo(() => {
@@ -316,7 +430,10 @@ export default function PriceChart({
         volume: d.volume,
         candleWick: [d.low, d.high] as [number, number],
         ma5: allIndicators.ma5[gi],
+        ma10: allIndicators.ma10[gi],
+        ma20: allIndicators.ma20[gi],
         ma25: allIndicators.ma25[gi],
+        ma50: allIndicators.ma50[gi],
         ma75: allIndicators.ma75[gi],
         rsi: allIndicators.rsi[gi],
         macd: macdPt.macd,
@@ -352,9 +469,47 @@ export default function PriceChart({
         entry.cwhDescription = cwh.description;
         entry.cwhMarker = 0.5;
       }
+      // BB逆張りMA25タッチポイント
+      const touchPt = bbMa25TouchPoints.find((p) => p.index === gi);
+      if (touchPt) {
+        entry.ma25TouchPrice = touchPt.price;
+      }
+      // 戦略シグナルマーカー（RSI/MA/MACD）
+      if (stratSignals) {
+        for (const [sid, points] of Object.entries(stratSignals) as [StrategySignalType, StrategySignalPoint[]][]) {
+          if (!showStratSignals[sid]) continue;
+          const pt = points.find((p) => p.index === gi);
+          if (pt) {
+            if (pt.action === "buy") {
+              entry[`strat_buy_${sid}`] = d.low;
+              entry[`strat_buy_label_${sid}`] = pt.label;
+            } else {
+              entry[`strat_sell_${sid}`] = d.high;
+              entry[`strat_sell_type_${sid}`] = pt.action;
+              entry[`strat_sell_label_${sid}`] = pt.label;
+            }
+          }
+        }
+      }
+      // トレーリングストップレベル（MACD Trail 12%）
+      if (showStratSignals.macd_trail12 && trailStopLevels) {
+        const trailVal = trailStopLevels[gi];
+        if (trailVal != null) {
+          entry.trailStopLevel = trailVal;
+        }
+      }
+      // MACD Trail 12% マーカー（ストリップ表示用）
+      if (showStratSignals.macd_trail12 && stratSignals) {
+        const pt = stratSignals["macd_trail12"]?.find((p: StrategySignalPoint) => p.index === gi);
+        if (pt) {
+          entry.trail12Marker = 0.5;
+          entry.trail12Action = pt.action;
+          entry.trail12Label = pt.label;
+        }
+      }
       return entry;
     });
-  }, [visibleData, viewStart, viewEnd, allIndicators, trendLines, buySignals, cwhSignals]);
+  }, [visibleData, viewStart, viewEnd, allIndicators, trendLines, buySignals, cwhSignals, bbMa25TouchPoints, stratSignals, showStratSignals, trailStopLevels]);
 
   // 表示範囲の価格 min/max を計算して Y 軸ドメインを決定
   const priceDomain = useMemo((): [number, number] => {
@@ -587,7 +742,10 @@ export default function PriceChart({
           {/* MA */}
           {[
             { key: "ma5" as const, label: "MA5", color: "#f59e0b" },
+            { key: "ma10" as const, label: "MA10", color: "#84cc16" },
+            { key: "ma20" as const, label: "MA20", color: "#06b6d4" },
             { key: "ma25" as const, label: "MA25", color: "#8b5cf6" },
+            { key: "ma50" as const, label: "MA50", color: "#14b8a6" },
             { key: "ma75" as const, label: "MA75", color: "#ec4899" },
           ].map((ma) => (
             <label key={ma.key} className="flex items-center gap-1 text-xs">
@@ -673,6 +831,35 @@ export default function PriceChart({
               </span>
             )}
           </label>
+          {/* 戦略シグナル (日足/週足のみ) */}
+          {periodType && (
+            <>
+              <span className="text-gray-300 dark:text-slate-600">|</span>
+              {([
+                { key: "rsi_reversal" as StrategySignalType, label: "RSI逆張り", color: "#8b5cf6" },
+                { key: "ma_cross" as StrategySignalType, label: "MAクロス", color: "#3b82f6" },
+                { key: "macd_signal" as StrategySignalType, label: "MACDシグナル", color: "#059669" },
+                { key: "macd_trail12" as StrategySignalType, label: "MACD Trail12%", color: "#f97316" },
+              ] as const).map((s) => (
+                <label key={s.key} className="flex items-center gap-1 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={showStratSignals[s.key]}
+                    onChange={(e) =>
+                      setShowStratSignals((prev) => ({ ...prev, [s.key]: e.target.checked }))
+                    }
+                    className="h-3 w-3"
+                  />
+                  <span style={{ color: s.color }}>{s.label}</span>
+                  {stratSignals && stratSignals[s.key]?.length > 0 && showStratSignals[s.key] && (
+                    <span className="rounded-full bg-gray-100 dark:bg-slate-700 px-1.5 text-[10px] font-bold text-gray-600 dark:text-slate-300">
+                      {stratSignals[s.key].length}
+                    </span>
+                  )}
+                </label>
+              ))}
+            </>
+          )}
           <span className="text-gray-300 dark:text-slate-600">|</span>
           {/* RSI / MACD */}
           {[
@@ -873,6 +1060,25 @@ export default function PriceChart({
             />
           ))}
 
+          {/* 利確/損切ライン（シグナル個別） */}
+          {exitLines.map((line) => (
+            <ReferenceLine
+              key={line.key}
+              yAxisId="price"
+              y={line.price}
+              stroke={line.color}
+              strokeWidth={2}
+              strokeDasharray="10 4"
+              label={{
+                value: line.label,
+                position: "left",
+                fontSize: 9,
+                fill: line.color,
+                fontWeight: "bold",
+              }}
+            />
+          ))}
+
           {/* トレンドライン始点マーカー */}
           {pendingTrendStart && (() => {
             const vi = pendingTrendStart.globalIdx - viewStart;
@@ -927,18 +1133,49 @@ export default function PriceChart({
           {showMA.ma5 && (
             <Line yAxisId="price" type="monotone" dataKey="ma5" stroke="#f59e0b" strokeWidth={1} dot={false} name="MA5" connectNulls />
           )}
+          {showMA.ma10 && (
+            <Line yAxisId="price" type="monotone" dataKey="ma10" stroke="#84cc16" strokeWidth={1} dot={false} name="MA10" connectNulls />
+          )}
+          {showMA.ma20 && (
+            <Line yAxisId="price" type="monotone" dataKey="ma20" stroke="#06b6d4" strokeWidth={1} dot={false} name="MA20" connectNulls />
+          )}
           {showMA.ma25 && (
             <Line
               yAxisId="price"
               type="monotone"
               dataKey="ma25"
-              stroke={showBuySignals ? "#f59e0b" : "#8b5cf6"}
-              strokeWidth={showBuySignals ? 2.5 : 1}
-              strokeDasharray={showBuySignals ? "none" : undefined}
+              stroke={isLatestTouchingMA25 ? "#22c55e" : showBuySignals ? "#f59e0b" : "#8b5cf6"}
+              strokeWidth={isLatestTouchingMA25 ? 3.5 : showBuySignals ? 2.5 : 1}
+              strokeDasharray={isLatestTouchingMA25 || showBuySignals ? "none" : undefined}
               dot={false}
-              name={showBuySignals ? "MA25 (ターゲット)" : "MA25"}
+              name={isLatestTouchingMA25 ? "MA25 (タッチ中!)" : showBuySignals ? "MA25 (ターゲット)" : "MA25"}
               connectNulls
             />
+          )}
+          {/* BB逆張りMA25タッチポイント（利確到達マーカー） */}
+          <Line
+            yAxisId="price"
+            type="monotone"
+            dataKey="ma25TouchPrice"
+            stroke="none"
+            dot={(props: any) => {
+              const { cx, cy, payload } = props;
+              if (payload?.ma25TouchPrice == null || cx == null || cy == null) return <g key={props.key} />;
+              return (
+                <g key={props.key}>
+                  <circle cx={cx} cy={cy} r={7} fill="#22c55e" stroke="#fff" strokeWidth={2} />
+                  <text x={cx} y={cy - 12} textAnchor="middle" fontSize={9} fontWeight="bold" fill="#22c55e">
+                    利確(MA25)
+                  </text>
+                </g>
+              );
+            }}
+            activeDot={false}
+            legendType="none"
+            connectNulls={false}
+          />
+          {showMA.ma50 && (
+            <Line yAxisId="price" type="monotone" dataKey="ma50" stroke="#14b8a6" strokeWidth={1} dot={false} name="MA50" connectNulls />
           )}
           {showMA.ma75 && (
             <Line yAxisId="price" type="monotone" dataKey="ma75" stroke="#ec4899" strokeWidth={1} dot={false} name="MA75" connectNulls />
@@ -965,29 +1202,143 @@ export default function PriceChart({
             );
           })}
 
+          {/* 戦略シグナルマーカー（RSI逆張り / MAクロス / MACD） - Trail12はストリップ表示 */}
+          {stratSignals && ([
+            { key: "rsi_reversal" as StrategySignalType, color: "#8b5cf6" },
+            { key: "ma_cross" as StrategySignalType, color: "#3b82f6" },
+            { key: "macd_signal" as StrategySignalType, color: "#059669" },
+          ] as const).map((s) => {
+            if (!showStratSignals[s.key]) return null;
+            const buyKey = `strat_buy_${s.key}`;
+            const sellKey = `strat_sell_${s.key}`;
+            return (
+              <g key={`strat-${s.key}`}>
+                {/* 買いシグナル ▲ */}
+                <Line
+                  yAxisId="price"
+                  type="monotone"
+                  dataKey={buyKey}
+                  stroke="none"
+                  isAnimationActive={false}
+                  connectNulls={false}
+                  legendType="none"
+                  activeDot={false}
+                  dot={(props: any) => {
+                    const d = chartData[props.index];
+                    if (!d?.[buyKey]) return <g key={props.key} />;
+                    return (
+                      <g key={props.key}>
+                        <polygon
+                          points={`${props.cx},${props.cy - 4} ${props.cx - 5},${props.cy + 5} ${props.cx + 5},${props.cy + 5}`}
+                          fill={s.color}
+                          stroke="#fff"
+                          strokeWidth={1}
+                        />
+                        <text x={props.cx} y={props.cy + 16} textAnchor="middle" fontSize={8} fontWeight="bold" fill={s.color}>
+                          {d[`strat_buy_label_${s.key}`]}
+                        </text>
+                      </g>
+                    );
+                  }}
+                />
+                {/* 売りシグナル ▼ */}
+                <Line
+                  yAxisId="price"
+                  type="monotone"
+                  dataKey={sellKey}
+                  stroke="none"
+                  isAnimationActive={false}
+                  connectNulls={false}
+                  legendType="none"
+                  activeDot={false}
+                  dot={(props: any) => {
+                    const d = chartData[props.index];
+                    if (!d?.[sellKey]) return <g key={props.key} />;
+                    const sellType = d[`strat_sell_type_${s.key}`];
+                    const fillColor = sellType === "take_profit" ? "#22c55e"
+                      : sellType === "dead_cross" ? "#f97316" // DC=オレンジ
+                      : "#ef4444";
+                    return (
+                      <g key={props.key}>
+                        <polygon
+                          points={`${props.cx},${props.cy + 4} ${props.cx - 5},${props.cy - 5} ${props.cx + 5},${props.cy - 5}`}
+                          fill={fillColor}
+                          stroke="#fff"
+                          strokeWidth={1}
+                        />
+                        <text x={props.cx} y={props.cy - 10} textAnchor="middle" fontSize={8} fontWeight="bold" fill={fillColor}>
+                          {d[`strat_sell_label_${s.key}`]}
+                        </text>
+                      </g>
+                    );
+                  }}
+                />
+              </g>
+            );
+          })}
+
+          {/* トレーリングストップレベル線 (MACD Trail 12%) */}
+          {showStratSignals.macd_trail12 && (
+            <Line
+              yAxisId="price"
+              type="stepAfter"
+              dataKey="trailStopLevel"
+              stroke="#ef4444"
+              strokeWidth={1.5}
+              strokeDasharray="6 3"
+              dot={false}
+              connectNulls={false}
+              name="Trail Stop"
+              legendType="none"
+            />
+          )}
+
           {/* CWH カップ・ハンドル可視化 */}
-          {showCWHSignals && cwhOverlays.map((o, i) => (
+          {showCWHSignals && cwhOverlays.map((o, i) => {
+            const n = i + 1;
+            const tag = cwhOverlays.length > 1 ? `#${n} ` : "";
+            return (
             <g key={`cwh-vis-${i}`}>
-              {/* カップ領域 */}
+              {/* カップ領域（青系） */}
               {o.cupStartDate && o.cupEndDate && (
                 <ReferenceArea
                   yAxisId="price"
                   x1={o.cupStartDate}
                   x2={o.cupEndDate}
-                  fill="#10b981"
-                  fillOpacity={0.07}
-                  strokeOpacity={0}
+                  fill="#3b82f6"
+                  fillOpacity={0.08}
+                  stroke="#3b82f6"
+                  strokeOpacity={0.4}
+                  strokeDasharray="4 3"
+                  label={{ value: `${tag}CUP`, position: "insideTopLeft", fontSize: 10, fill: "#3b82f6", fontWeight: "bold" }}
                 />
               )}
-              {/* ハンドル領域 */}
+              {/* ハンドル領域（オレンジ系） */}
               {o.cupEndDate && o.handleEndDate && o.cupEndDate !== o.handleEndDate && (
                 <ReferenceArea
                   yAxisId="price"
                   x1={o.cupEndDate}
                   x2={o.handleEndDate}
-                  fill="#10b981"
-                  fillOpacity={0.12}
-                  strokeOpacity={0}
+                  fill="#f59e0b"
+                  fillOpacity={0.10}
+                  stroke="#f59e0b"
+                  strokeOpacity={0.5}
+                  strokeDasharray="4 3"
+                  label={{ value: `${tag}HANDLE`, position: "insideTopLeft", fontSize: 10, fill: "#f59e0b", fontWeight: "bold" }}
+                />
+              )}
+              {/* リムレベル水平線（カップ〜ハンドル区間） */}
+              {o.cupStartDate && (o.handleEndDate ?? o.cupEndDate) && (
+                <ReferenceLine
+                  yAxisId="price"
+                  segment={[
+                    { x: o.cupStartDate, y: o.rimLevel },
+                    { x: o.handleEndDate ?? o.cupEndDate!, y: o.rimLevel },
+                  ] as any}
+                  stroke="#10b981"
+                  strokeWidth={1.5}
+                  strokeDasharray="6 3"
+                  label={{ value: `${tag}リム ${o.rimLevel.toLocaleString()}`, position: "right", fontSize: 9, fill: "#10b981" }}
                 />
               )}
               {/* 左リム */}
@@ -996,11 +1347,11 @@ export default function PriceChart({
                   yAxisId="price"
                   x={o.leftRimDate}
                   y={o.leftRimHigh}
-                  r={4}
-                  fill="#10b981"
+                  r={5}
+                  fill="#3b82f6"
                   stroke="#fff"
-                  strokeWidth={1.5}
-                  label={{ value: "L", position: "top", fontSize: 9, fill: "#10b981" }}
+                  strokeWidth={2}
+                  label={{ value: `${tag}左リム`, position: "top", fontSize: 9, fill: "#3b82f6", fontWeight: "bold" }}
                 />
               )}
               {/* カップ底 */}
@@ -1009,11 +1360,11 @@ export default function PriceChart({
                   yAxisId="price"
                   x={o.bottomDate}
                   y={o.bottomLow}
-                  r={4}
-                  fill="#10b981"
+                  r={5}
+                  fill="#ef4444"
                   stroke="#fff"
-                  strokeWidth={1.5}
-                  label={{ value: "B", position: "bottom", fontSize: 9, fill: "#10b981" }}
+                  strokeWidth={2}
+                  label={{ value: `${tag}底`, position: "bottom", fontSize: 9, fill: "#ef4444", fontWeight: "bold" }}
                 />
               )}
               {/* 右リム */}
@@ -1022,15 +1373,16 @@ export default function PriceChart({
                   yAxisId="price"
                   x={o.rightRimDate}
                   y={o.rightRimHigh}
-                  r={4}
-                  fill="#10b981"
+                  r={5}
+                  fill="#3b82f6"
                   stroke="#fff"
-                  strokeWidth={1.5}
-                  label={{ value: "R", position: "top", fontSize: 9, fill: "#10b981" }}
+                  strokeWidth={2}
+                  label={{ value: `${tag}右リム`, position: "top", fontSize: 9, fill: "#3b82f6", fontWeight: "bold" }}
                 />
               )}
             </g>
-          ))}
+            );
+          })}
 
         </ComposedChart>
       </ResponsiveContainer>
@@ -1057,7 +1409,7 @@ export default function PriceChart({
         (showCWHSignals && chartData.some((d: any) => d.cwhMarker != null))) && (
         <div className="-mt-2">
           <ResponsiveContainer width="100%" height={24}>
-            <ComposedChart data={chartData} margin={{ top: 0, right: 50, bottom: 0, left: 0 }}>
+            <ComposedChart data={chartData} margin={{ top: 0, right: 65, bottom: 0, left: 5 }}>
               <XAxis
                 dataKey="date"
                 tick={false}
@@ -1129,6 +1481,68 @@ export default function PriceChart({
         </div>
       )}
 
+      {/* MACD Trail 12% シグナルストリップ */}
+      {showStratSignals.macd_trail12 && chartData.some((d: any) => d.trail12Marker != null) && (
+        <div className="-mt-1">
+          <ResponsiveContainer width="100%" height={32}>
+            <ComposedChart data={chartData} margin={{ top: 0, right: 65, bottom: 0, left: 5 }}>
+              <XAxis
+                dataKey="date"
+                tick={false}
+                tickLine={false}
+                axisLine={false}
+                height={1}
+              />
+              <YAxis domain={[0, 1]} hide />
+              <Line
+                type="monotone"
+                dataKey="trail12Marker"
+                stroke="none"
+                isAnimationActive={false}
+                connectNulls={false}
+                legendType="none"
+                activeDot={false}
+                dot={(props: any) => {
+                  const d = chartData[props.index];
+                  if (!d?.trail12Marker) return <circle key={props.key} r={0} />;
+                  const action = d.trail12Action as string;
+                  const label = d.trail12Label as string;
+                  const isBuy = action === "buy";
+                  const color = isBuy ? "#f97316"
+                    : action === "take_profit" ? "#22c55e"
+                    : "#ef4444";
+                  const marker = isBuy ? "▲" : "▼";
+                  return (
+                    <g key={props.key}>
+                      <text
+                        x={props.cx}
+                        y={10}
+                        textAnchor="middle"
+                        fill={color}
+                        fontSize={14}
+                        fontWeight="bold"
+                      >
+                        {marker}
+                      </text>
+                      <text
+                        x={props.cx}
+                        y={24}
+                        textAnchor="middle"
+                        fill={color}
+                        fontSize={8}
+                        fontWeight="bold"
+                      >
+                        {label}
+                      </text>
+                    </g>
+                  );
+                }}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
       {/* RSI サブチャート */}
       {showIndicators.rsi && (
         <div className="mt-1">
@@ -1145,7 +1559,7 @@ export default function PriceChart({
                 orientation="right"
                 tick={{ fontSize: 10 }}
                 ticks={[0, 30, 50, 70, 100]}
-                width={35}
+                width={60}
               />
               <ReferenceLine y={70} stroke="#ef4444" strokeDasharray="3 3" strokeOpacity={0.6} />
               <ReferenceLine y={30} stroke="#22c55e" strokeDasharray="3 3" strokeOpacity={0.6} />
@@ -1180,7 +1594,7 @@ export default function PriceChart({
           <ResponsiveContainer width="100%" height={120}>
             <ComposedChart data={chartData}>
                   <XAxis {...subXAxisProps} tick={{ fontSize: 10 }} />
-              <YAxis orientation="right" tick={{ fontSize: 10 }} width={35} />
+              <YAxis orientation="right" tick={{ fontSize: 10 }} width={60} />
               <ReferenceLine y={0} stroke="#9ca3af" strokeWidth={1} />
               <Tooltip
                 content={({ active, payload }) => {
@@ -1233,25 +1647,89 @@ export default function PriceChart({
           <h4 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-amber-800 dark:text-amber-400">
             <span>▲</span> ちょる子式・直近シグナル
           </h4>
-          <div className="space-y-1.5">
-            {recentSignals.map((s) => (
-              <div key={`${s.date}-${s.type}`} className="flex items-start gap-2 text-xs">
-                <span className={`mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full ${
-                  s.type === "shitabanare" ? "bg-red-500" : "bg-amber-500"
-                }`} />
-                <div>
+          {/* ルール早見表 */}
+          <div className="mb-2 rounded bg-amber-100/60 dark:bg-amber-900/20 px-2 py-1.5 text-[10px] text-amber-800 dark:text-amber-300 leading-relaxed">
+            <div><b>BB逆張り:</b> 利確→終値≧MA25 ／ 損切→終値＜エントリー安値</div>
+            <div><b>下放れ二本黒:</b> 利確→終値≧窓上限(前日安値) ／ 損切→終値＜直近安値</div>
+          </div>
+          <div className="space-y-2">
+            {recentSignals.map((s) => {
+              const entry = data[s.index]?.close ?? s.price;
+              const stop = s.price; // エントリー時の安値
+              const lineKey = `${s.date}-${s.type}`;
+              const lineActive = exitLineKeys.has(lineKey);
+
+              // BB逆張り: MA25タッチ到達状態を判定
+              let bbTouchInfo: { reached: boolean; date?: string; price?: number; currentMA25?: number } | null = null;
+              if (s.type === "bb_reversal") {
+                const touchPt = bbMa25TouchPoints.find((p) => p.signalDate === s.date);
+                if (touchPt) {
+                  bbTouchInfo = { reached: true, date: touchPt.date, price: touchPt.price };
+                } else {
+                  // 未到達 → 現在のMA25を表示
+                  const lastMA25 = allIndicators.ma25[data.length - 1];
+                  bbTouchInfo = { reached: false, currentMA25: lastMA25 ?? undefined };
+                }
+              }
+
+              // 下放れ: 固定値のまま
+              let shitaTarget: number | null = null;
+              if (s.type === "shitabanare") {
+                shitaTarget = s.index >= 2 ? data[s.index - 2]?.low ?? null : null;
+              }
+
+              return (
+              <div key={lineKey} className={`rounded px-2 py-1.5 text-xs ${lineActive ? "bg-amber-100/80 dark:bg-amber-900/30 ring-1 ring-amber-300 dark:ring-amber-700" : ""}`}>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={lineActive}
+                    onChange={() => toggleExitLine(lineKey)}
+                    className="h-3 w-3 shrink-0"
+                    title={s.type === "bb_reversal" ? "損切ライン + MA25タッチポイントを表示" : "チャートに利確/損切ラインを表示"}
+                  />
+                  <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${
+                    s.type === "shitabanare" ? "bg-red-500" : "bg-amber-500"
+                  }`} />
                   <span className="font-medium text-gray-800 dark:text-slate-200">{s.date}</span>
-                  <span className={`ml-2 rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                  <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
                     s.type === "shitabanare"
                       ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
                       : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
                   }`}>
                     {s.label}
                   </span>
-                  <p className="mt-0.5 text-gray-500 dark:text-slate-400">{s.description}</p>
+                </div>
+                <p className="mt-0.5 ml-5 text-gray-500 dark:text-slate-400">{s.description}</p>
+                <div className="mt-1 ml-5 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px]">
+                  <span className="text-gray-600 dark:text-slate-300">
+                    Entry: <b>{entry.toLocaleString()}</b>
+                  </span>
+                  {/* BB逆張り: MA25タッチ状態 */}
+                  {bbTouchInfo && (
+                    bbTouchInfo.reached ? (
+                      <span className="text-green-700 dark:text-green-400">
+                        利確(MA25): <b>{bbTouchInfo.date}</b> @ {bbTouchInfo.price?.toLocaleString()}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 dark:text-slate-500">
+                        利確(MA25): 未到達{bbTouchInfo.currentMA25 != null && ` (現在MA25: ${bbTouchInfo.currentMA25.toLocaleString()})`}
+                      </span>
+                    )
+                  )}
+                  {/* 下放れ: 固定値 */}
+                  {shitaTarget != null && (
+                    <span className="text-green-700 dark:text-green-400">
+                      利確(窓上限): <b>{shitaTarget.toLocaleString()}</b>
+                    </span>
+                  )}
+                  <span className="text-red-600 dark:text-red-400">
+                    損切(安値): <b>{stop.toLocaleString()}</b>
+                  </span>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
           {visibleSignals.length > 0 && (
             <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-400">
@@ -1267,19 +1745,47 @@ export default function PriceChart({
           <h4 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-emerald-800 dark:text-emerald-400">
             <span>◆</span> 田端式CWH・直近シグナル
           </h4>
-          <div className="space-y-1.5">
-            {recentCWHSignals.map((s) => (
-              <div key={`cwh-${s.date}`} className="flex items-start gap-2 text-xs">
-                <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
-                <div>
+          {/* ルール早見表 */}
+          <div className="mb-2 rounded bg-emerald-100/60 dark:bg-emerald-900/20 px-2 py-1.5 text-[10px] text-emerald-800 dark:text-emerald-300 leading-relaxed">
+            <b>田端式:</b> 利確→買値から+20%到達 or MA割れ ／ 損切→買値から-7%到達
+          </div>
+          <div className="space-y-2">
+            {recentCWHSignals.map((s) => {
+              const targetPrice = Math.round(s.price * 1.20);
+              const stopPrice = Math.round(s.price * 0.93);
+              const lineKey = `cwh-${s.date}`;
+              const lineActive = exitLineKeys.has(lineKey);
+              return (
+              <div key={lineKey} className={`rounded px-2 py-1.5 text-xs ${lineActive ? "bg-emerald-100/80 dark:bg-emerald-900/30 ring-1 ring-emerald-300 dark:ring-emerald-700" : ""}`}>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={lineActive}
+                    onChange={() => toggleExitLine(lineKey)}
+                    className="h-3 w-3 shrink-0"
+                    title="チャートに利確/損切ラインを表示"
+                  />
+                  <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
                   <span className="font-medium text-gray-800 dark:text-slate-200">{s.date}</span>
-                  <span className="ml-2 rounded bg-emerald-100 dark:bg-emerald-900/30 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
+                  <span className="rounded bg-emerald-100 dark:bg-emerald-900/30 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
                     {s.label}
                   </span>
-                  <p className="mt-0.5 text-gray-500 dark:text-slate-400">{s.description}</p>
+                </div>
+                <p className="mt-0.5 ml-5 text-gray-500 dark:text-slate-400">{s.description}</p>
+                <div className="mt-1 ml-5 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px]">
+                  <span className="text-gray-600 dark:text-slate-300">
+                    Entry: <b>{s.price.toLocaleString()}</b>
+                  </span>
+                  <span className="text-green-700 dark:text-green-400">
+                    利確(+20%): <b>{targetPrice.toLocaleString()}</b>
+                  </span>
+                  <span className="text-red-600 dark:text-red-400">
+                    損切(-7%): <b>{stopPrice.toLocaleString()}</b>
+                  </span>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
           {visibleCWHSignals.length > 0 && (
             <p className="mt-2 text-xs font-medium text-emerald-700 dark:text-emerald-400">
@@ -1288,6 +1794,59 @@ export default function PriceChart({
           )}
         </div>
       )}
+
+      {/* 戦略シグナル一覧（RSI逆張り / MAクロス / MACD） */}
+      {stratSignals && ([
+        { key: "rsi_reversal" as StrategySignalType, label: "RSI逆張り", color: "#8b5cf6", borderColor: "border-violet-200 dark:border-violet-800/50", bgColor: "bg-violet-50 dark:bg-violet-900/10", headerColor: "text-violet-800 dark:text-violet-400", countColor: "text-violet-700 dark:text-violet-400", ruleText: "RSI売られすぎで買い、買われすぎで売り" },
+        { key: "ma_cross" as StrategySignalType, label: "MAクロス(GC/DC)", color: "#3b82f6", borderColor: "border-blue-200 dark:border-blue-800/50", bgColor: "bg-blue-50 dark:bg-blue-900/10", headerColor: "text-blue-800 dark:text-blue-400", countColor: "text-blue-700 dark:text-blue-400", ruleText: "ゴールデンクロス(GC)で買い、デッドクロス(DC)で売り" },
+        { key: "macd_signal" as StrategySignalType, label: "MACDシグナル", color: "#059669", borderColor: "border-teal-200 dark:border-teal-800/50", bgColor: "bg-teal-50 dark:bg-teal-900/10", headerColor: "text-teal-800 dark:text-teal-400", countColor: "text-teal-700 dark:text-teal-400", ruleText: "MACDがシグナル線を上抜けで買い、下抜けで売り" },
+        { key: "macd_trail12" as StrategySignalType, label: "MACD Trail 12%", color: "#f97316", borderColor: "border-orange-200 dark:border-orange-800/50", bgColor: "bg-orange-50 dark:bg-orange-900/10", headerColor: "text-orange-800 dark:text-orange-400", countColor: "text-orange-700 dark:text-orange-400", ruleText: "MACD GCで買い、高値から12%下落でトレーリングストップ売り（赤い破線=ストップレベル）" },
+      ] as const).map((s) => {
+        if (!showStratSignals[s.key]) return null;
+        const points = stratSignals[s.key];
+        if (!points || points.length === 0) return null;
+        const recent = points.slice(-10).reverse();
+        return (
+          <div key={`panel-${s.key}`} className={`mt-3 rounded border ${s.borderColor} ${s.bgColor} p-3`}>
+            <h4 className={`mb-2 flex items-center gap-1.5 text-sm font-semibold ${s.headerColor}`}>
+              <span style={{ color: s.color }}>&#9650;</span> {s.label}・直近シグナル
+              <span className="rounded-full bg-white/60 dark:bg-slate-800/60 px-1.5 text-[10px] font-bold">
+                {points.length}件
+              </span>
+            </h4>
+            <div className={`mb-2 rounded px-2 py-1.5 text-[10px] ${s.headerColor} leading-relaxed opacity-80`}>
+              <b>ルール:</b> {s.ruleText}（最適化プリセット使用）
+            </div>
+            <div className="space-y-1.5">
+              {recent.map((pt, i) => (
+                <div key={`${pt.date}-${pt.action}-${i}`} className="flex items-center gap-2 rounded px-2 py-1 text-xs">
+                  <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${
+                    pt.action === "buy" ? "bg-blue-500"
+                    : pt.action === "take_profit" ? "bg-green-500"
+                    : pt.action === "dead_cross" ? "bg-orange-500"
+                    : "bg-red-500"
+                  }`} />
+                  <span className="font-medium text-gray-800 dark:text-slate-200">{pt.date}</span>
+                  <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                    pt.action === "buy"
+                      ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
+                      : pt.action === "take_profit"
+                        ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                        : pt.action === "dead_cross"
+                          ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
+                          : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                  }`}>
+                    {pt.label}
+                  </span>
+                  <span className="text-gray-500 dark:text-slate-400">
+                    @{pt.price.toLocaleString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
       </div>
     </div>
   );

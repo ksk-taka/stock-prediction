@@ -4,56 +4,715 @@
       "symbol": "7203.T",
       "name": "トヨタ自動車",
       "market": "JP",
-      "sector": "自動車"
+      "sectors": [
+        "エネルギー・GX"
+      ]
     },
     {
       "symbol": "7011.T",
       "name": "三菱重工業",
       "market": "JP",
-      "sector": "重工業"
+      "sectors": [
+        "航空・宇宙",
+        "核融合",
+        "防衛"
+      ],
+      "fundamental": {
+        "judgment": "bullish",
+        "memo": "MITSUBISHI HEAVY INDUSTRIESは業績が堅調で成長期待が高いが、ROE向上の具体的アクションや資本政策が見受けられない点に注意が必要。PERの割高感や株価急騰によるリスクもあるため、将来的な事業縮小リスクを考慮しつつ、短期的な上昇トレンドは継続すると予想される。",
+        "analyzedAt": "2026-02-06T10:16:31.714Z"
+      }
     },
     {
       "symbol": "6701.T",
       "name": "NEC",
       "market": "JP",
-      "sector": "電機"
+      "sectors": [
+        "量子",
+        "サイバーセキュリティ",
+        "防衛",
+        "情報通信"
+      ],
+      "fundamental": {
+        "judgment": "bullish",
+        "memo": "現在のPBRとPERから割安評価が受けられており、理論株価との乖離も大きい。業績堅調さを踏まえると、市場評価の遅れからの上昇余地があり、中長期的な投資価値が高いと判断される。ただし、具体的な成長エンジンや経営陣のアクションが明確でないため、リスクも考慮する必要がある。",
+        "analyzedAt": "2026-02-06T10:19:34.097Z"
+      }
     },
     {
       "symbol": "6503.T",
       "name": "三菱電機",
       "market": "JP",
-      "sector": "電機"
+      "sectors": [
+        "核融合",
+        "防衛"
+      ],
+      "fundamental": {
+        "judgment": "bullish",
+        "memo": "三菱電機は現在の評価が業績に見合っておらず、防衛関連事業などでの好調な業績を背景に投資価値が高いと判断できる。ただし、短期的なリスクやROE改善への具体的アクションの欠如には注意が必要である。",
+        "analyzedAt": "2026-02-06T11:24:26.349Z"
+      }
     },
     {
       "symbol": "6758.T",
       "name": "ソニーグループ",
       "market": "JP",
-      "sector": "電機"
+      "sectors": [
+        "コンテンツ"
+      ],
+      "fundamental": {
+        "judgment": "bullish",
+        "memo": "ソニーグループは現在の評価指標から割安感があり、中期経営計画に基づく業績改善への期待も高い。しかし、具体的な増配やPBR1倍割れに対する対策が見られず、また直近の業績トレンドに関する情報不足など課題もあるため、投資判断は慎重にすべきである。",
+        "analyzedAt": "2026-02-06T11:28:54.255Z"
+      }
     },
     {
       "symbol": "8035.T",
       "name": "東京エレクトロン",
       "market": "JP",
-      "sector": "半導体"
+      "sectors": [
+        "AI・半導体"
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "東京エレクトロンは現在、高PERとPBRで割高感があるが、業績堅調と将来性を評価されている。しかし、具体的な還元アクションや成長エンジンの明確な発表がないため、投資家の期待に応えるには不十分。将来的な市場縮小リスクも懸念されるため、中立的な判断が適切である。",
+        "analyzedAt": "2026-02-06T11:28:08.333Z"
+      }
     },
     {
       "symbol": "8306.T",
       "name": "三菱UFJフィナンシャル・グループ",
       "market": "JP",
-      "sector": "銀行"
+      "sectors": [
+        "銀行"
+      ],
+      "fundamental": {
+        "judgment": "bullish",
+        "memo": "三菱UFJフィナンシャル・グループは、業績堅調で株主還元に積極的な姿勢を示しており、投資価値が高いと判断できる。ただし、金融機関特有のリスクには注意が必要である。",
+        "analyzedAt": "2026-02-06T11:27:20.128Z"
+      }
     },
     {
       "symbol": "1605.T",
       "name": "INPEX",
       "market": "JP",
-      "sector": "石油"
+      "sectors": [
+        "エネルギー・GX"
+      ],
+      "fundamental": {
+        "judgment": "bullish",
+        "memo": "INPEXはPBRが割安な理由から投資魅力が高いと判断できる。原油価格下落の一過性影響による業績への懸念はあるものの、経営陣の積極的な資本政策や安定したROE、フリーキャッシュフローの改善などにより、長期的な成長が期待される。ただし、原油価格変動リスクには注意が必要である。",
+        "analyzedAt": "2026-02-06T11:32:28.153Z"
+      }
     },
     {
       "symbol": "6501.T",
       "name": "日立製作所",
       "market": "JP",
-      "sector": "電機"
+      "sectors": [
+        "核融合"
+      ],
+      "fundamental": {
+        "judgment": "bullish",
+        "memo": "日立製作所は、業績の堅調さと成長性を反映した適正な評価水準にある。経営陣による価値創出への取り組みも確認できており、本業の伸びしろが期待できる。短期的なリスクはあるものの、中長期的には投資価値が高いと判断される。",
+        "analyzedAt": "2026-02-06T11:30:40.730Z"
+      }
+    },
+    {
+      "symbol": "6526.T",
+      "name": "ソシオネクスト",
+      "market": "JP",
+      "sectors": [
+        "AI・半導体"
+      ]
+    },
+    {
+      "symbol": "6723.T",
+      "name": "ルネサスエレクトロニクス",
+      "market": "JP",
+      "sectors": [
+        "AI・半導体"
+      ]
+    },
+    {
+      "symbol": "285A.T",
+      "name": "キオクシア",
+      "market": "JP",
+      "sectors": [
+        "AI・半導体"
+      ]
+    },
+    {
+      "symbol": "3993.T",
+      "name": "PKSHA Technology",
+      "market": "JP",
+      "sectors": [
+        "AI・半導体"
+      ]
+    },
+    {
+      "symbol": "3778.T",
+      "name": "さくらインターネット",
+      "market": "JP",
+      "sectors": [
+        "AI・半導体"
+      ]
+    },
+    {
+      "symbol": "9613.T",
+      "name": "NTTデータグループ",
+      "market": "JP",
+      "sectors": [
+        "AI・半導体"
+      ]
+    },
+    {
+      "symbol": "7014.T",
+      "name": "名村造船所",
+      "market": "JP",
+      "sectors": [
+        "造船"
+      ]
+    },
+    {
+      "symbol": "7003.T",
+      "name": "三井E&S",
+      "market": "JP",
+      "sectors": [
+        "造船",
+        "港湾ロジスティクス"
+      ]
+    },
+    {
+      "symbol": "7012.T",
+      "name": "川崎重工業",
+      "market": "JP",
+      "sectors": [
+        "造船",
+        "航空・宇宙",
+        "防衛",
+        "海洋"
+      ]
+    },
+    {
+      "symbol": "9101.T",
+      "name": "日本郵船",
+      "market": "JP",
+      "sectors": [
+        "造船",
+        "港湾ロジスティクス"
+      ]
+    },
+    {
+      "symbol": "9104.T",
+      "name": "商船三井",
+      "market": "JP",
+      "sectors": [
+        "造船",
+        "海洋"
+      ]
+    },
+    {
+      "symbol": "6702.T",
+      "name": "富士通",
+      "market": "JP",
+      "sectors": [
+        "量子",
+        "サイバーセキュリティ"
+      ]
+    },
+    {
+      "symbol": "6965.T",
+      "name": "浜松ホトニクス",
+      "market": "JP",
+      "sectors": [
+        "量子",
+        "核融合"
+      ]
+    },
+    {
+      "symbol": "2802.T",
+      "name": "味の素",
+      "market": "JP",
+      "sectors": [
+        "バイオ"
+      ]
+    },
+    {
+      "symbol": "4202.T",
+      "name": "ダイセル",
+      "market": "JP",
+      "sectors": [
+        "バイオ"
+      ]
+    },
+    {
+      "symbol": "4118.T",
+      "name": "カネカ",
+      "market": "JP",
+      "sectors": [
+        "バイオ"
+      ]
+    },
+    {
+      "symbol": "4151.T",
+      "name": "協和キリン",
+      "market": "JP",
+      "sectors": [
+        "バイオ"
+      ]
+    },
+    {
+      "symbol": "7013.T",
+      "name": "IHI",
+      "market": "JP",
+      "sectors": [
+        "航空・宇宙",
+        "防衛"
+      ]
+    },
+    {
+      "symbol": "186A.T",
+      "name": "アストロスケールHD",
+      "market": "JP",
+      "sectors": [
+        "航空・宇宙"
+      ]
+    },
+    {
+      "symbol": "5765.T",
+      "name": "QPS研究所",
+      "market": "JP",
+      "sectors": [
+        "航空・宇宙"
+      ]
+    },
+    {
+      "symbol": "9432.T",
+      "name": "NTT",
+      "market": "JP",
+      "sectors": [
+        "サイバーセキュリティ",
+        "情報通信"
+      ]
+    },
+    {
+      "symbol": "4704.T",
+      "name": "トレンドマイクロ",
+      "market": "JP",
+      "sectors": [
+        "サイバーセキュリティ"
+      ]
+    },
+    {
+      "symbol": "3857.T",
+      "name": "ラック",
+      "market": "JP",
+      "sectors": [
+        "サイバーセキュリティ"
+      ]
+    },
+    {
+      "symbol": "2326.T",
+      "name": "デジタルアーツ",
+      "market": "JP",
+      "sectors": [
+        "サイバーセキュリティ"
+      ]
+    },
+    {
+      "symbol": "3692.T",
+      "name": "FFRIセキュリティ",
+      "market": "JP",
+      "sectors": [
+        "サイバーセキュリティ"
+      ]
+    },
+    {
+      "symbol": "7974.T",
+      "name": "任天堂",
+      "market": "JP",
+      "sectors": [
+        "コンテンツ"
+      ]
+    },
+    {
+      "symbol": "7832.T",
+      "name": "バンダイナムコHD",
+      "market": "JP",
+      "sectors": [
+        "コンテンツ"
+      ]
+    },
+    {
+      "symbol": "4816.T",
+      "name": "東映アニメーション",
+      "market": "JP",
+      "sectors": [
+        "コンテンツ"
+      ]
+    },
+    {
+      "symbol": "9468.T",
+      "name": "KADOKAWA",
+      "market": "JP",
+      "sectors": [
+        "コンテンツ"
+      ]
+    },
+    {
+      "symbol": "4751.T",
+      "name": "サイバーエージェント",
+      "market": "JP",
+      "sectors": [
+        "コンテンツ"
+      ]
+    },
+    {
+      "symbol": "6326.T",
+      "name": "クボタ",
+      "market": "JP",
+      "sectors": [
+        "フードテック"
+      ]
+    },
+    {
+      "symbol": "6310.T",
+      "name": "井関農機",
+      "market": "JP",
+      "sectors": [
+        "フードテック"
+      ]
+    },
+    {
+      "symbol": "2897.T",
+      "name": "日清食品HD",
+      "market": "JP",
+      "sectors": [
+        "フードテック"
+      ]
+    },
+    {
+      "symbol": "1333.T",
+      "name": "マルハニチロ",
+      "market": "JP",
+      "sectors": [
+        "フードテック"
+      ]
+    },
+    {
+      "symbol": "2931.T",
+      "name": "ユーグレナ",
+      "market": "JP",
+      "sectors": [
+        "フードテック"
+      ]
+    },
+    {
+      "symbol": "5020.T",
+      "name": "ENEOS HD",
+      "market": "JP",
+      "sectors": [
+        "エネルギー・GX"
+      ]
+    },
+    {
+      "symbol": "4204.T",
+      "name": "積水化学工業",
+      "market": "JP",
+      "sectors": [
+        "エネルギー・GX"
+      ]
+    },
+    {
+      "symbol": "9531.T",
+      "name": "東京ガス",
+      "market": "JP",
+      "sectors": [
+        "エネルギー・GX"
+      ]
+    },
+    {
+      "symbol": "9532.T",
+      "name": "大阪ガス",
+      "market": "JP",
+      "sectors": [
+        "エネルギー・GX"
+      ]
+    },
+    {
+      "symbol": "9519.T",
+      "name": "レノバ",
+      "market": "JP",
+      "sectors": [
+        "エネルギー・GX"
+      ]
+    },
+    {
+      "symbol": "1801.T",
+      "name": "大成建設",
+      "market": "JP",
+      "sectors": [
+        "防災・国土強靭化"
+      ]
+    },
+    {
+      "symbol": "1812.T",
+      "name": "鹿島建設",
+      "market": "JP",
+      "sectors": [
+        "防災・国土強靭化"
+      ]
+    },
+    {
+      "symbol": "1802.T",
+      "name": "大林組",
+      "market": "JP",
+      "sectors": [
+        "防災・国土強靭化"
+      ]
+    },
+    {
+      "symbol": "1803.T",
+      "name": "清水建設",
+      "market": "JP",
+      "sectors": [
+        "防災・国土強靭化"
+      ]
+    },
+    {
+      "symbol": "1721.T",
+      "name": "コムシスHD",
+      "market": "JP",
+      "sectors": [
+        "防災・国土強靭化"
+      ]
+    },
+    {
+      "symbol": "9755.T",
+      "name": "応用地質",
+      "market": "JP",
+      "sectors": [
+        "防災・国土強靭化"
+      ]
+    },
+    {
+      "symbol": "7821.T",
+      "name": "前田工繊",
+      "market": "JP",
+      "sectors": [
+        "防災・国土強靭化"
+      ]
+    },
+    {
+      "symbol": "4519.T",
+      "name": "中外製薬",
+      "market": "JP",
+      "sectors": [
+        "創薬・医療"
+      ]
+    },
+    {
+      "symbol": "4568.T",
+      "name": "第一三共",
+      "market": "JP",
+      "sectors": [
+        "創薬・医療"
+      ]
+    },
+    {
+      "symbol": "4502.T",
+      "name": "武田薬品",
+      "market": "JP",
+      "sectors": [
+        "創薬・医療"
+      ]
+    },
+    {
+      "symbol": "4523.T",
+      "name": "エーザイ",
+      "market": "JP",
+      "sectors": [
+        "創薬・医療"
+      ]
+    },
+    {
+      "symbol": "4587.T",
+      "name": "ペプチドリーム",
+      "market": "JP",
+      "sectors": [
+        "創薬・医療"
+      ]
+    },
+    {
+      "symbol": "4565.T",
+      "name": "そーせいグループ",
+      "market": "JP",
+      "sectors": [
+        "創薬・医療"
+      ]
+    },
+    {
+      "symbol": "7711.T",
+      "name": "助川電気工業",
+      "market": "JP",
+      "sectors": [
+        "核融合"
+      ]
+    },
+    {
+      "symbol": "4026.T",
+      "name": "神島化学工業",
+      "market": "JP",
+      "sectors": [
+        "核融合"
+      ]
+    },
+    {
+      "symbol": "5310.T",
+      "name": "東洋炭素",
+      "market": "JP",
+      "sectors": [
+        "核融合"
+      ]
+    },
+    {
+      "symbol": "5713.T",
+      "name": "住友金属鉱山",
+      "market": "JP",
+      "sectors": [
+        "マテリアル"
+      ]
+    },
+    {
+      "symbol": "4063.T",
+      "name": "信越化学工業",
+      "market": "JP",
+      "sectors": [
+        "マテリアル"
+      ]
+    },
+    {
+      "symbol": "6988.T",
+      "name": "日東電工",
+      "market": "JP",
+      "sectors": [
+        "マテリアル"
+      ]
+    },
+    {
+      "symbol": "5706.T",
+      "name": "三井金属鉱業",
+      "market": "JP",
+      "sectors": [
+        "マテリアル"
+      ]
+    },
+    {
+      "symbol": "6269.T",
+      "name": "三井海洋開発",
+      "market": "JP",
+      "sectors": [
+        "マテリアル",
+        "海洋"
+      ]
+    },
+    {
+      "symbol": "9301.T",
+      "name": "三菱倉庫",
+      "market": "JP",
+      "sectors": [
+        "港湾ロジスティクス"
+      ]
+    },
+    {
+      "symbol": "9303.T",
+      "name": "住友倉庫",
+      "market": "JP",
+      "sectors": [
+        "港湾ロジスティクス"
+      ]
+    },
+    {
+      "symbol": "1893.T",
+      "name": "五洋建設",
+      "market": "JP",
+      "sectors": [
+        "港湾ロジスティクス"
+      ]
+    },
+    {
+      "symbol": "1890.T",
+      "name": "東洋建設",
+      "market": "JP",
+      "sectors": [
+        "港湾ロジスティクス"
+      ]
+    },
+    {
+      "symbol": "7701.T",
+      "name": "島津製作所",
+      "market": "JP",
+      "sectors": [
+        "防衛"
+      ]
+    },
+    {
+      "symbol": "7721.T",
+      "name": "東京計器",
+      "market": "JP",
+      "sectors": [
+        "防衛"
+      ]
+    },
+    {
+      "symbol": "9433.T",
+      "name": "KDDI",
+      "market": "JP",
+      "sectors": [
+        "情報通信"
+      ]
+    },
+    {
+      "symbol": "9434.T",
+      "name": "ソフトバンク",
+      "market": "JP",
+      "sectors": [
+        "情報通信"
+      ]
+    },
+    {
+      "symbol": "5803.T",
+      "name": "フジクラ",
+      "market": "JP",
+      "sectors": [
+        "情報通信"
+      ]
+    },
+    {
+      "symbol": "5802.T",
+      "name": "住友電気工業",
+      "market": "JP",
+      "sectors": [
+        "情報通信"
+      ]
+    },
+    {
+      "symbol": "6330.T",
+      "name": "東洋エンジニアリング",
+      "market": "JP",
+      "sectors": [
+        "海洋"
+      ]
+    },
+    {
+      "symbol": "6814.T",
+      "name": "古野電気",
+      "market": "JP",
+      "sectors": [
+        "海洋"
+      ]
     }
   ],
-  "updatedAt": "2026-02-06T05:00:00.000Z"
+  "updatedAt": "2026-02-06T11:32:28.346Z"
 }

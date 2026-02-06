@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -13,37 +13,80 @@ import {
   ReferenceDot,
 } from "recharts";
 import type { PriceData } from "@/types";
+import type { Period } from "@/lib/utils/date";
 import { strategies } from "@/lib/backtest/strategies";
 import { runBacktest } from "@/lib/backtest/engine";
 import type { BacktestResult, StrategyDef } from "@/lib/backtest/types";
 
+type BacktestPeriod = "daily" | "weekly";
+const BACKTEST_PERIODS: { value: BacktestPeriod; label: string }[] = [
+  { value: "daily", label: "日足" },
+  { value: "weekly", label: "週足" },
+];
+
 interface BacktestPanelProps {
-  data: PriceData[];
   symbol: string;
+  pricesMap: Partial<Record<Period, PriceData[]>>;
+  fetchPricesForPeriod: (period: Period) => Promise<void>;
+  loadingMap: Partial<Record<Period, boolean>>;
 }
 
-export default function BacktestPanel({ data, symbol }: BacktestPanelProps) {
+export default function BacktestPanel({ symbol, pricesMap, fetchPricesForPeriod, loadingMap }: BacktestPanelProps) {
   const [selectedStrategyId, setSelectedStrategyId] = useState(strategies[0].id);
   const [paramValues, setParamValues] = useState<Record<string, number>>({});
   const [capital, setCapital] = useState(1000000);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [result, setResult] = useState<BacktestResult | null>(null);
-  const [showTrades, setShowTrades] = useState(false);
+  const [results, setResults] = useState<Partial<Record<BacktestPeriod, BacktestResult>>>({});
+  const [showTrades, setShowTrades] = useState<Partial<Record<BacktestPeriod, boolean>>>({});
 
-  // データの日付範囲
+  // 期間選択（複数可）
+  const [selectedPeriods, setSelectedPeriods] = useState<BacktestPeriod[]>(["daily"]);
+
+  const togglePeriod = (period: BacktestPeriod) => {
+    setSelectedPeriods((prev) => {
+      if (prev.includes(period)) {
+        if (prev.length <= 1) return prev; // 最低1つ
+        return prev.filter((p) => p !== period);
+      }
+      return [...prev, period].sort((a, b) =>
+        BACKTEST_PERIODS.findIndex((p) => p.value === a) - BACKTEST_PERIODS.findIndex((p) => p.value === b)
+      );
+    });
+  };
+
+  // 選択された期間のデータが未取得なら自動fetch
+  useEffect(() => {
+    for (const p of selectedPeriods) {
+      if (pricesMap[p] === undefined && !loadingMap[p]) {
+        fetchPricesForPeriod(p);
+      }
+    }
+  }, [selectedPeriods, pricesMap, loadingMap, fetchPricesForPeriod]);
+
+  // 各期間のフィルタ済みデータ
+  const filteredDataMap = useMemo(() => {
+    const map: Partial<Record<BacktestPeriod, PriceData[]>> = {};
+    for (const p of selectedPeriods) {
+      let d = pricesMap[p] ?? [];
+      if (startDate) d = d.filter((row) => row.date >= startDate);
+      if (endDate) d = d.filter((row) => row.date <= endDate);
+      map[p] = d;
+    }
+    return map;
+  }, [selectedPeriods, pricesMap, startDate, endDate]);
+
+  // データの日付範囲（全期間の最大範囲）
   const dataRange = useMemo(() => {
-    if (data.length === 0) return { first: "", last: "" };
-    return { first: data[0].date, last: data[data.length - 1].date };
-  }, [data]);
-
-  // 期間フィルタ適用後のデータ
-  const filteredData = useMemo(() => {
-    let d = data;
-    if (startDate) d = d.filter((p) => p.date >= startDate);
-    if (endDate) d = d.filter((p) => p.date <= endDate);
-    return d;
-  }, [data, startDate, endDate]);
+    let first = "", last = "";
+    for (const p of selectedPeriods) {
+      const d = pricesMap[p] ?? [];
+      if (d.length === 0) continue;
+      if (!first || d[0].date < first) first = d[0].date;
+      if (!last || d[d.length - 1].date > last) last = d[d.length - 1].date;
+    }
+    return { first, last };
+  }, [selectedPeriods, pricesMap]);
 
   const strategy = useMemo(
     () => strategies.find((s) => s.id === selectedStrategyId) ?? strategies[0],
@@ -54,7 +97,7 @@ export default function BacktestPanel({ data, symbol }: BacktestPanelProps) {
   const handleStrategyChange = useCallback(
     (id: string) => {
       setSelectedStrategyId(id);
-      setResult(null);
+      setResults({});
       const strat = strategies.find((s) => s.id === id);
       if (strat) {
         const defaults: Record<string, number> = {};
@@ -78,16 +121,29 @@ export default function BacktestPanel({ data, symbol }: BacktestPanelProps) {
   }, []);
 
   const handleRun = () => {
-    if (filteredData.length === 0) return;
-    const r = runBacktest(filteredData, strategy, paramValues, capital);
-    setResult(r);
+    const newResults: Partial<Record<BacktestPeriod, BacktestResult>> = {};
+    for (const p of selectedPeriods) {
+      const d = filteredDataMap[p] ?? [];
+      if (d.length === 0) continue;
+      newResults[p] = runBacktest(d, strategy, paramValues, capital);
+    }
+    setResults(newResults);
   };
 
-  // Buy & Hold比較用
-  const buyHoldReturn = useMemo(() => {
-    if (filteredData.length < 2) return 0;
-    return ((filteredData[filteredData.length - 1].close - filteredData[0].close) / filteredData[0].close) * 100;
-  }, [filteredData]);
+  // Buy & Hold比較用（各期間）
+  const buyHoldReturns = useMemo(() => {
+    const map: Partial<Record<BacktestPeriod, number>> = {};
+    for (const p of selectedPeriods) {
+      const d = filteredDataMap[p] ?? [];
+      if (d.length < 2) { map[p] = 0; continue; }
+      map[p] = ((d[d.length - 1].close - d[0].close) / d[0].close) * 100;
+    }
+    return map;
+  }, [selectedPeriods, filteredDataMap]);
+
+  const isLoading = selectedPeriods.some((p) => loadingMap[p]);
+  const hasData = selectedPeriods.some((p) => (filteredDataMap[p] ?? []).length > 0);
+  const hasResults = Object.keys(results).length > 0;
 
   return (
     <div className="space-y-4">
@@ -116,6 +172,36 @@ export default function BacktestPanel({ data, symbol }: BacktestPanelProps) {
           <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
             {strategy.description}
           </p>
+        </div>
+
+        {/* 期間（日足/週足）選択 */}
+        <div className="mb-3">
+          <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-slate-300">
+            時間軸
+          </label>
+          <div className="flex gap-2">
+            {BACKTEST_PERIODS.map((p) => {
+              const isActive = selectedPeriods.includes(p.value);
+              const isLoadingPeriod = loadingMap[p.value];
+              return (
+                <button
+                  key={p.value}
+                  onClick={() => togglePeriod(p.value)}
+                  className={`rounded px-4 py-1.5 text-sm font-medium transition ${
+                    isActive
+                      ? "bg-emerald-500 text-white"
+                      : "bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-600"
+                  }`}
+                >
+                  {p.label}
+                  {isLoadingPeriod && " ..."}
+                </button>
+              );
+            })}
+            <span className="flex items-center text-xs text-gray-400 dark:text-slate-500">
+              (複数選択で比較)
+            </span>
+          </div>
         </div>
 
         {/* パラメータ */}
@@ -200,45 +286,72 @@ export default function BacktestPanel({ data, symbol }: BacktestPanelProps) {
         </div>
 
         {/* 実行ボタン */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={handleRun}
-            disabled={filteredData.length === 0}
+            disabled={!hasData || isLoading}
             className="rounded-lg bg-emerald-500 px-5 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-50 transition"
           >
-            バックテスト実行
+            {isLoading ? "データ取得中..." : "バックテスト実行"}
           </button>
-          <span className="text-xs text-gray-400 dark:text-slate-500">
-            データ: {filteredData.length}本{filteredData.length !== data.length && ` (全${data.length}本中)`}
-          </span>
+          <div className="flex flex-wrap gap-2 text-xs text-gray-400 dark:text-slate-500">
+            {selectedPeriods.map((p) => {
+              const d = filteredDataMap[p] ?? [];
+              const total = pricesMap[p]?.length ?? 0;
+              const label = BACKTEST_PERIODS.find((bp) => bp.value === p)?.label ?? p;
+              return (
+                <span key={p}>
+                  {label}: {d.length}本{d.length !== total && ` (全${total}本中)`}
+                </span>
+              );
+            })}
+          </div>
         </div>
       </div>
 
       {/* 結果表示 */}
-      {result && (
-        <>
-          {/* サマリーカード */}
-          <StatsGrid result={result} buyHoldReturn={buyHoldReturn} />
+      {hasResults && (
+        <div className={selectedPeriods.length > 1 ? "grid gap-4 grid-cols-1 xl:grid-cols-2" : ""}>
+          {selectedPeriods.map((period) => {
+            const r = results[period];
+            if (!r) return null;
+            const periodLabel = BACKTEST_PERIODS.find((p) => p.value === period)?.label ?? period;
+            const bh = buyHoldReturns[period] ?? 0;
+            const tradesVisible = showTrades[period] ?? false;
+            return (
+              <div key={period} className="space-y-4">
+                {/* 期間ヘッダ（複数選択時のみ表示） */}
+                {selectedPeriods.length > 1 && (
+                  <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 text-sm font-semibold text-emerald-800 dark:text-emerald-400">
+                    {periodLabel}
+                  </div>
+                )}
 
-          {/* エクイティカーブ */}
-          <EquityCurve result={result} />
+                {/* サマリーカード */}
+                <StatsGrid result={r} buyHoldReturn={bh} />
 
-          {/* 取引履歴 */}
-          <div className="rounded-lg bg-white dark:bg-slate-800 p-4 shadow dark:shadow-slate-900/50">
-            <div className="mb-2 flex items-center justify-between">
-              <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
-                取引履歴 ({result.trades.length}件)
-              </h4>
-              <button
-                onClick={() => setShowTrades((v) => !v)}
-                className="text-xs text-blue-500 hover:underline"
-              >
-                {showTrades ? "閉じる" : "展開"}
-              </button>
-            </div>
-            {showTrades && <TradeTable trades={result.trades} />}
-          </div>
-        </>
+                {/* エクイティカーブ */}
+                <EquityCurve result={r} />
+
+                {/* 取引履歴 */}
+                <div className="rounded-lg bg-white dark:bg-slate-800 p-4 shadow dark:shadow-slate-900/50">
+                  <div className="mb-2 flex items-center justify-between">
+                    <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                      取引履歴 ({r.trades.length}件)
+                    </h4>
+                    <button
+                      onClick={() => setShowTrades((v) => ({ ...v, [period]: !tradesVisible }))}
+                      className="text-xs text-blue-500 hover:underline"
+                    >
+                      {tradesVisible ? "閉じる" : "展開"}
+                    </button>
+                  </div>
+                  {tradesVisible && <TradeTable trades={r.trades} />}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

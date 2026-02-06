@@ -21,7 +21,9 @@ export async function GET(request: NextRequest) {
     // キャッシュ確認
     const cached = getCachedPrices(symbol, period, market as "JP" | "US");
     if (cached) {
-      return NextResponse.json({ prices: cached, quote: null, cached: true });
+      // キャッシュヒットでも現在値は常に取得
+      const quote = await getQuote(symbol).catch(() => null);
+      return NextResponse.json({ prices: cached, quote, cached: true });
     }
 
     // 株価データと現在値を並列取得
