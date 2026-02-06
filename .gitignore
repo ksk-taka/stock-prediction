@@ -40,6 +40,13 @@ yarn-error.log*
 # cache
 /.cache/
 
+# auto-generated data files
+data/notified-signals.json
+data/notification-config.json
+data/order-history.json
+data/batch-progress.json
+data/signal-validation-progress.json
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

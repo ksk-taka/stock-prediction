@@ -220,7 +220,7 @@ export default function StockCard({
                 </span>
               )}
               <span className="text-gray-400 dark:text-slate-500">
-                {a.signal.buyDate.slice(5).replace(/-/g, "/")}
+                {a.signal.buyDate.slice(2).replace(/-/g, "/")}
               </span>
               <span className={`ml-auto font-bold ${isProfit ? "text-green-600" : "text-red-500"}`}>
                 {isProfit ? "+" : ""}{a.signal.pnlPct.toFixed(1)}%

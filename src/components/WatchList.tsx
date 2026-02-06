@@ -40,6 +40,31 @@ export interface SignalSummary {
   validations?: Record<string, SignalValidation>;
 }
 
+interface FilterPreset {
+  name: string;
+  sectors: string[];
+  strategies: string[];
+  signalAgeDays: number | null;
+  decision: string | null;
+  judgment: string | null;
+}
+
+const PRESETS_KEY = "watchlist-filter-presets";
+
+function loadPresets(): FilterPreset[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(PRESETS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function savePresets(presets: FilterPreset[]) {
+  localStorage.setItem(PRESETS_KEY, JSON.stringify(presets));
+}
+
 export default function WatchList() {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [quotes, setQuotes] = useState<Record<string, StockQuote>>({});
@@ -51,6 +76,13 @@ export default function WatchList() {
   const [selectedStrategies, setSelectedStrategies] = useState<Set<string>>(new Set());
   const [signalAgeDays, setSignalAgeDays] = useState<number | null>(null); // null=全期間
   const [selectedDecision, setSelectedDecision] = useState<string | null>(null); // "entry" | "wait" | "avoid" | null
+  const [selectedJudgment, setSelectedJudgment] = useState<string | null>(null); // "bullish" | "neutral" | "bearish" | null
+  const [filterPresets, setFilterPresets] = useState<FilterPreset[]>([]);
+  const [activePresetName, setActivePresetName] = useState<string | null>(null);
+
+  useEffect(() => {
+    setFilterPresets(loadPresets());
+  }, []);
 
   const fetchWatchlist = useCallback(async () => {
     try {
@@ -231,13 +263,23 @@ export default function WatchList() {
       });
       if (!match) return false;
     }
-    // Go/No Go フィルタ
+    // Go/No Go フィルタ（アクティブシグナルに紐づくvalidationのみ対象）
     if (selectedDecision !== null) {
       const sig = signals[stock.symbol];
       const validations = sig?.validations;
       if (!validations) return false;
-      const match = Object.values(validations).some((v) => v.decision === selectedDecision);
+      const activeStrategyIds = new Set([
+        ...(sig?.activeSignals?.daily ?? []).map((a) => a.strategyId),
+        ...(sig?.activeSignals?.weekly ?? []).map((a) => a.strategyId),
+      ]);
+      const match = Object.entries(validations).some(
+        ([stratId, v]) => activeStrategyIds.has(stratId) && v.decision === selectedDecision
+      );
       if (!match) return false;
+    }
+    // ファンダ判定フィルタ
+    if (selectedJudgment !== null) {
+      if (stock.fundamental?.judgment !== selectedJudgment) return false;
     }
     return true;
   });
@@ -260,7 +302,40 @@ export default function WatchList() {
     });
   };
 
-  const hasAnyFilter = selectedSectors.size > 0 || selectedStrategies.size > 0 || signalAgeDays !== null || selectedDecision !== null;
+  const hasAnyFilter = selectedSectors.size > 0 || selectedStrategies.size > 0 || signalAgeDays !== null || selectedDecision !== null || selectedJudgment !== null;
+
+  const handleSavePreset = () => {
+    const name = prompt("フィルタ名を入力してください");
+    if (!name?.trim()) return;
+    const preset: FilterPreset = {
+      name: name.trim(),
+      sectors: Array.from(selectedSectors),
+      strategies: Array.from(selectedStrategies),
+      signalAgeDays,
+      decision: selectedDecision,
+      judgment: selectedJudgment,
+    };
+    const next = [...filterPresets.filter((p) => p.name !== preset.name), preset];
+    setFilterPresets(next);
+    savePresets(next);
+    setActivePresetName(preset.name);
+  };
+
+  const handleApplyPreset = (preset: FilterPreset) => {
+    setSelectedSectors(new Set(preset.sectors));
+    setSelectedStrategies(new Set(preset.strategies));
+    setSignalAgeDays(preset.signalAgeDays);
+    setSelectedDecision(preset.decision);
+    setSelectedJudgment(preset.judgment);
+    setActivePresetName(preset.name);
+  };
+
+  const handleDeletePreset = (name: string) => {
+    const next = filterPresets.filter((p) => p.name !== name);
+    setFilterPresets(next);
+    savePresets(next);
+    if (activePresetName === name) setActivePresetName(null);
+  };
 
   if (loading) {
     return (
@@ -294,6 +369,36 @@ export default function WatchList() {
       {/* フィルター */}
       {stocks.length > 0 && (
         <div className="mb-4 space-y-3">
+          {/* 保存済みプリセット */}
+          {filterPresets.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium text-gray-500 dark:text-slate-400">プリセット:</span>
+              {filterPresets.map((preset) => (
+                <span key={preset.name} className="inline-flex items-center gap-0.5">
+                  <button
+                    onClick={() => handleApplyPreset(preset)}
+                    className={`rounded-l-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                      activePresetName === preset.name
+                        ? "border-purple-400 bg-purple-50 text-purple-700 dark:border-purple-500 dark:bg-purple-900/30 dark:text-purple-300"
+                        : "border-gray-300 bg-white text-gray-500 hover:border-gray-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-500"
+                    }`}
+                  >
+                    {preset.name}
+                  </button>
+                  <button
+                    onClick={() => handleDeletePreset(preset.name)}
+                    className={`rounded-r-full border border-l-0 px-1.5 py-0.5 text-xs transition-colors ${
+                      activePresetName === preset.name
+                        ? "border-purple-400 bg-purple-50 text-purple-400 hover:text-purple-600 dark:border-purple-500 dark:bg-purple-900/30 dark:text-purple-400 dark:hover:text-purple-200"
+                        : "border-gray-300 bg-white text-gray-300 hover:text-gray-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-500 dark:hover:text-slate-300"
+                    }`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
           {/* 保有中シグナル（戦略別）フィルタ */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-medium text-gray-500 dark:text-slate-400">保有中:</span>
@@ -322,10 +427,18 @@ export default function WatchList() {
                     setSelectedStrategies(new Set());
                     setSignalAgeDays(null);
                     setSelectedDecision(null);
+                    setSelectedJudgment(null);
+                    setActivePresetName(null);
                   }}
                   className="ml-1 text-xs text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300"
                 >
                   フィルタ解除
+                </button>
+                <button
+                  onClick={handleSavePreset}
+                  className="text-xs text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300"
+                >
+                  保存
                 </button>
                 <span className="text-xs text-gray-400 dark:text-slate-500">
                   {filteredStocks.length}/{stocks.length}件
@@ -370,6 +483,29 @@ export default function WatchList() {
                   onClick={() => setSelectedDecision(selectedDecision === value ? null : value)}
                   className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
                     selectedDecision === value
+                      ? activeClass
+                      : "border-gray-300 bg-white text-gray-500 hover:border-gray-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-500"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+          {/* ファンダ判定フィルタ */}
+          {stocks.some((s) => s.fundamental?.judgment) && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium text-gray-500 dark:text-slate-400">ファンダ:</span>
+              {([
+                { label: "▲強気", value: "bullish", activeClass: "border-green-400 bg-green-50 text-green-700 dark:border-green-500 dark:bg-green-900/30 dark:text-green-300" },
+                { label: "◆中立", value: "neutral", activeClass: "border-yellow-400 bg-yellow-50 text-yellow-700 dark:border-yellow-500 dark:bg-yellow-900/30 dark:text-yellow-300" },
+                { label: "▼弱気", value: "bearish", activeClass: "border-red-400 bg-red-50 text-red-700 dark:border-red-500 dark:bg-red-900/30 dark:text-red-300" },
+              ] as const).map(({ label, value, activeClass }) => (
+                <button
+                  key={value}
+                  onClick={() => setSelectedJudgment(selectedJudgment === value ? null : value)}
+                  className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                    selectedJudgment === value
                       ? activeClass
                       : "border-gray-300 bg-white text-gray-500 hover:border-gray-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-500"
                   }`}
