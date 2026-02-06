@@ -229,7 +229,8 @@ export default function StockCard({
         const weeklySigs = activeSignals.filter((a) => a.period === "週足").sort((a, b) => b.signal.buyDate.localeCompare(a.signal.buyDate));
         const renderSignal = (a: { period: string; signal: ActiveSignalInfo }) => {
           const isProfit = a.signal.pnlPct >= 0;
-          const validation = signals?.validations?.[a.signal.strategyId];
+          const validationCompositeKey = `${a.signal.strategyId}_${a.period === "日足" ? "daily" : "weekly"}_${a.signal.buyDate}`;
+          const validation = signals?.validations?.[validationCompositeKey] ?? signals?.validations?.[a.signal.strategyId];
           return (
             <div key={`${a.period}-${a.signal.strategyId}`} className="flex items-center gap-1 text-[10px]">
               <span className={`shrink-0 rounded px-1 py-0.5 font-bold ${strategyBadgeClass(a.signal.strategyId)}`}>

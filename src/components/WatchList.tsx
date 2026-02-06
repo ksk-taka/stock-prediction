@@ -45,6 +45,7 @@ interface FilterPreset {
   sectors: string[];
   strategies: string[];
   segments: string[];
+  signalFilterMode?: "or" | "and";
   signalAgeDays: number | null;
   decision: string | null;
   judgment: string | null;
@@ -80,6 +81,7 @@ export default function WatchList() {
   const [selectedSectors, setSelectedSectors] = useState<Set<string>>(new Set());
   const [selectedStrategies, setSelectedStrategies] = useState<Set<string>>(new Set());
   const [selectedSegments, setSelectedSegments] = useState<Set<string>>(new Set());
+  const [signalFilterMode, setSignalFilterMode] = useState<"or" | "and">("or");
   const [signalAgeDays, setSignalAgeDays] = useState<number | null>(null);
   const [selectedDecision, setSelectedDecision] = useState<string | null>(null);
   const [selectedJudgment, setSelectedJudgment] = useState<string | null>(null);
@@ -91,8 +93,12 @@ export default function WatchList() {
 
   // 可視カード追跡（自動更新用）
   const visibleSymbolsRef = useRef<Set<string>>(new Set());
-  // データ取得済みシンボル追跡
+  // データ取得済みシンボル追跡（price/stats/validation）
   const fetchedSymbolsRef = useRef<Set<string>>(new Set());
+  // シグナルデータ取得済み追跡（インデックスから読み込み or API取得）
+  const signalsFetchedRef = useRef<Set<string>>(new Set());
+  // スキャン済み件数
+  const [signalScannedCount, setSignalScannedCount] = useState(0);
 
   useEffect(() => {
     setFilterPresets(loadPresets());
@@ -101,7 +107,7 @@ export default function WatchList() {
   // フィルタ変更時に表示件数をリセット
   useEffect(() => {
     setDisplayCount(PAGE_SIZE);
-  }, [searchQuery, selectedSectors, selectedStrategies, selectedSegments, signalAgeDays, selectedDecision, selectedJudgment]);
+  }, [searchQuery, selectedSectors, selectedStrategies, selectedSegments, signalFilterMode, signalAgeDays, selectedDecision, selectedJudgment]);
 
   const fetchWatchlist = useCallback(async () => {
     try {
@@ -119,18 +125,74 @@ export default function WatchList() {
     fetchWatchlist();
   }, [fetchWatchlist]);
 
+  // キャッシュ済みシグナル＋バリデーションインデックスを一括読み込み（起動時）
+  useEffect(() => {
+    if (stocks.length === 0) return;
+    const loadIndices = async () => {
+      try {
+        const [sigRes, valRes] = await Promise.all([
+          fetch("/api/signals/index"),
+          fetch("/api/fundamental/validations-index"),
+        ]);
+
+        const merged: Record<string, SignalSummary> = {};
+
+        // シグナルインデックス
+        if (sigRes.ok) {
+          const sigData = await sigRes.json();
+          if (sigData.signals) {
+            for (const [symbol, value] of Object.entries(sigData.signals)) {
+              merged[symbol] = value as SignalSummary;
+              signalsFetchedRef.current.add(symbol);
+            }
+            setSignalScannedCount(sigData.scannedCount ?? 0);
+          }
+        }
+
+        // バリデーションインデックス
+        if (valRes.ok) {
+          const valData = await valRes.json();
+          if (valData.validations) {
+            for (const [symbol, vals] of Object.entries(valData.validations)) {
+              if (!merged[symbol]) merged[symbol] = {};
+              merged[symbol] = {
+                ...merged[symbol],
+                validations: vals as Record<string, SignalValidation>,
+              };
+            }
+          }
+        }
+
+        setSignals((prev) => ({ ...prev, ...merged }));
+      } catch {
+        // ignore
+      }
+    };
+    loadIndices();
+  }, [stocks]);
+
   // 個別銘柄データ取得（遅延ロード用）
   const fetchDataForSymbol = useCallback(async (symbol: string) => {
     if (fetchedSymbolsRef.current.has(symbol)) return;
     fetchedSymbolsRef.current.add(symbol);
 
-    const [priceRes, statsRes, sigRes, valRes] = await Promise.allSettled([
+    // シグナルがインデックスから読み込み済みなら、price/stats/validationのみ取得
+    const needsSignals = !signalsFetchedRef.current.has(symbol);
+
+    const fetches: Promise<Response>[] = [
       fetch(`/api/price?symbol=${encodeURIComponent(symbol)}&period=daily`),
       fetch(`/api/stats?symbol=${encodeURIComponent(symbol)}`),
-      fetch(`/api/signals?symbol=${encodeURIComponent(symbol)}`),
-      fetch(`/api/fundamental?symbol=${encodeURIComponent(symbol)}&step=validations`),
-    ]);
+    ];
+    if (needsSignals) {
+      fetches.push(fetch(`/api/signals?symbol=${encodeURIComponent(symbol)}`));
+    }
+    fetches.push(fetch(`/api/fundamental?symbol=${encodeURIComponent(symbol)}&step=validations`));
 
+    const results = await Promise.allSettled(fetches);
+    let idx = 0;
+
+    // price
+    const priceRes = results[idx++];
     if (priceRes.status === "fulfilled" && priceRes.value.ok) {
       const data = await priceRes.value.json();
       if (data.quote) {
@@ -145,6 +207,8 @@ export default function WatchList() {
       }
     }
 
+    // stats
+    const statsRes = results[idx++];
     if (statsRes.status === "fulfilled" && statsRes.value.ok) {
       const data = await statsRes.value.json();
       setStats((prev) => ({
@@ -158,18 +222,36 @@ export default function WatchList() {
       }));
     }
 
-    const summary: SignalSummary = {};
-    if (sigRes.status === "fulfilled" && sigRes.value.ok) {
-      const data = await sigRes.value.json();
-      summary.activeSignals = data.activeSignals;
+    // signals (only if not from index)
+    if (needsSignals) {
+      const sigRes = results[idx++];
+      if (sigRes.status === "fulfilled" && sigRes.value.ok) {
+        const data = await sigRes.value.json();
+        setSignals((prev) => ({
+          ...prev,
+          [symbol]: {
+            ...prev[symbol],
+            activeSignals: data.activeSignals,
+          },
+        }));
+        signalsFetchedRef.current.add(symbol);
+      }
     }
+
+    // validations
+    const valRes = results[idx++];
     if (valRes.status === "fulfilled" && valRes.value.ok) {
       const data = await valRes.value.json();
       if (data.validations && Object.keys(data.validations).length > 0) {
-        summary.validations = data.validations;
+        setSignals((prev) => ({
+          ...prev,
+          [symbol]: {
+            ...prev[symbol],
+            validations: data.validations,
+          },
+        }));
       }
     }
-    setSignals((prev) => ({ ...prev, [symbol]: summary }));
   }, []);
 
   // カード可視状態管理
@@ -277,7 +359,7 @@ export default function WatchList() {
       const match = stock.sectors?.some((s) => selectedSectors.has(s));
       if (!match) return false;
     }
-    // 保有中シグナル（戦略 × 検知日 AND条件）フィルタ
+    // 保有中シグナル（戦略 × 検知日）フィルタ
     if (selectedStrategies.size > 0 || signalAgeDays !== null) {
       const sig = signals[stock.symbol];
       const allSignals = [
@@ -288,24 +370,44 @@ export default function WatchList() {
       const cutoffStr = signalAgeDays !== null
         ? (() => { const d = new Date(); d.setDate(d.getDate() - signalAgeDays); return d.toISOString().slice(0, 10); })()
         : null;
-      const match = allSignals.some((a) => {
-        if (selectedStrategies.size > 0 && !selectedStrategies.has(a.strategyId)) return false;
-        if (cutoffStr && a.buyDate < cutoffStr) return false;
-        return true;
-      });
-      if (!match) return false;
+
+      if (signalFilterMode === "and" && selectedStrategies.size > 0) {
+        // AND: 選択した全戦略がアクティブシグナルに存在する
+        const activeStratIds = new Set(
+          allSignals
+            .filter((a) => !cutoffStr || a.buyDate >= cutoffStr)
+            .map((a) => a.strategyId)
+        );
+        for (const stratId of selectedStrategies) {
+          if (!activeStratIds.has(stratId)) return false;
+        }
+      } else {
+        // OR: いずれかの戦略がマッチ
+        const match = allSignals.some((a) => {
+          if (selectedStrategies.size > 0 && !selectedStrategies.has(a.strategyId)) return false;
+          if (cutoffStr && a.buyDate < cutoffStr) return false;
+          return true;
+        });
+        if (!match) return false;
+      }
     }
     // Go/No Go フィルタ
     if (selectedDecision !== null) {
       const sig = signals[stock.symbol];
       const validations = sig?.validations;
       if (!validations) return false;
-      const activeStrategyIds = new Set([
+      const activeCompositeKeys = new Set([
+        ...(sig?.activeSignals?.daily ?? []).map((a) => `${a.strategyId}_daily_${a.buyDate}`),
+        ...(sig?.activeSignals?.weekly ?? []).map((a) => `${a.strategyId}_weekly_${a.buyDate}`),
+      ]);
+      const activeSimpleIds = new Set([
         ...(sig?.activeSignals?.daily ?? []).map((a) => a.strategyId),
         ...(sig?.activeSignals?.weekly ?? []).map((a) => a.strategyId),
       ]);
       const match = Object.entries(validations).some(
-        ([stratId, v]) => activeStrategyIds.has(stratId) && v.decision === selectedDecision
+        ([stratId, v]) =>
+          (activeCompositeKeys.has(stratId) || activeSimpleIds.has(stratId)) &&
+          v.decision === selectedDecision
       );
       if (!match) return false;
     }
@@ -347,13 +449,14 @@ export default function WatchList() {
     });
   };
 
-  const hasAnyFilter = searchQuery !== "" || selectedSectors.size > 0 || selectedStrategies.size > 0 || selectedSegments.size > 0 || signalAgeDays !== null || selectedDecision !== null || selectedJudgment !== null;
+  const hasAnyFilter = searchQuery !== "" || selectedSectors.size > 0 || selectedStrategies.size > 0 || selectedSegments.size > 0 || signalAgeDays !== null || selectedDecision !== null || selectedJudgment !== null || signalFilterMode !== "or";
 
   const clearAllFilters = () => {
     setSearchQuery("");
     setSelectedSectors(new Set());
     setSelectedStrategies(new Set());
     setSelectedSegments(new Set());
+    setSignalFilterMode("or");
     setSignalAgeDays(null);
     setSelectedDecision(null);
     setSelectedJudgment(null);
@@ -368,6 +471,7 @@ export default function WatchList() {
       sectors: Array.from(selectedSectors),
       strategies: Array.from(selectedStrategies),
       segments: Array.from(selectedSegments),
+      signalFilterMode: signalFilterMode !== "or" ? signalFilterMode : undefined,
       signalAgeDays,
       decision: selectedDecision,
       judgment: selectedJudgment,
@@ -382,6 +486,7 @@ export default function WatchList() {
     setSelectedSectors(new Set(preset.sectors));
     setSelectedStrategies(new Set(preset.strategies));
     setSelectedSegments(new Set(preset.segments ?? []));
+    setSignalFilterMode(preset.signalFilterMode ?? "or");
     setSignalAgeDays(preset.signalAgeDays);
     setSelectedDecision(preset.decision);
     setSelectedJudgment(preset.judgment);
@@ -502,21 +607,43 @@ export default function WatchList() {
 
           {/* 保有中シグナル（戦略別）フィルタ */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-gray-500 dark:text-slate-400">保有中:</span>
+            <span className="text-xs font-medium text-gray-500 dark:text-slate-400">
+              保有中
+              {signalScannedCount > 0 && (
+                <span className="ml-1 font-normal text-gray-400 dark:text-slate-500">
+                  ({signalScannedCount}/{stocks.length}スキャン済)
+                </span>
+              )}
+              :
+            </span>
             {allActiveStrategies.length > 0 ? (
-              allActiveStrategies.map(([id, name]) => (
-                <button
-                  key={id}
-                  onClick={() => toggleStrategy(id)}
-                  className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
-                    selectedStrategies.has(id)
-                      ? "border-amber-400 bg-amber-50 text-amber-700 dark:border-amber-500 dark:bg-amber-900/30 dark:text-amber-300"
-                      : "border-gray-300 bg-white text-gray-500 hover:border-gray-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-500"
-                  }`}
-                >
-                  {name}
-                </button>
-              ))
+              <>
+                {allActiveStrategies.map(([id, name]) => (
+                  <button
+                    key={id}
+                    onClick={() => toggleStrategy(id)}
+                    className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                      selectedStrategies.has(id)
+                        ? "border-amber-400 bg-amber-50 text-amber-700 dark:border-amber-500 dark:bg-amber-900/30 dark:text-amber-300"
+                        : "border-gray-300 bg-white text-gray-500 hover:border-gray-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-500"
+                    }`}
+                  >
+                    {name}
+                  </button>
+                ))}
+                {selectedStrategies.size >= 2 && (
+                  <button
+                    onClick={() => setSignalFilterMode((m) => (m === "or" ? "and" : "or"))}
+                    className={`rounded-full border px-2 py-0.5 text-xs font-bold transition-colors ${
+                      signalFilterMode === "and"
+                        ? "border-orange-400 bg-orange-50 text-orange-700 dark:border-orange-500 dark:bg-orange-900/30 dark:text-orange-300"
+                        : "border-gray-300 bg-white text-gray-500 hover:border-gray-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-500"
+                    }`}
+                  >
+                    {signalFilterMode === "and" ? "AND" : "OR"}
+                  </button>
+                )}
+              </>
             ) : (
               <span className="text-xs text-gray-400 dark:text-slate-500">なし</span>
             )}
@@ -590,28 +717,26 @@ export default function WatchList() {
           )}
 
           {/* ファンダ判定フィルタ */}
-          {stocks.some((s) => s.fundamental?.judgment) && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-medium text-gray-500 dark:text-slate-400">ファンダ:</span>
-              {([
-                { label: "▲強気", value: "bullish", activeClass: "border-green-400 bg-green-50 text-green-700 dark:border-green-500 dark:bg-green-900/30 dark:text-green-300" },
-                { label: "◆中立", value: "neutral", activeClass: "border-yellow-400 bg-yellow-50 text-yellow-700 dark:border-yellow-500 dark:bg-yellow-900/30 dark:text-yellow-300" },
-                { label: "▼弱気", value: "bearish", activeClass: "border-red-400 bg-red-50 text-red-700 dark:border-red-500 dark:bg-red-900/30 dark:text-red-300" },
-              ] as const).map(({ label, value, activeClass }) => (
-                <button
-                  key={value}
-                  onClick={() => setSelectedJudgment(selectedJudgment === value ? null : value)}
-                  className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
-                    selectedJudgment === value
-                      ? activeClass
-                      : "border-gray-300 bg-white text-gray-500 hover:border-gray-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-500"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-gray-500 dark:text-slate-400">ファンダ:</span>
+            {([
+              { label: "▲強気", value: "bullish", activeClass: "border-green-400 bg-green-50 text-green-700 dark:border-green-500 dark:bg-green-900/30 dark:text-green-300" },
+              { label: "◆中立", value: "neutral", activeClass: "border-yellow-400 bg-yellow-50 text-yellow-700 dark:border-yellow-500 dark:bg-yellow-900/30 dark:text-yellow-300" },
+              { label: "▼弱気", value: "bearish", activeClass: "border-red-400 bg-red-50 text-red-700 dark:border-red-500 dark:bg-red-900/30 dark:text-red-300" },
+            ] as const).map(({ label, value, activeClass }) => (
+              <button
+                key={value}
+                onClick={() => setSelectedJudgment(selectedJudgment === value ? null : value)}
+                className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                  selectedJudgment === value
+                    ? activeClass
+                    : "border-gray-300 bg-white text-gray-500 hover:border-gray-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-500"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
           {/* セクターフィルタ */}
           <div className="flex flex-wrap gap-1.5">

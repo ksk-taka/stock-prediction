@@ -7,7 +7,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "水産・農林業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "極洋の現在のPBRはROEの実力に見合っているが、経営陣のROE向上への取り組みは不明瞭であり、成長エンジンも不明確である。フリーキャッシュフローのマイナス幅拡大は成長性の低さを示唆している。したがって、投資判断は中立とし、将来的に事業が縮小するリスクにも注意が必要である。",
+        "analyzedAt": "2026-02-06T23:21:28.870Z"
+      }
     },
     {
       "symbol": "130A.T",
@@ -16,7 +21,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "医薬品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "bearish",
+        "memo": "Veritas In Silicoの業績は悪化傾向にあり、ROEの向上シナリオも見えません。経営陣の具体的なアクションも見られず、成長エンジンも見えません。業績下押しリスクや研究開発進捗遅延による通期営業損失の増加も懸念されます。したがって、投資価値は低いと判断されます。",
+        "analyzedAt": "2026-02-06T23:21:28.304Z"
+      }
     },
     {
       "symbol": "1332.T",
@@ -26,7 +36,12 @@
       "sectors": [
         "水産・農林業",
         "日経225"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "ニッスイの現在の評価は、ROEの実力に寄ると考えられ妥当と言えるが、成長エンジンや経営陣の具体的なアクションが不明であることから、投資判断は中立的とされる。将来的に事業が縮小するリスクや市場の誤解による評価低迷が続くリスクもあるため、注意が必要である。",
+        "analyzedAt": "2026-02-06T23:21:28.357Z"
+      }
     },
     {
       "symbol": "1333.T",
@@ -54,7 +69,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "水産・農林業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "ユキグニファクトリーの投資価値は中立的な見方が妥当である。PBRは低水準だが、低収益・成長性なしによる妥当な評価である。経営陣の本気度は不明で、具体的なアクションが見られない。主力きのこ事業の伸びしろは不明で、新たな成長エンジンは見られない。業績下押しリスクが存在するため、投資家は慎重な判断が必要である。",
+        "analyzedAt": "2026-02-06T23:21:28.425Z"
+      }
     },
     {
       "symbol": "1376.T",
@@ -72,7 +92,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "水産・農林業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "bullish",
+        "memo": "サカタのタネの株価は、PBRが低い理由は市場の誤解であると考えられ、業績は堅調で成長要因がある。ROE向上のシナリオとして、分子（利益）を増やす成長エンジンはあるが、分母（資本）を減らす還元アクションはなし。バリュートラップのリスクは低いと考えられ、投資価値があると判断される。",
+        "analyzedAt": "2026-02-06T23:21:28.624Z"
+      }
     },
     {
       "symbol": "1379.T",
@@ -90,7 +115,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "bearish",
+        "memo": "Cocoliveの業績予想の大幅下方修正と成長率の鈍化により、市場の評価が下方修正された。経営陣の対応が不十分で、具体的な成長エンジンも見当たらない。上場廃止リスクも潜在的に存在するため、投資家は慎重な判断が必要である。",
+        "analyzedAt": "2026-02-06T23:21:30.262Z"
+      }
     },
     {
       "symbol": "1380.T",
@@ -99,7 +129,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "水産・農林業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "秋川牧園の現在のPBRは理論株価とほぼ妥当水準だが、PERは高水準。ROEは低水準で、経営陣の本気度と具体的なアクションが不明。冷凍食品の好調は成長エンジンとなる可能性があるが、業績悪化継続と原材料費・人件費上昇圧力がリスク要因となる。中期経営計画・ROE目標値の開示と自社株買い・増配の実施が期待される。",
+        "analyzedAt": "2026-02-06T23:21:29.828Z"
+      }
     },
     {
       "symbol": "1381.T",
@@ -117,7 +152,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "水産・農林業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "bearish",
+        "memo": "ホーブの現在の評価は割高であり、ROEの低迷と本業の不振が続いている。経営陣の是正アクションも見られないため、投資価値は低いと判断される。",
+        "analyzedAt": "2026-02-06T23:21:29.872Z"
+      }
     },
     {
       "symbol": "1383.T",
@@ -144,7 +184,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "光フードサービスは、PBRがやや割高とみられるものの、業績は堅調で、積極出店戦略が成長エンジンとなる可能性がある。ただし、ROE目標値の開示なし、過去8四半期業績横ばい、直近利益率弱含み、有利子負債増加、株価の変動大がリスク要因となる。中期的な成長性と安定性を考慮して、投資判断を下す必要がある。",
+        "analyzedAt": "2026-02-06T23:21:30.291Z"
+      }
     },
     {
       "symbol": "1401.T",
@@ -153,7 +198,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "建設業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "エムビーエスは現在、PBRが中間水準で業績も堅調だが、市場の評価が厳しいため割高と見られる。経営陣の本気度や成長エンジンが不明なため、投資判断は中立的である。将来的に業績下押しリスクや市場縮小懸念が実現した場合、株価が下落する可能性があるため、注意が必要である。",
+        "analyzedAt": "2026-02-06T23:21:30.562Z"
+      }
     },
     {
       "symbol": "1407.T",
@@ -162,7 +212,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "建設業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:30.249Z"
+      }
     },
     {
       "symbol": "1414.T",
@@ -189,7 +244,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "建設業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "bullish",
+        "memo": "インターライフホールディングスのPBRは業績堅調による評価であり、ROEの向上と増配発表は株主還元の強化を示唆している。売上高の微減はあるものの、利益率の向上で成長性があり、コンセンサス対比で経常利益の増益予想もある。市場縮小のリスクはあるものの、具体的事由は開示されていない。したがって、投資価値は高いと判断される。",
+        "analyzedAt": "2026-02-06T23:21:31.300Z"
+      }
     },
     {
       "symbol": "1419.T",
@@ -279,7 +339,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "不動産業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:30.584Z"
+      }
     },
     {
       "symbol": "1436.T",
@@ -369,7 +434,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "不動産業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:30.591Z"
+      }
     },
     {
       "symbol": "147A.T",
@@ -405,7 +475,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:30.679Z"
+      }
     },
     {
       "symbol": "150A.T",
@@ -423,7 +498,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "鉱業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:30.843Z"
+      }
     },
     {
       "symbol": "1515.T",
@@ -459,7 +539,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:30.901Z"
+      }
     },
     {
       "symbol": "155A.T",
@@ -565,7 +650,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "建設業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:30.931Z"
+      }
     },
     {
       "symbol": "1716.T",
@@ -774,7 +864,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "不動産業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:31.083Z"
+      }
     },
     {
       "symbol": "1786.T",
@@ -963,7 +1058,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "建設業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:31.172Z"
+      }
     },
     {
       "symbol": "1826.T",
@@ -972,7 +1072,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "建設業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:31.265Z"
+      }
     },
     {
       "symbol": "1827.T",
@@ -1017,7 +1122,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "建設業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:31.333Z"
+      }
     },
     {
       "symbol": "1841.T",
@@ -1062,7 +1172,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:31.427Z"
+      }
     },
     {
       "symbol": "1850.T",
@@ -1231,7 +1346,12 @@
       "sectors": [
         "建設業",
         "港湾ロジスティクス"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:31.496Z"
+      }
     },
     {
       "symbol": "1897.T",
@@ -1312,7 +1432,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "建設業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:31.590Z"
+      }
     },
     {
       "symbol": "1914.T",
@@ -1395,7 +1520,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "建設業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:31.894Z"
+      }
     },
     {
       "symbol": "1938.T",
@@ -1449,7 +1579,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "建設業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:31.744Z"
+      }
     },
     {
       "symbol": "1946.T",
@@ -1530,7 +1665,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:31.974Z"
+      }
     },
     {
       "symbol": "1960.T",
@@ -1539,7 +1679,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "建設業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:31.912Z"
+      }
     },
     {
       "symbol": "1961.T",
@@ -1594,7 +1739,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "建設業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:32.023Z"
+      }
     },
     {
       "symbol": "1968.T",
@@ -1621,7 +1771,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "その他金融業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:32.138Z"
+      }
     },
     {
       "symbol": "1972.T",
@@ -1666,7 +1821,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "医薬品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:32.203Z"
+      }
     },
     {
       "symbol": "1980.T",
@@ -1684,7 +1844,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "建設業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "bullish",
+        "memo": "協和日成の現在の評価はPER11.51倍、PBR1.46倍と割安。直近1年以内の悪材料はなし。業績も堅調で、ROEは7.3%。経営陣のアクションは不明だが、悪材料もなし。成長エンジンは不明だが、市場の誤解による割安の可能性あり。投資前提が崩れる最悪のケースは市場環境の悪化や業績下押しリスクだが、現在の評価水準ではリスクが相対的に低いと判断される。",
+        "analyzedAt": "2026-02-06T23:21:33.382Z"
+      }
     },
     {
       "symbol": "1982.T",
@@ -1811,7 +1976,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "建設業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:32.391Z"
+      }
     },
     {
       "symbol": "2060.T",
@@ -1820,7 +1990,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "食料品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:32.450Z"
+      }
     },
     {
       "symbol": "206A.T",
@@ -1928,7 +2103,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:32.634Z"
+      }
     },
     {
       "symbol": "2127.T",
@@ -1964,7 +2144,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:32.799Z"
+      }
     },
     {
       "symbol": "2136.T",
@@ -1991,7 +2176,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:32.741Z"
+      }
     },
     {
       "symbol": "2146.T",
@@ -2072,7 +2262,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:32.869Z"
+      }
     },
     {
       "symbol": "2160.T",
@@ -2108,7 +2303,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:33.129Z"
+      }
     },
     {
       "symbol": "2168.T",
@@ -2153,7 +2353,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:33.109Z"
+      }
     },
     {
       "symbol": "2179.T",
@@ -2189,7 +2394,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:33.202Z"
+      }
     },
     {
       "symbol": "2185.T",
@@ -2261,7 +2471,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "医薬品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:33.212Z"
+      }
     },
     {
       "symbol": "2201.T",
@@ -2360,7 +2575,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "食料品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:33.514Z"
+      }
     },
     {
       "symbol": "2217.T",
@@ -2378,7 +2598,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "食料品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:33.445Z"
+      }
     },
     {
       "symbol": "2221.T",
@@ -2533,7 +2758,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "食料品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:33.606Z"
+      }
     },
     {
       "symbol": "2292.T",
@@ -2677,7 +2907,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:33.751Z"
+      }
     },
     {
       "symbol": "2326.T",
@@ -2705,7 +2940,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:33.769Z"
+      }
     },
     {
       "symbol": "2330.T",
@@ -2795,7 +3035,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:34.133Z"
+      }
     },
     {
       "symbol": "2344.T",
@@ -2831,7 +3076,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:33.970Z"
+      }
     },
     {
       "symbol": "2353.T",
@@ -2867,7 +3117,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:34.066Z"
+      }
     },
     {
       "symbol": "2371.T",
@@ -2912,7 +3167,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:34.138Z"
+      }
     },
     {
       "symbol": "2378.T",
@@ -2921,7 +3181,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:34.212Z"
+      }
     },
     {
       "symbol": "2379.T",
@@ -2948,7 +3213,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:34.302Z"
+      }
     },
     {
       "symbol": "2388.T",
@@ -2993,7 +3263,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:34.398Z"
+      }
     },
     {
       "symbol": "2404.T",
@@ -3002,7 +3277,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:34.482Z"
+      }
     },
     {
       "symbol": "2408.T",
@@ -3093,7 +3373,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:34.772Z"
+      }
     },
     {
       "symbol": "2429.T",
@@ -3148,7 +3433,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:34.674Z"
+      }
     },
     {
       "symbol": "2438.T",
@@ -3166,7 +3456,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:34.726Z"
+      }
     },
     {
       "symbol": "2445.T",
@@ -3193,7 +3488,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:34.800Z"
+      }
     },
     {
       "symbol": "2454.T",
@@ -3211,7 +3511,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:34.884Z"
+      }
     },
     {
       "symbol": "245A.T",
@@ -3229,7 +3534,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:35.272Z"
+      }
     },
     {
       "symbol": "2462.T",
@@ -3265,7 +3575,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:35.094Z"
+      }
     },
     {
       "symbol": "2471.T",
@@ -3355,7 +3670,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:35.168Z"
+      }
     },
     {
       "symbol": "2488.T",
@@ -3446,7 +3766,12 @@
       "sectors": [
         "食料品",
         "日経225"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:35.221Z"
+      }
     },
     {
       "symbol": "2502.T",
@@ -3456,7 +3781,12 @@
       "sectors": [
         "食料品",
         "日経225"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:35.299Z"
+      }
     },
     {
       "symbol": "2503.T",
@@ -3475,7 +3805,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "食料品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:35.448Z"
+      }
     },
     {
       "symbol": "2531.T",
@@ -3493,7 +3828,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "食料品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:35.524Z"
+      }
     },
     {
       "symbol": "253A.T",
@@ -3511,7 +3851,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "食料品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:35.531Z"
+      }
     },
     {
       "symbol": "254A.T",
@@ -3520,7 +3865,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "証券、商品先物取引業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:35.707Z"
+      }
     },
     {
       "symbol": "255A.T",
@@ -3529,7 +3879,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "精密機器"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:35.712Z"
+      }
     },
     {
       "symbol": "256A.T",
@@ -3610,7 +3965,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "食料品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:35.788Z"
+      }
     },
     {
       "symbol": "25935.T",
@@ -3637,7 +3997,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "食料品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:35.946Z"
+      }
     },
     {
       "symbol": "2602.T",
@@ -3691,7 +4056,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:35.956Z"
+      }
     },
     {
       "symbol": "264A.T",
@@ -3727,7 +4097,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:36.037Z"
+      }
     },
     {
       "symbol": "2656.T",
@@ -3736,7 +4111,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:36.125Z"
+      }
     },
     {
       "symbol": "2659.T",
@@ -3754,7 +4134,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:36.204Z"
+      }
     },
     {
       "symbol": "2664.T",
@@ -3808,7 +4193,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:36.292Z"
+      }
     },
     {
       "symbol": "2673.T",
@@ -3817,7 +4207,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:36.587Z"
+      }
     },
     {
       "symbol": "2674.T",
@@ -3916,7 +4311,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "卸売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:36.447Z"
+      }
     },
     {
       "symbol": "2693.T",
@@ -3925,7 +4325,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "卸売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:36.658Z"
+      }
     },
     {
       "symbol": "2694.T",
@@ -3943,7 +4348,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:36.637Z"
+      }
     },
     {
       "symbol": "2698.T",
@@ -3952,7 +4362,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:36.872Z"
+      }
     },
     {
       "symbol": "269A.T",
@@ -3961,7 +4376,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:36.864Z"
+      }
     },
     {
       "symbol": "2700.T",
@@ -3970,7 +4390,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "卸売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:36.963Z"
+      }
     },
     {
       "symbol": "2702.T",
@@ -4015,7 +4440,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:37.074Z"
+      }
     },
     {
       "symbol": "2726.T",
@@ -4024,7 +4454,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:37.088Z"
+      }
     },
     {
       "symbol": "2730.T",
@@ -4069,7 +4504,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:37.237Z"
+      }
     },
     {
       "symbol": "2737.T",
@@ -4087,7 +4527,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:37.280Z"
+      }
     },
     {
       "symbol": "2747.T",
@@ -4141,7 +4586,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:37.333Z"
+      }
     },
     {
       "symbol": "2753.T",
@@ -4195,7 +4645,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "卸売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:37.475Z"
+      }
     },
     {
       "symbol": "2768.T",
@@ -4223,7 +4678,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "不動産業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:37.499Z"
+      }
     },
     {
       "symbol": "2776.T",
@@ -4232,7 +4692,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "卸売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:37.596Z"
+      }
     },
     {
       "symbol": "2778.T",
@@ -4241,7 +4706,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:37.701Z"
+      }
     },
     {
       "symbol": "277A.T",
@@ -4304,7 +4774,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "精密機器"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:37.749Z"
+      }
     },
     {
       "symbol": "2790.T",
@@ -4322,7 +4797,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:37.845Z"
+      }
     },
     {
       "symbol": "2792.T",
@@ -4379,7 +4859,12 @@
         "食料品",
         "バイオ",
         "日経225"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "bullish",
+        "memo": "味の素は業績改善を反映した株価上昇が見られ、財務健全性も維持されている。成長エンジンとしてAI関連材料や多角化戦略があり、将来的に経営陣による還元アクションも期待できるため、投資価値が高いと判断される。ただし、市場縮小リスクには注意が必要である。",
+        "analyzedAt": "2026-02-06T23:21:37.772Z"
+      }
     },
     {
       "symbol": "2804.T",
@@ -4442,7 +4927,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "食料品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:37.972Z"
+      }
     },
     {
       "symbol": "2813.T",
@@ -4460,7 +4950,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "食料品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:38.073Z"
+      }
     },
     {
       "symbol": "2815.T",
@@ -4469,7 +4964,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "食料品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:38.078Z"
+      }
     },
     {
       "symbol": "2816.T",
@@ -4547,7 +5047,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:38.158Z"
+      }
     },
     {
       "symbol": "2871.T",
@@ -4575,7 +5080,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "卸売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:38.203Z"
+      }
     },
     {
       "symbol": "2875.T",
@@ -4684,7 +5194,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "食料品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:38.313Z"
+      }
     },
     {
       "symbol": "2903.T",
@@ -4693,7 +5208,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "食料品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:38.436Z"
+      }
     },
     {
       "symbol": "2904.T",
@@ -4729,7 +5249,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:38.439Z"
+      }
     },
     {
       "symbol": "2910.T",
@@ -4738,7 +5263,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "食料品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:38.769Z"
+      }
     },
     {
       "symbol": "2911.T",
@@ -4875,7 +5405,12 @@
       "sectors": [
         "食料品",
         "フードテック"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:38.591Z"
+      }
     },
     {
       "symbol": "2932.T",
@@ -4893,7 +5428,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "食料品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:38.677Z"
+      }
     },
     {
       "symbol": "2934.T",
@@ -4920,7 +5460,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "食料品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:38.977Z"
+      }
     },
     {
       "symbol": "2937.T",
@@ -4929,7 +5474,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "食料品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:38.824Z"
+      }
     },
     {
       "symbol": "2938.T",
@@ -4956,7 +5506,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "金属製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:38.927Z"
+      }
     },
     {
       "symbol": "296A.T",
@@ -4992,7 +5547,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "不動産業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:39.185Z"
+      }
     },
     {
       "symbol": "297A.T",
@@ -5019,7 +5579,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "不動産業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:39.108Z"
+      }
     },
     {
       "symbol": "2982.T",
@@ -5028,7 +5593,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "不動産業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:39.175Z"
+      }
     },
     {
       "symbol": "2983.T",
@@ -5073,7 +5643,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "不動産業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "bullish",
+        "memo": "ランドネットの業績は堅調で、ROEは高水準である。PBRが低い理由は市場の誤解によるものと考えられ、経営陣の本気度は高く、成長エンジンとして中古マンション市場の活況が続いている。ただし、中古マンション市場の縮小や株価変動大による業績下押しリスクがある。",
+        "analyzedAt": "2026-02-06T23:21:40.443Z"
+      }
     },
     {
       "symbol": "2993.T",
@@ -5226,7 +5801,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:39.589Z"
+      }
     },
     {
       "symbol": "302A.T",
@@ -5262,7 +5842,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:39.967Z"
+      }
     },
     {
       "symbol": "3035.T",
@@ -5289,7 +5874,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "卸売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:39.622Z"
+      }
     },
     {
       "symbol": "303A.T",
@@ -5316,7 +5906,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "卸売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:39.692Z"
+      }
     },
     {
       "symbol": "3042.T",
@@ -5325,7 +5920,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:39.869Z"
+      }
     },
     {
       "symbol": "3045.T",
@@ -5343,7 +5943,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:40.051Z"
+      }
     },
     {
       "symbol": "3048.T",
@@ -5424,7 +6029,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:40.102Z"
+      }
     },
     {
       "symbol": "3065.T",
@@ -5551,7 +6161,12 @@
       "sectors": [
         "小売業",
         "日経225"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:40.216Z"
+      }
     },
     {
       "symbol": "3087.T",
@@ -5569,7 +6184,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:40.298Z"
+      }
     },
     {
       "symbol": "3089.T",
@@ -5578,7 +6198,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "卸売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:40.541Z"
+      }
     },
     {
       "symbol": "3091.T",
@@ -5606,7 +6231,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:40.464Z"
+      }
     },
     {
       "symbol": "3096.T",
@@ -5634,7 +6264,12 @@
       "sectors": [
         "小売業",
         "日経225"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:40.632Z"
+      }
     },
     {
       "symbol": "3101.T",
@@ -5706,7 +6341,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "ガラス・土石製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:40.821Z"
+      }
     },
     {
       "symbol": "3111.T",
@@ -5715,7 +6355,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "繊維製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:40.815Z"
+      }
     },
     {
       "symbol": "3113.T",
@@ -5724,7 +6369,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "証券、商品先物取引業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:40.898Z"
+      }
     },
     {
       "symbol": "3116.T",
@@ -5742,7 +6392,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:40.981Z"
+      }
     },
     {
       "symbol": "3123.T",
@@ -5796,7 +6451,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:41.127Z"
+      }
     },
     {
       "symbol": "3137.T",
@@ -5814,7 +6474,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:41.199Z"
+      }
     },
     {
       "symbol": "3139.T",
@@ -5958,7 +6623,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "卸売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:41.225Z"
+      }
     },
     {
       "symbol": "3169.T",
@@ -5994,7 +6664,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:41.286Z"
+      }
     },
     {
       "symbol": "3175.T",
@@ -6111,7 +6786,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:41.560Z"
+      }
     },
     {
       "symbol": "3189.T",
@@ -6174,7 +6854,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:41.561Z"
+      }
     },
     {
       "symbol": "3197.T",
@@ -6183,7 +6868,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:41.633Z"
+      }
     },
     {
       "symbol": "3198.T",
@@ -6237,7 +6927,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "繊維製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:41.650Z"
+      }
     },
     {
       "symbol": "3205.T",
@@ -6264,7 +6959,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:41.764Z"
+      }
     },
     {
       "symbol": "3223.T",
@@ -6318,7 +7018,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "不動産業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:41.872Z"
+      }
     },
     {
       "symbol": "3238.T",
@@ -6336,7 +7041,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:41.920Z"
+      }
     },
     {
       "symbol": "3241.T",
@@ -6363,7 +7073,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "不動産業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:41.997Z"
+      }
     },
     {
       "symbol": "3246.T",
@@ -6417,7 +7132,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "不動産業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:42.064Z"
+      }
     },
     {
       "symbol": "3266.T",
@@ -6444,7 +7164,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "不動産業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:42.139Z"
+      }
     },
     {
       "symbol": "3276.T",
@@ -6471,7 +7196,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "不動産業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:42.295Z"
+      }
     },
     {
       "symbol": "3284.T",
@@ -6553,7 +7283,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "不動産業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:42.531Z"
+      }
     },
     {
       "symbol": "3300.T",
@@ -6571,7 +7306,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "繊維製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:42.395Z"
+      }
     },
     {
       "symbol": "3306.T",
@@ -6580,7 +7320,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "卸売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:42.471Z"
+      }
     },
     {
       "symbol": "330A.T",
@@ -6598,7 +7343,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "石油・石炭製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:42.551Z"
+      }
     },
     {
       "symbol": "3317.T",
@@ -6643,7 +7393,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "卸売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:42.663Z"
+      }
     },
     {
       "symbol": "3326.T",
@@ -6688,7 +7443,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:42.726Z"
+      }
     },
     {
       "symbol": "334A.T",
@@ -6724,7 +7484,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:42.814Z"
+      }
     },
     {
       "symbol": "3355.T",
@@ -6760,7 +7525,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:42.894Z"
+      }
     },
     {
       "symbol": "3360.T",
@@ -6796,7 +7566,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:42.958Z"
+      }
     },
     {
       "symbol": "3371.T",
@@ -6869,7 +7644,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:43.056Z"
+      }
     },
     {
       "symbol": "3388.T",
@@ -6896,7 +7676,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:43.145Z"
+      }
     },
     {
       "symbol": "3392.T",
@@ -6950,7 +7735,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:43.225Z"
+      }
     },
     {
       "symbol": "339A.T",
@@ -7008,7 +7798,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "繊維製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:43.333Z"
+      }
     },
     {
       "symbol": "340A.T",
@@ -7017,7 +7812,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:43.405Z"
+      }
     },
     {
       "symbol": "3415.T",
@@ -7035,7 +7835,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:43.481Z"
+      }
     },
     {
       "symbol": "3417.T",
@@ -7053,7 +7858,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:43.540Z"
+      }
     },
     {
       "symbol": "341A.T",
@@ -7062,7 +7872,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "建設業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:43.639Z"
+      }
     },
     {
       "symbol": "3420.T",
@@ -7080,7 +7895,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "金属製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:43.727Z"
+      }
     },
     {
       "symbol": "3422.T",
@@ -7116,7 +7936,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "金属製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:43.819Z"
+      }
     },
     {
       "symbol": "3433.T",
@@ -7153,7 +7978,12 @@
       "sectors": [
         "金属製品",
         "日経225"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:44.058Z"
+      }
     },
     {
       "symbol": "3437.T",
@@ -7180,7 +8010,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:43.976Z"
+      }
     },
     {
       "symbol": "3440.T",
@@ -7189,7 +8024,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "金属製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:44.166Z"
+      }
     },
     {
       "symbol": "3441.T",
@@ -7234,7 +8074,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "金属製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:44.153Z"
+      }
     },
     {
       "symbol": "3447.T",
@@ -7288,7 +8133,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "不動産業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:44.406Z"
+      }
     },
     {
       "symbol": "3465.T",
@@ -7324,7 +8174,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "不動産業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:44.518Z"
+      }
     },
     {
       "symbol": "3475.T",
@@ -7351,7 +8206,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "不動産業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:44.471Z"
+      }
     },
     {
       "symbol": "3480.T",
@@ -7360,7 +8220,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "不動産業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:44.604Z"
+      }
     },
     {
       "symbol": "3482.T",
@@ -7549,7 +8414,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "卸売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:44.625Z"
+      }
     },
     {
       "symbol": "3538.T",
@@ -7585,7 +8455,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:44.791Z"
+      }
     },
     {
       "symbol": "3543.T",
@@ -7594,7 +8469,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "卸売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:44.907Z"
+      }
     },
     {
       "symbol": "3544.T",
@@ -7612,7 +8492,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:44.997Z"
+      }
     },
     {
       "symbol": "3547.T",
@@ -7621,7 +8506,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:45.042Z"
+      }
     },
     {
       "symbol": "3548.T",
@@ -7648,7 +8538,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:45.079Z"
+      }
     },
     {
       "symbol": "3551.T",
@@ -7675,7 +8570,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:45.178Z"
+      }
     },
     {
       "symbol": "3557.T",
@@ -7693,7 +8593,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:45.334Z"
+      }
     },
     {
       "symbol": "3559.T",
@@ -7720,7 +8625,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:45.364Z"
+      }
     },
     {
       "symbol": "3562.T",
@@ -7729,7 +8639,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "卸売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:45.427Z"
+      }
     },
     {
       "symbol": "3563.T",
@@ -7738,7 +8653,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:45.598Z"
+      }
     },
     {
       "symbol": "3565.T",
@@ -7810,7 +8730,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "繊維製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:45.820Z"
+      }
     },
     {
       "symbol": "3593.T",
@@ -7855,7 +8780,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "繊維製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:46.187Z"
+      }
     },
     {
       "symbol": "3608.T",
@@ -7972,7 +8902,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:46.700Z"
+      }
     },
     {
       "symbol": "3635.T",
@@ -7999,7 +8934,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:45.893Z"
+      }
     },
     {
       "symbol": "3640.T",
@@ -8008,7 +8948,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:46.033Z"
+      }
     },
     {
       "symbol": "3641.T",
@@ -8035,7 +8980,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:46.134Z"
+      }
     },
     {
       "symbol": "3647.T",
@@ -8062,7 +9012,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:46.240Z"
+      }
     },
     {
       "symbol": "3652.T",
@@ -8080,7 +9035,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:46.355Z"
+      }
     },
     {
       "symbol": "3655.T",
@@ -8198,7 +9158,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:46.473Z"
+      }
     },
     {
       "symbol": "366A.T",
@@ -8216,7 +9181,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:46.567Z"
+      }
     },
     {
       "symbol": "3671.T",
@@ -8252,7 +9222,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:46.587Z"
+      }
     },
     {
       "symbol": "3675.T",
@@ -8261,7 +9236,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:46.731Z"
+      }
     },
     {
       "symbol": "3676.T",
@@ -8306,7 +9286,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:46.830Z"
+      }
     },
     {
       "symbol": "3681.T",
@@ -8415,7 +9400,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "bullish",
+        "memo": "セレスの現在のPBR 1.58倍は、業績改善傾向による堅調さから放置されている可能性が高い。理論株価（PBR基準）は2,670円と現在の1.58倍を上回り、妥当水準と評価される。経営陣の具体的なコメント・対策は確認できず、しかし、中期経営計画のROE目標値・進捗に関する開示情報は検索結果に記載なし。直近実績ROEは25.6%と高い。本業は堅調で過去12四半期業績改善傾向、純利益率・EPS前年同期比大幅改善、売上高伸び。EBITDA3,100百万円、純資産12,721百万円と財務体質は良好。有利子負債9,513百万円、有利子負債倍率85.33%と財務負担存在するものの、自己資本比率59.2%で安定水準を上回り、リスクはあるものの、現在の業績と財務体質から将来的に事業が縮小するリスクは低い。",
+        "analyzedAt": "2026-02-06T23:21:48.435Z"
+      }
     },
     {
       "symbol": "3697.T",
@@ -8461,7 +9451,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:47.098Z"
+      }
     },
     {
       "symbol": "3712.T",
@@ -8470,7 +9465,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:47.196Z"
+      }
     },
     {
       "symbol": "3719.T",
@@ -8497,7 +9497,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:47.219Z"
+      }
     },
     {
       "symbol": "3727.T",
@@ -8506,7 +9511,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:47.280Z"
+      }
     },
     {
       "symbol": "372A.T",
@@ -8569,7 +9579,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:47.441Z"
+      }
     },
     {
       "symbol": "3753.T",
@@ -8578,7 +9593,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:47.549Z"
+      }
     },
     {
       "symbol": "3758.T",
@@ -8782,7 +9802,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:47.598Z"
+      }
     },
     {
       "symbol": "3798.T",
@@ -8827,7 +9852,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:47.712Z"
+      }
     },
     {
       "symbol": "3804.T",
@@ -8836,7 +9866,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:47.926Z"
+      }
     },
     {
       "symbol": "3807.T",
@@ -8872,7 +9907,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:47.892Z"
+      }
     },
     {
       "symbol": "3817.T",
@@ -8890,7 +9930,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:47.981Z"
+      }
     },
     {
       "symbol": "3825.T",
@@ -8908,7 +9953,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:48.062Z"
+      }
     },
     {
       "symbol": "3834.T",
@@ -9007,7 +10057,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:48.232Z"
+      }
     },
     {
       "symbol": "3848.T",
@@ -9034,7 +10089,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:48.306Z"
+      }
     },
     {
       "symbol": "3853.T",
@@ -9089,7 +10149,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "パルプ・紙"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:48.353Z"
+      }
     },
     {
       "symbol": "3864.T",
@@ -9188,7 +10253,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "パルプ・紙"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:48.473Z"
+      }
     },
     {
       "symbol": "3900.T",
@@ -9233,7 +10303,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:48.585Z"
+      }
     },
     {
       "symbol": "3905.T",
@@ -9260,7 +10335,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:48.770Z"
+      }
     },
     {
       "symbol": "3909.T",
@@ -9341,7 +10421,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:48.749Z"
+      }
     },
     {
       "symbol": "3918.T",
@@ -9449,7 +10534,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:48.848Z"
+      }
     },
     {
       "symbol": "3931.T",
@@ -9458,7 +10548,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:48.920Z"
+      }
     },
     {
       "symbol": "3932.T",
@@ -9485,7 +10580,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:49.000Z"
+      }
     },
     {
       "symbol": "3935.T",
@@ -9494,7 +10594,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:49.120Z"
+      }
     },
     {
       "symbol": "3936.T",
@@ -9521,7 +10626,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:49.184Z"
+      }
     },
     {
       "symbol": "3940.T",
@@ -9665,7 +10775,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:49.251Z"
+      }
     },
     {
       "symbol": "3963.T",
@@ -9710,7 +10825,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:49.342Z"
+      }
     },
     {
       "symbol": "3969.T",
@@ -9800,7 +10920,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:49.419Z"
+      }
     },
     {
       "symbol": "3987.T",
@@ -9845,7 +10970,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:49.673Z"
+      }
     },
     {
       "symbol": "3993.T",
@@ -9896,7 +11026,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:49.708Z"
+      }
     },
     {
       "symbol": "4004.T",
@@ -9943,7 +11078,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:49.845Z"
+      }
     },
     {
       "symbol": "4013.T",
@@ -9961,7 +11101,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:49.795Z"
+      }
     },
     {
       "symbol": "4015.T",
@@ -9970,7 +11115,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:49.844Z"
+      }
     },
     {
       "symbol": "4016.T",
@@ -10006,7 +11156,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:50.022Z"
+      }
     },
     {
       "symbol": "4021.T",
@@ -10094,7 +11249,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "化学"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:50.060Z"
+      }
     },
     {
       "symbol": "4040.T",
@@ -10186,7 +11346,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:50.177Z"
+      }
     },
     {
       "symbol": "4053.T",
@@ -10222,7 +11387,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:50.242Z"
+      }
     },
     {
       "symbol": "4057.T",
@@ -10249,7 +11419,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:50.263Z"
+      }
     },
     {
       "symbol": "4060.T",
@@ -10352,7 +11527,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:50.416Z"
+      }
     },
     {
       "symbol": "4075.T",
@@ -10361,7 +11541,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:50.494Z"
+      }
     },
     {
       "symbol": "4076.T",
@@ -10406,7 +11591,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "化学"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:50.508Z"
+      }
     },
     {
       "symbol": "4091.T",
@@ -10415,7 +11605,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "化学"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:50.848Z"
+      }
     },
     {
       "symbol": "4092.T",
@@ -10496,7 +11691,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "化学"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:50.715Z"
+      }
     },
     {
       "symbol": "4102.T",
@@ -10578,7 +11778,12 @@
       "sectors": [
         "化学",
         "バイオ"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:50.824Z"
+      }
     },
     {
       "symbol": "4119.T",
@@ -10623,7 +11828,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:50.906Z"
+      }
     },
     {
       "symbol": "4151.T",
@@ -10670,7 +11880,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:50.974Z"
+      }
     },
     {
       "symbol": "4168.T",
@@ -10688,7 +11903,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:51.074Z"
+      }
     },
     {
       "symbol": "416A.T",
@@ -10706,7 +11926,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:51.167Z"
+      }
     },
     {
       "symbol": "4171.T",
@@ -10742,7 +11967,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:51.242Z"
+      }
     },
     {
       "symbol": "4176.T",
@@ -10852,7 +12082,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "化学"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:51.560Z"
+      }
     },
     {
       "symbol": "4192.T",
@@ -10861,7 +12096,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:51.571Z"
+      }
     },
     {
       "symbol": "4193.T",
@@ -10888,7 +12128,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:51.484Z"
+      }
     },
     {
       "symbol": "4197.T",
@@ -10925,7 +12170,12 @@
       "sectors": [
         "化学",
         "バイオ"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "ダイセルは現在割安と評価されますが、経営陣による具体的なアクションや成長エンジンが見受けられないため、中立的な評価となります。将来的な事業縮小リスクも考慮する必要があります。",
+        "analyzedAt": "2026-02-06T23:21:51.458Z"
+      }
     },
     {
       "symbol": "4203.T",
@@ -11040,7 +12290,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "化学"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:51.659Z"
+      }
     },
     {
       "symbol": "4224.T",
@@ -11085,7 +12340,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "化学"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:51.854Z"
+      }
     },
     {
       "symbol": "4235.T",
@@ -11094,7 +12354,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "化学"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:51.928Z"
+      }
     },
     {
       "symbol": "4237.T",
@@ -11103,7 +12368,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "化学"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:52.160Z"
+      }
     },
     {
       "symbol": "4238.T",
@@ -11130,7 +12400,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "化学"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:52.059Z"
+      }
     },
     {
       "symbol": "4241.T",
@@ -11139,7 +12414,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "化学"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:52.197Z"
+      }
     },
     {
       "symbol": "4242.T",
@@ -11202,7 +12482,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "化学"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:52.423Z"
+      }
     },
     {
       "symbol": "4251.T",
@@ -11220,7 +12505,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:52.363Z"
+      }
     },
     {
       "symbol": "4256.T",
@@ -11247,7 +12537,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:52.524Z"
+      }
     },
     {
       "symbol": "4260.T",
@@ -11256,7 +12551,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:52.818Z"
+      }
     },
     {
       "symbol": "4261.T",
@@ -11265,7 +12565,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:52.680Z"
+      }
     },
     {
       "symbol": "4262.T",
@@ -11292,7 +12597,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:52.738Z"
+      }
     },
     {
       "symbol": "4265.T",
@@ -11427,7 +12737,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:52.838Z"
+      }
     },
     {
       "symbol": "4307.T",
@@ -11464,7 +12779,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:52.920Z"
+      }
     },
     {
       "symbol": "4317.T",
@@ -11537,7 +12857,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:53.073Z"
+      }
     },
     {
       "symbol": "4333.T",
@@ -11582,7 +12907,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:53.117Z"
+      }
     },
     {
       "symbol": "4343.T",
@@ -11600,7 +12930,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:53.172Z"
+      }
     },
     {
       "symbol": "4345.T",
@@ -11627,7 +12962,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:53.244Z"
+      }
     },
     {
       "symbol": "4350.T",
@@ -11807,7 +13147,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:53.323Z"
+      }
     },
     {
       "symbol": "4378.T",
@@ -11816,7 +13161,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:53.421Z"
+      }
     },
     {
       "symbol": "4379.T",
@@ -11843,7 +13193,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:53.483Z"
+      }
     },
     {
       "symbol": "4382.T",
@@ -11898,7 +13253,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:53.577Z"
+      }
     },
     {
       "symbol": "4389.T",
@@ -11907,7 +13267,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:53.661Z"
+      }
     },
     {
       "symbol": "438A.T",
@@ -11916,7 +13281,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:53.749Z"
+      }
     },
     {
       "symbol": "4390.T",
@@ -11943,7 +13313,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:53.994Z"
+      }
     },
     {
       "symbol": "4393.T",
@@ -11961,7 +13336,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:54.055Z"
+      }
     },
     {
       "symbol": "4395.T",
@@ -12033,7 +13413,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "化学"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:54.130Z"
+      }
     },
     {
       "symbol": "4409.T",
@@ -12096,7 +13481,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:54.088Z"
+      }
     },
     {
       "symbol": "4417.T",
@@ -12114,7 +13504,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:54.156Z"
+      }
     },
     {
       "symbol": "4419.T",
@@ -12132,7 +13527,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "提供された情報が不足しており、正確な投資価値の分析を行うことができません。企業の直近決算説明資料、有価証券報告書、中期経営計画などの情報が必要です。",
+        "analyzedAt": "2026-02-06T23:21:55.039Z"
+      }
     },
     {
       "symbol": "4420.T",
@@ -12141,7 +13541,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:54.389Z"
+      }
     },
     {
       "symbol": "4421.T",
@@ -12159,7 +13564,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:54.497Z"
+      }
     },
     {
       "symbol": "4424.T",
@@ -12168,7 +13578,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:54.568Z"
+      }
     },
     {
       "symbol": "4425.T",
@@ -12177,7 +13592,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:54.624Z"
+      }
     },
     {
       "symbol": "4427.T",
@@ -12204,7 +13624,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:54.731Z"
+      }
     },
     {
       "symbol": "442A.T",
@@ -12249,7 +13674,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:54.809Z"
+      }
     },
     {
       "symbol": "4434.T",
@@ -12285,7 +13715,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:54.895Z"
+      }
     },
     {
       "symbol": "4439.T",
@@ -12366,7 +13801,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:55.114Z"
+      }
     },
     {
       "symbol": "4448.T",
@@ -12403,7 +13843,12 @@
       "sectors": [
         "化学",
         "日経225"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:55.196Z"
+      }
     },
     {
       "symbol": "4461.T",
@@ -12484,7 +13929,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:55.276Z"
+      }
     },
     {
       "symbol": "4477.T",
@@ -12511,7 +13961,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:55.373Z"
+      }
     },
     {
       "symbol": "4480.T",
@@ -12574,7 +14029,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:55.459Z"
+      }
     },
     {
       "symbol": "4488.T",
@@ -12592,7 +14052,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:55.568Z"
+      }
     },
     {
       "symbol": "4491.T",
@@ -12754,7 +14219,12 @@
         "医薬品",
         "創薬・医療",
         "日経225"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:55.591Z"
+      }
     },
     {
       "symbol": "4524.T",
@@ -12863,7 +14333,12 @@
       "sectors": [
         "精密機器",
         "日経225"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:55.689Z"
+      }
     },
     {
       "symbol": "4544.T",
@@ -13055,7 +14530,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "医薬品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:55.773Z"
+      }
     },
     {
       "symbol": "4576.T",
@@ -13064,7 +14544,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "医薬品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:55.848Z"
+      }
     },
     {
       "symbol": "4577.T",
@@ -13101,7 +14586,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "医薬品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:55.956Z"
+      }
     },
     {
       "symbol": "4583.T",
@@ -13110,7 +14600,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "医薬品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:56.173Z"
+      }
     },
     {
       "symbol": "4584.T",
@@ -13156,7 +14651,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "医薬品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:56.118Z"
+      }
     },
     {
       "symbol": "4592.T",
@@ -13183,7 +14683,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "医薬品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:56.179Z"
+      }
     },
     {
       "symbol": "4595.T",
@@ -13201,7 +14706,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "医薬品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:56.245Z"
+      }
     },
     {
       "symbol": "4597.T",
@@ -13219,7 +14729,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "医薬品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:56.352Z"
+      }
     },
     {
       "symbol": "4599.T",
@@ -13228,7 +14743,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "医薬品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:56.502Z"
+      }
     },
     {
       "symbol": "460A.T",
@@ -13381,7 +14901,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "証券、商品先物取引業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:56.753Z"
+      }
     },
     {
       "symbol": "4631.T",
@@ -13435,7 +14960,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:56.618Z"
+      }
     },
     {
       "symbol": "4642.T",
@@ -13471,7 +15001,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:56.658Z"
+      }
     },
     {
       "symbol": "4650.T",
@@ -13498,7 +15033,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:56.800Z"
+      }
     },
     {
       "symbol": "4658.T",
@@ -13526,7 +15066,12 @@
       "sectors": [
         "サービス業",
         "日経225"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:56.919Z"
+      }
     },
     {
       "symbol": "4662.T",
@@ -13535,7 +15080,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:56.988Z"
+      }
     },
     {
       "symbol": "4664.T",
@@ -13598,7 +15148,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:57.210Z"
+      }
     },
     {
       "symbol": "4674.T",
@@ -13643,7 +15198,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:57.162Z"
+      }
     },
     {
       "symbol": "4681.T",
@@ -13670,7 +15230,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:57.264Z"
+      }
     },
     {
       "symbol": "4686.T",
@@ -13698,7 +15263,12 @@
       "sectors": [
         "情報・通信業",
         "日経225"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:57.491Z"
+      }
     },
     {
       "symbol": "4690.T",
@@ -13707,7 +15277,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:57.601Z"
+      }
     },
     {
       "symbol": "4691.T",
@@ -13716,7 +15291,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:57.565Z"
+      }
     },
     {
       "symbol": "4694.T",
@@ -13763,7 +15343,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:57.635Z"
+      }
     },
     {
       "symbol": "4709.T",
@@ -13835,7 +15420,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:57.834Z"
+      }
     },
     {
       "symbol": "4722.T",
@@ -13871,7 +15461,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:57.872Z"
+      }
     },
     {
       "symbol": "4732.T",
@@ -13907,7 +15502,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:57.973Z"
+      }
     },
     {
       "symbol": "4743.T",
@@ -14000,7 +15600,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:58.140Z"
+      }
     },
     {
       "symbol": "4762.T",
@@ -14036,7 +15641,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:58.124Z"
+      }
     },
     {
       "symbol": "4767.T",
@@ -14108,7 +15718,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:58.267Z"
+      }
     },
     {
       "symbol": "477A.T",
@@ -14244,7 +15859,12 @@
       "sectors": [
         "情報・通信業",
         "コンテンツ"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:58.295Z"
+      }
     },
     {
       "symbol": "4819.T",
@@ -14253,7 +15873,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:58.389Z"
+      }
     },
     {
       "symbol": "4820.T",
@@ -14298,7 +15923,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:58.986Z"
+      }
     },
     {
       "symbol": "4832.T",
@@ -14361,7 +15991,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:58.546Z"
+      }
     },
     {
       "symbol": "4847.T",
@@ -14370,7 +16005,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:58.721Z"
+      }
     },
     {
       "symbol": "4848.T",
@@ -14415,7 +16055,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "医薬品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:58.714Z"
+      }
     },
     {
       "symbol": "4881.T",
@@ -14424,7 +16069,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "医薬品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:58.812Z"
+      }
     },
     {
       "symbol": "4882.T",
@@ -14442,7 +16092,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "医薬品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:58.960Z"
+      }
     },
     {
       "symbol": "4884.T",
@@ -14469,7 +16124,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "医薬品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:59.066Z"
+      }
     },
     {
       "symbol": "4887.T",
@@ -14487,7 +16147,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "医薬品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:59.074Z"
+      }
     },
     {
       "symbol": "4889.T",
@@ -14496,7 +16161,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "医薬品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:59.220Z"
+      }
     },
     {
       "symbol": "4890.T",
@@ -14505,7 +16175,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "医薬品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:59.447Z"
+      }
     },
     {
       "symbol": "4891.T",
@@ -14532,7 +16207,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "医薬品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:59.331Z"
+      }
     },
     {
       "symbol": "4894.T",
@@ -14541,7 +16221,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "医薬品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:59.473Z"
+      }
     },
     {
       "symbol": "4896.T",
@@ -14580,7 +16265,12 @@
       "sectors": [
         "化学",
         "日経225"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:59.520Z"
+      }
     },
     {
       "symbol": "4912.T",
@@ -14643,7 +16333,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "化学"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:59.657Z"
+      }
     },
     {
       "symbol": "4923.T",
@@ -14652,7 +16347,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "化学"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "bullish",
+        "memo": "コタの株価はPBR基準で見るとやや割安と評価され、ROEも堅調な水準にある。売上高と利益率の回復も見られるが、自社株買いや増配に関する具体的な発表はまだない。業績下押しリスクは低く見られるが、将来的に事業が縮小するリスクも考慮する必要がある。ただし、現在の情報では投資のチャンスと見ることができる。",
+        "analyzedAt": "2026-02-06T23:22:00.997Z"
+      }
     },
     {
       "symbol": "4925.T",
@@ -14706,7 +16406,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "化学"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:59.836Z"
+      }
     },
     {
       "symbol": "4932.T",
@@ -14733,7 +16438,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "化学"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:59.892Z"
+      }
     },
     {
       "symbol": "4935.T",
@@ -14895,7 +16605,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "化学"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:21:59.977Z"
+      }
     },
     {
       "symbol": "4977.T",
@@ -14931,7 +16646,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "化学"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:00.140Z"
+      }
     },
     {
       "symbol": "4985.T",
@@ -14976,7 +16696,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "化学"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:00.200Z"
+      }
     },
     {
       "symbol": "4997.T",
@@ -15039,7 +16764,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "非鉄金属"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:00.237Z"
+      }
     },
     {
       "symbol": "5018.T",
@@ -15092,7 +16822,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:00.387Z"
+      }
     },
     {
       "symbol": "5026.T",
@@ -15101,7 +16836,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:00.583Z"
+      }
     },
     {
       "symbol": "5027.T",
@@ -15146,7 +16886,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:00.574Z"
+      }
     },
     {
       "symbol": "5033.T",
@@ -15155,7 +16900,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:00.656Z"
+      }
     },
     {
       "symbol": "5034.T",
@@ -15173,7 +16923,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:01.044Z"
+      }
     },
     {
       "symbol": "5036.T",
@@ -15209,7 +16964,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "建設業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:00.899Z"
+      }
     },
     {
       "symbol": "5076.T",
@@ -15236,7 +16996,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "建設業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:00.920Z"
+      }
     },
     {
       "symbol": "5079.T",
@@ -15264,7 +17029,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "ゴム製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:01.042Z"
+      }
     },
     {
       "symbol": "5105.T",
@@ -15301,7 +17071,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "ゴム製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:01.206Z"
+      }
     },
     {
       "symbol": "5122.T",
@@ -15337,7 +17112,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:01.233Z"
+      }
     },
     {
       "symbol": "5131.T",
@@ -15400,7 +17180,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:01.341Z"
+      }
     },
     {
       "symbol": "5139.T",
@@ -15409,7 +17194,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:01.624Z"
+      }
     },
     {
       "symbol": "5142.T",
@@ -15582,7 +17372,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "ガラス・土石製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:01.507Z"
+      }
     },
     {
       "symbol": "5218.T",
@@ -15610,7 +17405,12 @@
       "sectors": [
         "ガラス・土石製品",
         "日経225"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:01.622Z"
+      }
     },
     {
       "symbol": "5237.T",
@@ -15637,7 +17437,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:02.015Z"
+      }
     },
     {
       "symbol": "5243.T",
@@ -15664,7 +17469,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:01.940Z"
+      }
     },
     {
       "symbol": "5247.T",
@@ -15673,7 +17483,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:02.043Z"
+      }
     },
     {
       "symbol": "5248.T",
@@ -15682,7 +17497,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:02.113Z"
+      }
     },
     {
       "symbol": "5250.T",
@@ -15691,7 +17511,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:02.459Z"
+      }
     },
     {
       "symbol": "5252.T",
@@ -15718,7 +17543,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:02.348Z"
+      }
     },
     {
       "symbol": "5255.T",
@@ -15736,7 +17566,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:02.382Z"
+      }
     },
     {
       "symbol": "5257.T",
@@ -15826,7 +17661,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "ガラス・土石製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:02.654Z"
+      }
     },
     {
       "symbol": "5280.T",
@@ -15880,7 +17720,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "ガラス・土石製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:02.565Z"
+      }
     },
     {
       "symbol": "5288.T",
@@ -15908,7 +17753,12 @@
       "sectors": [
         "ガラス・土石製品",
         "日経225"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:02.706Z"
+      }
     },
     {
       "symbol": "5302.T",
@@ -15988,7 +17838,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "ガラス・土石製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:03.004Z"
+      }
     },
     {
       "symbol": "5341.T",
@@ -16006,7 +17861,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "ガラス・土石製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:02.815Z"
+      }
     },
     {
       "symbol": "5351.T",
@@ -16315,7 +18175,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "鉄鋼"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:02.951Z"
+      }
     },
     {
       "symbol": "5484.T",
@@ -16369,7 +18234,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "不動産業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:03.034Z"
+      }
     },
     {
       "symbol": "5537.T",
@@ -16378,7 +18248,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "不動産業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:03.114Z"
+      }
     },
     {
       "symbol": "5541.T",
@@ -16423,7 +18298,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:03.230Z"
+      }
     },
     {
       "symbol": "5572.T",
@@ -16441,7 +18321,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:03.321Z"
+      }
     },
     {
       "symbol": "5575.T",
@@ -16450,7 +18335,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:03.371Z"
+      }
     },
     {
       "symbol": "5576.T",
@@ -16766,7 +18656,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "非鉄金属"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:03.463Z"
+      }
     },
     {
       "symbol": "5706.T",
@@ -16853,7 +18748,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "非鉄金属"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:03.538Z"
+      }
     },
     {
       "symbol": "5727.T",
@@ -16939,7 +18839,12 @@
         "非鉄金属",
         "情報通信",
         "日経225"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:03.901Z"
+      }
     },
     {
       "symbol": "5805.T",
@@ -16993,7 +18898,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "非鉄金属"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:03.794Z"
+      }
     },
     {
       "symbol": "5830.T",
@@ -17224,7 +19134,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:03.796Z"
+      }
     },
     {
       "symbol": "5900.T",
@@ -17710,7 +19625,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "金属製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:22:03.908Z"
+      }
     },
     {
       "symbol": "5987.T",
@@ -26429,7 +28349,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "精密機器"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "bullish",
+        "memo": "理研計器のPBRは割安と考えられ、ROEも堅調で成長エンジンが見込まれる。自社株買い実施による株式需給改善期待もあり、投資価値があると判断される。ただし、市場縮小懸念や一過性特益の減少による業績悪化のリスクはある。",
+        "analyzedAt": "2026-02-06T23:24:33.635Z"
+      }
     },
     {
       "symbol": "7735.T",
@@ -26503,7 +28428,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "精密機器"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "bearish",
+        "memo": "岡本硝子の業績は大幅に悪化しており、需要環境の悪化が続き、成長エンジンは見当たらない。ROEも低く、資本政策は不明確。市場需要の構造的縮小が続き、会社の存続が危ぶまれる状況にある。投資するにはリスクが高すぎる。",
+        "analyzedAt": "2026-02-06T23:24:33.687Z"
+      }
     },
     {
       "symbol": "7747.T",
@@ -26577,7 +28507,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "精密機器"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "bearish",
+        "memo": "日本精密の投資価値は低い。PBRが高く、ROEの実力に見合っていない。業績の横ばい・不安定さが放置されており、成長エンジンや還元アクションが見られない。特需剥落や構造不況による事業の縮小リスクも存在する。",
+        "analyzedAt": "2026-02-06T23:24:34.019Z"
+      }
     },
     {
       "symbol": "7774.T",
@@ -26604,7 +28539,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "精密機器"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "bearish",
+        "memo": "セルシードの現在のPBRは、ROEの悪化と業績の低下によるもので、市場の誤解ではなく妥当な評価と考えられる。経営陣のROE向上への取り組みは不明確で、成長エンジンも不明である。業績の悪化が続き、自己資本比率が低下して会社の存続が危ぶまれるリスクがあるため、投資価値は低いと判断される。",
+        "analyzedAt": "2026-02-06T23:24:34.092Z"
+      }
     },
     {
       "symbol": "7777.T",
@@ -26676,7 +28616,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "その他製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "bullish",
+        "memo": "イメージ・マジックの現在の株価は割安と考えられ、業績堅調、成長エンジンの存在、リスクの低さから、投資価値は高いと判断される。",
+        "analyzedAt": "2026-02-06T23:24:32.653Z"
+      }
     },
     {
       "symbol": "7794.T",
@@ -26940,7 +28885,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "その他製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "アビックスの現在のPBRはやや割安水準にあるが、ROEの実力や成長エンジン、経営陣の具体的なアクションが不明なため、投資価値は中立と判断される。将来的に事業が縮小するリスクもあるため、注意が必要である。",
+        "analyzedAt": "2026-02-06T23:24:34.028Z"
+      }
     },
     {
       "symbol": "7837.T",
@@ -27165,7 +29115,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "その他製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "bearish",
+        "memo": "光・彩（7878.T）の投資価値は低いと判断される。PBRとROEの関係から見ても、現在の評価が妥当であると推測され、ROE向上のシナリオや成長エンジンが不明である。将来的に事業が縮小するリスクもあるため、投資には注意が必要である。",
+        "analyzedAt": "2026-02-06T23:24:35.241Z"
+      }
     },
     {
       "symbol": "7879.T",
@@ -27356,7 +29311,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "bearish",
+        "memo": "ヴィア・ホールディングスの現在の状況は、業績不振と収益性の悪化が続いており、ROEの改善策や成長エンジンが見られない。市場の割高感もあり、投資するにはリスクが高すぎる。",
+        "analyzedAt": "2026-02-06T23:24:35.346Z"
+      }
     },
     {
       "symbol": "7919.T",
@@ -27374,7 +29334,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "その他製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "bullish",
+        "memo": "タカラ&Cの現在のPBRは、ROEの実力に見合っている。過去12四半期の業績改善傾向と収益性の安定性、成長エンジンの存在から、将来的にPBRが上昇する可能性がある。ただし、経営陣の資本政策については、より具体的なアクションが必要である。現在の株価水準からみて、投資価値はあると判断される。",
+        "analyzedAt": "2026-02-06T23:24:35.692Z"
+      }
     },
     {
       "symbol": "7922.T",
@@ -27428,7 +29393,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "化学"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:34.257Z"
+      }
     },
     {
       "symbol": "7932.T",
@@ -27582,7 +29552,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "その他製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:34.325Z"
+      }
     },
     {
       "symbol": "7957.T",
@@ -27846,7 +29821,12 @@
       "sectors": [
         "卸売業",
         "日経225"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:34.472Z"
+      }
     },
     {
       "symbol": "8002.T",
@@ -27984,7 +29964,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "その他製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:34.537Z"
+      }
     },
     {
       "symbol": "8023.T",
@@ -28011,7 +29996,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "繊維製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:34.681Z"
+      }
     },
     {
       "symbol": "8030.T",
@@ -28450,7 +30440,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "繊維製品"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:34.754Z"
+      }
     },
     {
       "symbol": "8111.T",
@@ -28982,7 +30977,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:34.891Z"
+      }
     },
     {
       "symbol": "8242.T",
@@ -29170,7 +31170,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "銀行業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:34.976Z"
+      }
     },
     {
       "symbol": "8304.T",
@@ -30555,7 +32560,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "不動産業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:35.111Z"
+      }
     },
     {
       "symbol": "8919.T",
@@ -30636,7 +32646,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "不動産業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:35.184Z"
+      }
     },
     {
       "symbol": "8938.T",
@@ -30681,7 +32696,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "不動産業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:35.336Z"
+      }
     },
     {
       "symbol": "8996.T",
@@ -31149,7 +33169,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "陸運業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:35.392Z"
+      }
     },
     {
       "symbol": "9083.T",
@@ -31192,7 +33217,7 @@
       "fundamental": {
         "judgment": "bullish",
         "memo": "日本郵船はPBRが低位であり、ROEも高水準を維持しています。しかし、海運市況の減速により短期的な収益見通しが厳しい状況にあります。長期的には財務健全性と安定した業績トレンドから投資価値が高いと考えられますが、リスク要因も考慮する必要があります。",
-        "analyzedAt": "2026-02-06T13:21:33.540Z"
+        "analyzedAt": "2026-02-06T23:24:35.469Z"
       }
     },
     {
@@ -31209,7 +33234,7 @@
       "fundamental": {
         "judgment": "neutral",
         "memo": "商船三井は現在、海運市況の悪化による業績減速を反映した割安評価を受けている。高配当利回りと堅調な財務基盤により底堅さはあるものの、経営陣からの具体的なアクションや成長エンジンが不十分で、市場からの信頼性は限定的である。海運市況の回復時期や非海運事業への転換効果に大きく依存しているため、中立的な評価となる。",
-        "analyzedAt": "2026-02-06T13:23:28.434Z"
+        "analyzedAt": "2026-02-06T23:24:35.430Z"
       }
     },
     {
@@ -31311,7 +33336,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:35.638Z"
+      }
     },
     {
       "symbol": "9159.T",
@@ -31374,7 +33404,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:35.641Z"
+      }
     },
     {
       "symbol": "9171.T",
@@ -31411,7 +33446,12 @@
       "sectors": [
         "空運業",
         "日経225"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:35.727Z"
+      }
     },
     {
       "symbol": "9202.T",
@@ -31430,7 +33470,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "空運業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:35.728Z"
+      }
     },
     {
       "symbol": "9204.T",
@@ -31565,7 +33610,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:35.885Z"
+      }
     },
     {
       "symbol": "9229.T",
@@ -31772,7 +33822,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:35.854Z"
+      }
     },
     {
       "symbol": "9259.T",
@@ -31963,7 +34018,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "海運業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:35.931Z"
+      }
     },
     {
       "symbol": "9310.T",
@@ -32035,7 +34095,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "倉庫・運輸関連業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:36.077Z"
+      }
     },
     {
       "symbol": "9326.T",
@@ -32044,7 +34109,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "倉庫・運輸関連業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "bearish",
+        "memo": "関通の現在の評価はやや割高で、ROEの改善に向けた具体的なアクションが見られない。将来的に事業が縮小するリスクもあるため、投資価値は低いと判断される。",
+        "analyzedAt": "2026-02-06T23:24:37.418Z"
+      }
     },
     {
       "symbol": "9327.T",
@@ -32107,7 +34177,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:36.098Z"
+      }
     },
     {
       "symbol": "9339.T",
@@ -32618,7 +34693,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:36.163Z"
+      }
     },
     {
       "symbol": "9445.T",
@@ -32718,7 +34798,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "情報・通信業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:36.224Z"
+      }
     },
     {
       "symbol": "9478.T",
@@ -32847,7 +34932,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "電気・ガス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:36.294Z"
+      }
     },
     {
       "symbol": "9519.T",
@@ -33011,7 +35101,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:36.452Z"
+      }
     },
     {
       "symbol": "9558.T",
@@ -33056,7 +35151,12 @@
       "marketSegment": "グロース",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:36.387Z"
+      }
     },
     {
       "symbol": "9564.T",
@@ -33129,7 +35229,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:36.472Z"
+      }
     },
     {
       "symbol": "9612.T",
@@ -33165,7 +35270,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:36.633Z"
+      }
     },
     {
       "symbol": "9622.T",
@@ -33219,7 +35329,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:36.595Z"
+      }
     },
     {
       "symbol": "9633.T",
@@ -33471,7 +35586,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:36.679Z"
+      }
     },
     {
       "symbol": "9706.T",
@@ -33543,7 +35663,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:36.897Z"
+      }
     },
     {
       "symbol": "9722.T",
@@ -33762,7 +35887,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "サービス業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:36.830Z"
+      }
     },
     {
       "symbol": "9769.T",
@@ -34078,7 +36208,12 @@
       "marketSegment": "プライム",
       "sectors": [
         "小売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:36.840Z"
+      }
     },
     {
       "symbol": "9867.T",
@@ -34150,7 +36285,12 @@
       "marketSegment": "スタンダード",
       "sectors": [
         "卸売業"
-      ]
+      ],
+      "fundamental": {
+        "judgment": "neutral",
+        "memo": "LLMに接続できませんでした。APIキーまたはOllamaの起動を確認してください。",
+        "analyzedAt": "2026-02-06T23:24:36.891Z"
+      }
     },
     {
       "symbol": "9887.T",
@@ -34605,5 +36745,5 @@
       ]
     }
   ],
-  "updatedAt": "2026-02-06T14:33:46.205Z"
+  "updatedAt": "2026-02-06T23:24:37.419Z"
 }

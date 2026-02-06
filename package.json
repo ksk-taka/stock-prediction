@@ -10,7 +10,9 @@
     "monitor:signals": "npx tsx scripts/monitor-signals.ts",
     "monitor:signals:dry": "npx tsx scripts/monitor-signals.ts --dry-run",
     "test:slack": "npx tsx scripts/test-slack.ts",
-    "fetch:stocks": "npx tsx scripts/fetch-all-stocks.ts"
+    "fetch:stocks": "npx tsx scripts/fetch-all-stocks.ts",
+    "scan:signals": "npx tsx scripts/scan-all-signals.ts",
+    "scan:signals:quick": "npx tsx scripts/scan-all-signals.ts --quick"
   },
   "dependencies": {
     "date-fns": "^4.1.0",
