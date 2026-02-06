@@ -10,8 +10,8 @@ interface SentimentGaugeProps {
 export default function SentimentGauge({ sentiment }: SentimentGaugeProps) {
   if (!sentiment) {
     return (
-      <div className="flex h-48 items-center justify-center rounded-lg bg-white p-4 shadow">
-        <span className="text-gray-400">センチメントデータなし</span>
+      <div className="flex h-48 items-center justify-center rounded-lg bg-white dark:bg-slate-800 p-4 shadow dark:shadow-slate-900/50">
+        <span className="text-gray-400 dark:text-slate-500">センチメントデータなし</span>
       </div>
     );
   }
@@ -39,8 +39,8 @@ export default function SentimentGauge({ sentiment }: SentimentGaugeProps) {
   const color = getColor(sentiment.score);
 
   return (
-    <div className="rounded-lg bg-white p-4 shadow">
-      <h3 className="mb-2 text-center text-sm font-semibold text-gray-700">
+    <div className="rounded-lg bg-white dark:bg-slate-800 p-4 shadow dark:shadow-slate-900/50">
+      <h3 className="mb-2 text-center text-sm font-semibold text-gray-700 dark:text-slate-300">
         センチメント
       </h3>
       <div className="flex justify-center">
@@ -112,7 +112,7 @@ export default function SentimentGauge({ sentiment }: SentimentGaugeProps) {
         >
           {sentimentLabelJa(sentiment.label)}
         </span>
-        <span className="ml-2 text-xs text-gray-400">
+        <span className="ml-2 text-xs text-gray-400 dark:text-slate-500">
           確信度: {Math.round(sentiment.confidence * 100)}%
         </span>
       </div>

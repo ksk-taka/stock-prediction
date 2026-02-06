@@ -1,17 +1,20 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import PriceChart, { PERIODS } from "@/components/PriceChart";
 import SentimentGauge from "@/components/SentimentGauge";
 import SentimentChart from "@/components/SentimentChart";
 import NewsPanel from "@/components/NewsPanel";
 import AnalysisCard from "@/components/AnalysisCard";
+import BacktestPanel from "@/components/BacktestPanel";
+import MarketSentiment from "@/components/MarketSentiment";
 import { formatChange } from "@/lib/utils/format";
+import { isMarketOpen } from "@/lib/utils/date";
 import type { PriceData, NewsItem, SentimentData, LLMAnalysis } from "@/types";
 import type { Period } from "@/lib/utils/date";
 
-type Tab = "chart" | "news" | "sentiment" | "analysis";
+type Tab = "chart" | "news" | "sentiment" | "analysis" | "backtest";
 
 export default function StockDetailPage() {
   const params = useParams();
@@ -35,6 +38,7 @@ export default function StockDetailPage() {
   const [activeTab, setActiveTab] = useState<Tab>("chart");
   const [loadingNews, setLoadingNews] = useState(true);
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
+  const [eps, setEps] = useState<number | null>(null);
 
   // 特定期間の株価データ取得
   const fetchPricesForPeriod = useCallback(
@@ -112,15 +116,60 @@ export default function StockDetailPage() {
     }
   }, [quote, fetchNews]);
 
-  // 期間トグル
-  const togglePeriod = (period: Period) => {
+  // EPS取得（PERバンド用）
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await fetch(`/api/stats?symbol=${encodeURIComponent(symbol)}`);
+        const data = await res.json();
+        if (data.eps != null) setEps(data.eps);
+      } catch {
+        // skip
+      }
+    };
+    fetchStats();
+  }, [symbol]);
+
+  // 取引時間中の自動更新（30秒間隔）
+  const refreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    const market = symbol.endsWith(".T") ? "JP" : "US";
+    const tick = () => {
+      if (!isMarketOpen(market as "JP" | "US")) return;
+      // 各アクティブ期間のキャッシュをクリアして再取得
+      for (const p of activePeriods) {
+        setPricesMap((prev) => {
+          const next = { ...prev };
+          delete next[p];
+          return next;
+        });
+      }
+    };
+    refreshRef.current = setInterval(tick, 30_000);
+    return () => {
+      if (refreshRef.current) clearInterval(refreshRef.current);
+    };
+  }, [symbol, activePeriods]);
+
+  // 期間ソート順（短い順）
+  const periodOrder: Period[] = ["1min", "5min", "15min", "daily", "weekly", "monthly"];
+  const sortPeriods = (periods: Period[]) =>
+    [...periods].sort((a, b) => periodOrder.indexOf(a) - periodOrder.indexOf(b));
+
+  // 期間トグル（単純クリック=1つ選択、Shift+クリック=複数選択）
+  const togglePeriod = (period: Period, shiftKey: boolean) => {
+    if (!shiftKey) {
+      // 単純クリック: この期間だけ選択
+      setActivePeriods([period]);
+      return;
+    }
+    // Shift+クリック: 複数選択トグル
     setActivePeriods((prev) => {
       if (prev.includes(period)) {
-        // 最低1つは残す
         if (prev.length <= 1) return prev;
-        return prev.filter((p) => p !== period);
+        return sortPeriods(prev.filter((p) => p !== period));
       }
-      return [...prev, period];
+      return sortPeriods([...prev, period]);
     });
   };
 
@@ -137,25 +186,26 @@ export default function StockDetailPage() {
     { value: "news", label: "ニュース" },
     { value: "sentiment", label: "センチメント推移" },
     { value: "analysis", label: "AI分析詳細" },
+    { value: "backtest", label: "バックテスト" },
   ];
 
   return (
     <div>
       {/* 上部: 銘柄情報 */}
-      <div className="mb-6 flex flex-wrap items-end gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+      <div className="mb-6 flex flex-wrap items-end gap-3 sm:gap-4">
+        <div className="min-w-0">
+          <h1 className="truncate text-xl font-bold text-gray-900 dark:text-white sm:text-2xl">
             {quote?.name ?? symbol}
           </h1>
-          <p className="text-sm text-gray-500">{symbol}</p>
+          <p className="text-sm text-gray-500 dark:text-slate-400">{symbol}</p>
         </div>
         {quote && (
-          <div className="flex items-end gap-3">
-            <span className="text-3xl font-bold text-gray-900">
+          <div className="flex items-end gap-2 sm:gap-3">
+            <span className="text-2xl font-bold text-gray-900 dark:text-white sm:text-3xl">
               {quote.price.toLocaleString()}
             </span>
             <span
-              className={`text-lg font-medium ${
+              className={`text-base font-medium sm:text-lg ${
                 isPositive ? "text-green-600" : "text-red-600"
               }`}
             >
@@ -168,11 +218,16 @@ export default function StockDetailPage() {
           <button
             onClick={runAnalysis}
             disabled={loadingAnalysis}
-            className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-50"
+            className="rounded-lg bg-blue-500 px-3 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-50 sm:px-4"
           >
             {loadingAnalysis ? "分析中..." : "AI分析を実行"}
           </button>
         </div>
+      </div>
+
+      {/* 地合い判定 */}
+      <div className="mb-4">
+        <MarketSentiment />
       </div>
 
       {/* 期間マルチセレクタ */}
@@ -184,11 +239,11 @@ export default function StockDetailPage() {
             return (
               <button
                 key={p.value}
-                onClick={() => togglePeriod(p.value)}
+                onClick={(e) => togglePeriod(p.value, e.shiftKey)}
                 className={`rounded px-3 py-1 text-sm transition ${
                   isActive
                     ? "bg-blue-500 text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    : "bg-gray-100 dark:bg-slate-700 text-gray-600 hover:bg-gray-200 dark:hover:bg-slate-600"
                 }`}
               >
                 {p.label}
@@ -196,8 +251,8 @@ export default function StockDetailPage() {
             );
           })}
         </div>
-        <span className="text-xs text-gray-400">
-          (複数選択で並べて比較)
+        <span className="text-xs text-gray-400 dark:text-slate-500">
+          (Shift+クリックで複数選択・比較)
         </span>
       </div>
 
@@ -209,8 +264,8 @@ export default function StockDetailPage() {
             {activePeriods.map((p) => (
               <div key={p}>
                 {loadingMap[p] ? (
-                  <div className="flex h-60 items-center justify-center rounded-lg bg-white shadow">
-                    <div className="text-gray-400">読み込み中...</div>
+                  <div className="flex h-60 items-center justify-center rounded-lg bg-white dark:bg-slate-800 shadow dark:shadow-slate-900/50">
+                    <div className="text-gray-400 dark:text-slate-500">読み込み中...</div>
                   </div>
                 ) : (
                   <PriceChart
@@ -224,6 +279,7 @@ export default function StockDetailPage() {
                       )
                     }
                     chartHeight={260}
+                    eps={eps ?? undefined}
                   />
                 )}
               </div>
@@ -232,14 +288,15 @@ export default function StockDetailPage() {
         ) : (
           /* 単一期間: フル幅表示 */
           loadingMap[activePeriods[0]] ? (
-            <div className="flex h-80 items-center justify-center rounded-lg bg-white shadow">
-              <div className="text-gray-400">読み込み中...</div>
+            <div className="flex h-80 items-center justify-center rounded-lg bg-white dark:bg-slate-800 shadow dark:shadow-slate-900/50">
+              <div className="text-gray-400 dark:text-slate-500">読み込み中...</div>
             </div>
           ) : (
             <PriceChart
               data={pricesMap[activePeriods[0]] ?? []}
               period={activePeriods[0]}
               onPeriodChange={handleSinglePeriodChange}
+              eps={eps ?? undefined}
             />
           )
         )}
@@ -252,27 +309,29 @@ export default function StockDetailPage() {
       </div>
 
       {/* タブ切り替え */}
-      <div className="mb-4 flex gap-1 border-b border-gray-200">
-        {tabs.map((tab) => (
-          <button
-            key={tab.value}
-            onClick={() => setActiveTab(tab.value)}
-            className={`px-4 py-2 text-sm font-medium ${
-              activeTab === tab.value
-                ? "border-b-2 border-blue-500 text-blue-600"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="mb-4 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div className="flex gap-1 border-b border-gray-200 dark:border-slate-700 min-w-max">
+          {tabs.map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => setActiveTab(tab.value)}
+              className={`whitespace-nowrap px-3 py-2 text-sm font-medium sm:px-4 ${
+                activeTab === tab.value
+                  ? "border-b-2 border-blue-500 text-blue-600"
+                  : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* タブコンテンツ */}
       <div>
         {activeTab === "chart" && (
-          <div className="rounded-lg bg-white p-4 shadow">
-            <h3 className="mb-4 text-lg font-semibold text-gray-900">
+          <div className="rounded-lg bg-white dark:bg-slate-800 p-4 shadow dark:shadow-slate-900/50">
+            <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
               詳細チャート
             </h3>
             {(() => {
@@ -281,7 +340,7 @@ export default function StockDetailPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b text-left text-gray-500">
+                      <tr className="border-b text-left text-gray-500 dark:text-slate-400">
                         <th className="px-2 py-2">日付</th>
                         <th className="px-2 py-2 text-right">始値</th>
                         <th className="px-2 py-2 text-right">高値</th>
@@ -296,8 +355,8 @@ export default function StockDetailPage() {
                         .reverse()
                         .slice(0, 20)
                         .map((p) => (
-                          <tr key={p.date} className="border-b border-gray-50">
-                            <td className="px-2 py-1.5 text-gray-700">
+                          <tr key={p.date} className="border-b border-gray-50 dark:border-slate-700">
+                            <td className="px-2 py-1.5 text-gray-700 dark:text-slate-300">
                               {p.date}
                             </td>
                             <td className="px-2 py-1.5 text-right">
@@ -312,7 +371,7 @@ export default function StockDetailPage() {
                             <td className="px-2 py-1.5 text-right font-medium">
                               {p.close.toLocaleString()}
                             </td>
-                            <td className="px-2 py-1.5 text-right text-gray-500">
+                            <td className="px-2 py-1.5 text-right text-gray-500 dark:text-slate-400">
                               {p.volume.toLocaleString()}
                             </td>
                           </tr>
@@ -321,7 +380,7 @@ export default function StockDetailPage() {
                   </table>
                 </div>
               ) : (
-                <p className="text-gray-400">データなし</p>
+                <p className="text-gray-400 dark:text-slate-500">データなし</p>
               );
             })()}
           </div>
@@ -332,6 +391,12 @@ export default function StockDetailPage() {
         {activeTab === "sentiment" && <SentimentChart data={[]} />}
         {activeTab === "analysis" && (
           <AnalysisCard analysis={analysis} loading={loadingAnalysis} />
+        )}
+        {activeTab === "backtest" && (
+          <BacktestPanel
+            data={pricesMap[activePeriods[0]] ?? []}
+            symbol={symbol}
+          />
         )}
       </div>
     </div>

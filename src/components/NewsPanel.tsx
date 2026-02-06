@@ -29,13 +29,13 @@ function sentimentBadge(sentiment?: "positive" | "negative" | "neutral") {
 export default function NewsPanel({ news, loading }: NewsPanelProps) {
   if (loading) {
     return (
-      <div className="rounded-lg bg-white p-4 shadow">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900">ニュース</h3>
+      <div className="rounded-lg bg-white dark:bg-slate-800 p-4 shadow dark:shadow-slate-900/50">
+        <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">ニュース</h3>
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
             <div key={i} className="animate-pulse">
-              <div className="h-4 w-3/4 rounded bg-gray-200" />
-              <div className="mt-2 h-3 w-1/2 rounded bg-gray-100" />
+              <div className="h-4 w-3/4 rounded bg-gray-200 dark:bg-slate-700" />
+              <div className="mt-2 h-3 w-1/2 rounded bg-gray-100 dark:bg-slate-700" />
             </div>
           ))}
         </div>
@@ -44,14 +44,14 @@ export default function NewsPanel({ news, loading }: NewsPanelProps) {
   }
 
   return (
-    <div className="rounded-lg bg-white p-4 shadow">
-      <h3 className="mb-4 text-lg font-semibold text-gray-900">ニュース</h3>
+    <div className="rounded-lg bg-white dark:bg-slate-800 p-4 shadow dark:shadow-slate-900/50">
+      <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">ニュース</h3>
       {news.length === 0 ? (
-        <p className="text-gray-400">ニュースデータがありません</p>
+        <p className="text-gray-400 dark:text-slate-500">ニュースデータがありません</p>
       ) : (
         <ul className="space-y-3">
           {news.map((item, i) => (
-            <li key={i} className="border-b border-gray-100 pb-3 last:border-0">
+            <li key={i} className="border-b border-gray-200 dark:border-slate-600 pb-3 last:border-0">
               <div className="flex items-start gap-2">
                 <div className="flex-1">
                   {item.url ? (
@@ -59,21 +59,21 @@ export default function NewsPanel({ news, loading }: NewsPanelProps) {
                       href={item.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm font-medium text-gray-900 hover:text-blue-600"
+                      className="text-sm font-medium text-gray-900 dark:text-white hover:text-blue-600"
                     >
                       {item.title}
                     </a>
                   ) : (
-                    <span className="text-sm font-medium text-gray-900">
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">
                       {item.title}
                     </span>
                   )}
                   {item.summary && (
-                    <p className="mt-1 text-xs text-gray-500">{item.summary}</p>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">{item.summary}</p>
                   )}
                   <div className="mt-1 flex items-center gap-2">
-                    <span className="text-xs text-gray-400">{item.source}</span>
-                    <span className="text-xs text-gray-400">
+                    <span className="text-xs text-gray-400 dark:text-slate-500">{item.source}</span>
+                    <span className="text-xs text-gray-400 dark:text-slate-500">
                       {item.publishedAt}
                     </span>
                     {sentimentBadge(item.sentiment)}

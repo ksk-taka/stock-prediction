@@ -93,13 +93,13 @@ export default function AddStockModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 dark:bg-black/70 sm:items-center">
+      <div className="w-full max-w-md rounded-t-lg bg-white dark:bg-slate-800 p-4 shadow-xl dark:shadow-slate-900/50 sm:rounded-lg sm:p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">銘柄を追加</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">銘柄を追加</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-gray-400 dark:text-slate-500 hover:text-gray-600"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -114,19 +114,19 @@ export default function AddStockModal({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="銘柄コードまたは会社名を入力（例: 7203, AAPL, トヨタ）"
-            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            className="w-full rounded border border-gray-300 dark:border-slate-600 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
           />
         </div>
 
         <div className="mt-3 max-h-72 overflow-y-auto">
           {searching && (
-            <div className="py-4 text-center text-sm text-gray-400">
+            <div className="py-4 text-center text-sm text-gray-400 dark:text-slate-500">
               検索中...
             </div>
           )}
 
           {!searching && query.length > 0 && results.length === 0 && (
-            <div className="py-4 text-center text-sm text-gray-400">
+            <div className="py-4 text-center text-sm text-gray-400 dark:text-slate-500">
               該当する銘柄が見つかりません
             </div>
           )}
@@ -139,12 +139,12 @@ export default function AddStockModal({
               className="flex w-full items-center justify-between rounded px-3 py-2 text-left hover:bg-blue-50 disabled:opacity-50"
             >
               <div>
-                <span className="text-sm font-medium text-gray-900">
+                <span className="text-sm font-medium text-gray-900 dark:text-white">
                   {String(r.name)}
                 </span>
-                <span className="ml-2 text-xs text-gray-500">{r.symbol}</span>
+                <span className="ml-2 text-xs text-gray-500 dark:text-slate-400">{r.symbol}</span>
               </div>
-              <span className="text-xs text-gray-400">{String(r.exchange)}</span>
+              <span className="text-xs text-gray-400 dark:text-slate-500">{String(r.exchange)}</span>
             </button>
           ))}
         </div>
@@ -152,7 +152,7 @@ export default function AddStockModal({
         <div className="mt-4 text-right">
           <button
             onClick={onClose}
-            className="rounded bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+            className="rounded bg-gray-100 dark:bg-slate-700 px-4 py-2 text-sm font-medium text-gray-700 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700"
           >
             閉じる
           </button>

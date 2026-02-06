@@ -9,14 +9,16 @@ import {
   Area,
   XAxis,
   YAxis,
-  CartesianGrid,
   Tooltip,
   Legend,
   Cell,
   ReferenceLine,
+  ReferenceDot,
+  ReferenceArea,
 } from "recharts";
 import type { PriceData } from "@/types";
 import type { Period } from "@/lib/utils/date";
+import { useTheme } from "@/components/ThemeProvider";
 import {
   calcRSI,
   calcMACD,
@@ -24,6 +26,7 @@ import {
   type MACDPoint,
   type BollingerPoint,
 } from "@/lib/utils/indicators";
+import { detectBuySignals, detectCupWithHandle } from "@/lib/utils/signals";
 
 interface PriceChartProps {
   data: PriceData[];
@@ -35,6 +38,8 @@ interface PriceChartProps {
   onRemove?: () => void;
   /** チャートの高さ (default: 350) */
   chartHeight?: number;
+  /** EPS（PERバンド描画用） */
+  eps?: number;
 }
 
 export const PERIODS: { value: Period; label: string }[] = [
@@ -45,6 +50,9 @@ export const PERIODS: { value: Period; label: string }[] = [
   { value: "weekly", label: "週足" },
   { value: "monthly", label: "月足" },
 ];
+
+const PER_BAND_LEVELS = [5, 8, 10, 12, 15, 20, 25, 30, 40] as const;
+const PER_BAND_COLOR = "#e879649f";
 
 // 足ごとのデフォルト表示本数
 function getWindowSize(period: Period): number {
@@ -162,10 +170,33 @@ export default function PriceChart({
   compact = false,
   onRemove,
   chartHeight = 350,
+  eps,
 }: PriceChartProps) {
-  const [showMA, setShowMA] = useState({ ma5: true, ma25: false, ma75: false });
+  const { theme } = useTheme();
+  const bbMaskFill = theme === "dark" ? "#1e293b" : "#ffffff";
+
+  const [showMA, setShowMA] = useState({ ma5: true, ma25: true, ma75: false });
+  const [showVolume, setShowVolume] = useState(false);
   const [showIndicators, setShowIndicators] = useState({ rsi: false, macd: false });
-  const [showBB, setShowBB] = useState({ s1: false, s2: false, s3: false });
+  const [showBB, setShowBB] = useState({ s1: false, s2: true, s3: false });
+  const [showPERBand, setShowPERBand] = useState(false);
+  const [showBuySignals, setShowBuySignals] = useState(true);
+  const [showCWHSignals, setShowCWHSignals] = useState(false);
+  // 描画ツール
+  const [drawingMode, setDrawingMode] = useState<"none" | "hline" | "trendline">("none");
+  const [hLines, setHLines] = useState<{ id: string; price: number }[]>([]);
+  const [trendLines, setTrendLines] = useState<{
+    id: string;
+    startGlobalIdx: number;
+    startPrice: number;
+    endGlobalIdx: number;
+    endPrice: number;
+  }[]>([]);
+  const [pendingTrendStart, setPendingTrendStart] = useState<{
+    globalIdx: number;
+    price: number;
+  } | null>(null);
+  const mainChartWrapRef = useRef<HTMLDivElement>(null);
   const [chartType, setChartType] = useState<"candle" | "line">("candle");
   const [viewEnd, setViewEnd] = useState(data.length);
 
@@ -185,20 +216,98 @@ export default function PriceChart({
     bb: calcBollingerBands(data),  // 1σ,2σ,3σ一括計算
   }), [data]);
 
+  // 買いシグナル検出（ちょる子式）
+  const buySignals = useMemo(() => detectBuySignals(data), [data]);
+  // カップウィズハンドル検出（田端式）
+  const cwhSignals = useMemo(() => detectCupWithHandle(data), [data]);
+
+  // 表示範囲内のシグナル（マーカー表示用）
+  const visibleSignals = useMemo(() => {
+    const start = Math.max(0, viewEnd - windowSize);
+    return buySignals.filter((s) => s.index >= start && s.index < viewEnd);
+  }, [buySignals, viewEnd, windowSize]);
+  const visibleCWHSignals = useMemo(() => {
+    const start = Math.max(0, viewEnd - windowSize);
+    return cwhSignals.filter((s) => s.index >= start && s.index < viewEnd);
+  }, [cwhSignals, viewEnd, windowSize]);
+
+  // 直近シグナル（全データから直近5件）
+  const recentSignals = useMemo(() => buySignals.slice(-5).reverse(), [buySignals]);
+  const recentCWHSignals = useMemo(() => cwhSignals.slice(-5).reverse(), [cwhSignals]);
+
   // 表示範囲
   const viewStart = Math.max(0, viewEnd - windowSize);
+
+  // CWHカップ可視化オーバーレイ
+  const cwhOverlays = useMemo(() => {
+    if (!showCWHSignals) return [];
+    return cwhSignals
+      .filter((s) => s.cupMeta != null)
+      .filter((s) => {
+        const meta = s.cupMeta!;
+        return meta.leftRimIdx < viewEnd && s.index >= viewStart;
+      })
+      .map((s) => {
+        const meta = s.cupMeta!;
+        const rimLevel = Math.max(meta.leftRimHigh, meta.rightRimHigh);
+        const getDate = (gi: number): string | null => {
+          if (gi >= viewStart && gi < viewEnd) return data[gi]?.date ?? null;
+          return null;
+        };
+        const cupStartDate = getDate(Math.max(meta.leftRimIdx, viewStart));
+        const cupEndDate = getDate(Math.min(meta.rightRimIdx, viewEnd - 1));
+        const handleEndDate = getDate(Math.min(s.index, viewEnd - 1));
+        return {
+          leftRimDate: getDate(meta.leftRimIdx),
+          bottomDate: getDate(meta.bottomIdx),
+          rightRimDate: getDate(meta.rightRimIdx),
+          rimLevel,
+          leftRimHigh: meta.leftRimHigh,
+          bottomLow: meta.bottomLow,
+          rightRimHigh: meta.rightRimHigh,
+          cupStartDate,
+          cupEndDate,
+          handleEndDate,
+        };
+      });
+  }, [showCWHSignals, cwhSignals, data, viewStart, viewEnd]);
   const visibleData = data.slice(viewStart, viewEnd);
   const canScrollLeft = viewStart > 0;
   const canScrollRight = viewEnd < data.length;
 
   const chartData = useMemo(() => {
+    // トレンドラインの表示セグメントを事前計算
+    const tlSegments: Record<string, { startVi: number; startPrice: number; endVi: number; endPrice: number }> = {};
+    for (const line of trendLines) {
+      const dx = line.endGlobalIdx - line.startGlobalIdx;
+      if (dx === 0) {
+        const vi = line.startGlobalIdx - viewStart;
+        if (vi >= 0 && vi < visibleData.length) {
+          tlSegments[line.id] = { startVi: vi, startPrice: line.startPrice, endVi: vi, endPrice: line.endPrice };
+        }
+      } else {
+        const slope = (line.endPrice - line.startPrice) / dx;
+        const intercept = line.startPrice - slope * line.startGlobalIdx;
+        const segStart = Math.max(viewStart, Math.min(line.startGlobalIdx, line.endGlobalIdx));
+        const segEnd = Math.min(viewEnd - 1, Math.max(line.startGlobalIdx, line.endGlobalIdx));
+        if (segStart <= viewEnd - 1 && segEnd >= viewStart) {
+          tlSegments[line.id] = {
+            startVi: segStart - viewStart,
+            startPrice: slope * segStart + intercept,
+            endVi: segEnd - viewStart,
+            endPrice: slope * segEnd + intercept,
+          };
+        }
+      }
+    }
+
     return visibleData.map((d, vi) => {
       const gi = viewStart + vi;
       const macdPt: MACDPoint = allIndicators.macd[gi] ?? { macd: null, signal: null, histogram: null };
       const bbPt: BollingerPoint = allIndicators.bb[gi] ?? {
         middle: null, upper1: null, lower1: null, upper2: null, lower2: null, upper3: null, lower3: null,
       };
-      return {
+      const entry: Record<string, any> = {
         date: d.date,
         close: d.close,
         open: d.open,
@@ -221,8 +330,31 @@ export default function PriceChart({
         bbUpper3: bbPt.upper3,
         bbLower3: bbPt.lower3,
       };
+      // トレンドラインデータを付加
+      for (const [id, seg] of Object.entries(tlSegments)) {
+        if (vi === seg.startVi) entry[`tl_${id}`] = seg.startPrice;
+        else if (vi === seg.endVi) entry[`tl_${id}`] = seg.endPrice;
+        else entry[`tl_${id}`] = null;
+      }
+      // 買いシグナルマーカー（ちょる子式）
+      const signal = buySignals.find((s) => s.index === gi);
+      if (signal) {
+        entry.buySignalPrice = d.low;
+        entry.buySignalType = signal.type;
+        entry.buySignalLabel = signal.label;
+        entry.signalMarker = 0.5;
+      }
+      // CWHシグナルマーカー（田端式）
+      const cwh = cwhSignals.find((s) => s.index === gi);
+      if (cwh) {
+        entry.cwhSignalPrice = d.close;
+        entry.cwhSignalLabel = cwh.label;
+        entry.cwhDescription = cwh.description;
+        entry.cwhMarker = 0.5;
+      }
+      return entry;
     });
-  }, [visibleData, viewStart, allIndicators]);
+  }, [visibleData, viewStart, viewEnd, allIndicators, trendLines, buySignals, cwhSignals]);
 
   // 表示範囲の価格 min/max を計算して Y 軸ドメインを決定
   const priceDomain = useMemo((): [number, number] => {
@@ -248,13 +380,23 @@ export default function PriceChart({
         if (d.bbUpper1 != null && d.bbUpper1 > max) max = d.bbUpper1;
       }
     }
+    // PERバンドが有効な場合、表示範囲内のバンドラインも考慮
+    if (showPERBand && eps && eps > 0) {
+      for (const m of PER_BAND_LEVELS) {
+        const price = eps * m;
+        if (price >= min * 0.8 && price <= max * 1.2) {
+          if (price < min) min = price;
+          if (price > max) max = price;
+        }
+      }
+    }
     const range = max - min;
     const padding = range * 0.05 || max * 0.02;
     return [
       Math.floor((min - padding) * 100) / 100,
       Math.ceil((max + padding) * 100) / 100,
     ];
-  }, [chartData, showBB]);
+  }, [chartData, showBB, showPERBand, eps]);
 
   // チャートコンテナ ref（Shift+ホイールスクロール用）
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -284,6 +426,71 @@ export default function PriceChart({
     return () => el.removeEventListener("wheel", handleWheel);
   }, [handleWheel]);
 
+  // チャートクリックハンドラ（描画ツール用）
+  // priceDomain + チャート寸法から直接価格を逆算する
+  const handleDrawingClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mouseY = e.clientY - rect.top;
+    const mouseX = e.clientX - rect.left;
+
+    // Recharts のプロットエリア推定値
+    const plotTop = 15;
+    const plotBottom = rect.height - (hasSubChart ? 8 : 25);
+    const plotLeft = 10;
+    const plotRight = rect.width - 50;
+    if (mouseY < plotTop || mouseY > plotBottom ||
+        mouseX < plotLeft || mouseX > plotRight) return;
+
+    // Y → 価格（上=最大値、下=最小値）
+    const plotH = plotBottom - plotTop;
+    const priceFrac = (mouseY - plotTop) / plotH;
+    const price = priceDomain[1] - priceFrac * (priceDomain[1] - priceDomain[0]);
+    const roundedPrice = Math.round(price * 100) / 100;
+
+    if (drawingMode === "hline") {
+      setHLines((prev) => [...prev, { id: `h-${Date.now()}`, price: roundedPrice }]);
+      setDrawingMode("none");
+      return;
+    }
+
+    if (drawingMode === "trendline") {
+      const plotW = plotRight - plotLeft;
+      const relX = mouseX - plotLeft;
+      const approxIdx = Math.round((relX / plotW) * (chartData.length - 1));
+      const clampedIdx = Math.max(0, Math.min(chartData.length - 1, approxIdx));
+      const globalIdx = viewStart + clampedIdx;
+
+      if (!pendingTrendStart) {
+        setPendingTrendStart({ globalIdx, price: roundedPrice });
+      } else {
+        setTrendLines((prev) => [
+          ...prev,
+          {
+            id: `t-${Date.now()}`,
+            startGlobalIdx: pendingTrendStart.globalIdx,
+            startPrice: pendingTrendStart.price,
+            endGlobalIdx: globalIdx,
+            endPrice: roundedPrice,
+          },
+        ]);
+        setPendingTrendStart(null);
+        setDrawingMode("none");
+      }
+    }
+  };
+
+  // ESCキーで描画モードキャンセル
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && drawingMode !== "none") {
+        setDrawingMode("none");
+        setPendingTrendStart(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [drawingMode]);
+
   // サブチャートが表示されるかどうか
   const hasSubChart = showIndicators.rsi || showIndicators.macd;
 
@@ -297,26 +504,26 @@ export default function PriceChart({
 
   if (data.length === 0) {
     return (
-      <div className="flex h-80 items-center justify-center text-gray-400">
+      <div className="flex h-80 items-center justify-center text-gray-400 dark:text-slate-500">
         データがありません
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg bg-white p-4 shadow">
+    <div className="rounded-lg bg-white dark:bg-slate-800 p-4 shadow dark:shadow-slate-900/50">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-3">
-          <h3 className={`font-semibold text-gray-900 ${compact ? "text-base" : "text-lg"}`}>
+          <h3 className={`font-semibold text-gray-900 dark:text-white ${compact ? "text-base" : "text-lg"}`}>
             {compact ? PERIOD_LABELS[period] : "株価チャート"}
           </h3>
-          <div className="flex rounded border border-gray-200">
+          <div className="flex rounded border border-gray-200 dark:border-slate-600">
             <button
               onClick={() => setChartType("candle")}
               className={`px-2 py-1 text-xs ${
                 chartType === "candle"
                   ? "bg-blue-500 text-white"
-                  : "text-gray-500 hover:bg-gray-100"
+                  : "text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-700"
               }`}
             >
               ローソク
@@ -326,7 +533,7 @@ export default function PriceChart({
               className={`px-2 py-1 text-xs ${
                 chartType === "line"
                   ? "bg-blue-500 text-white"
-                  : "text-gray-500 hover:bg-gray-100"
+                  : "text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-700"
               }`}
             >
               折れ線
@@ -335,7 +542,7 @@ export default function PriceChart({
           {compact && onRemove && (
             <button
               onClick={onRemove}
-              className="rounded p-1 text-gray-300 hover:bg-red-50 hover:text-red-500"
+              className="rounded p-1 text-gray-300 dark:text-slate-600 hover:bg-red-50 hover:text-red-500"
               title="閉じる"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -353,7 +560,7 @@ export default function PriceChart({
                 className={`rounded px-3 py-1 text-sm ${
                   period === p.value
                     ? "bg-blue-500 text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    : "bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 hover:bg-gray-200"
                 }`}
               >
                 {p.label}
@@ -366,6 +573,17 @@ export default function PriceChart({
       {/* インジケーター トグル */}
       <div className="mb-2 flex flex-wrap items-center justify-between gap-y-1">
         <div className="flex flex-wrap gap-x-3 gap-y-1">
+          {/* 出来高 */}
+          <label className="flex items-center gap-1 text-xs">
+            <input
+              type="checkbox"
+              checked={showVolume}
+              onChange={(e) => setShowVolume(e.target.checked)}
+              className="h-3 w-3"
+            />
+            <span className="text-gray-500 dark:text-slate-400">出来高</span>
+          </label>
+          <span className="text-gray-300 dark:text-slate-600">|</span>
           {/* MA */}
           {[
             { key: "ma5" as const, label: "MA5", color: "#f59e0b" },
@@ -384,7 +602,7 @@ export default function PriceChart({
               <span style={{ color: ma.color }}>{ma.label}</span>
             </label>
           ))}
-          <span className="text-gray-300">|</span>
+          <span className="text-gray-300 dark:text-slate-600">|</span>
           {/* ボリンジャーバンド σ 選択 */}
           {[
             { key: "s1" as const, label: "BB 1σ", color: "#7dd3fc" },
@@ -403,7 +621,59 @@ export default function PriceChart({
               <span style={{ color: bb.color }}>{bb.label}</span>
             </label>
           ))}
-          <span className="text-gray-300">|</span>
+          {/* PERバンド（EPSがある場合のみ） */}
+          {eps != null && eps > 0 && (
+            <>
+              <span className="text-gray-300 dark:text-slate-600">|</span>
+              <label className="flex items-center gap-1 text-xs">
+                <input
+                  type="checkbox"
+                  checked={showPERBand}
+                  onChange={(e) => setShowPERBand(e.target.checked)}
+                  className="h-3 w-3"
+                />
+                <span style={{ color: "#e87964" }}>PERバンド</span>
+              </label>
+            </>
+          )}
+          <span className="text-gray-300 dark:text-slate-600">|</span>
+          {/* ちょる子式買いシグナル */}
+          <label className="flex items-center gap-1 text-xs">
+            <input
+              type="checkbox"
+              checked={showBuySignals}
+              onChange={(e) => {
+                setShowBuySignals(e.target.checked);
+                if (e.target.checked) {
+                  setShowMA((prev) => ({ ...prev, ma25: true }));
+                  setShowBB((prev) => ({ ...prev, s2: true }));
+                }
+              }}
+              className="h-3 w-3"
+            />
+            <span style={{ color: "#f59e0b" }}>ちょる子式</span>
+            {buySignals.length > 0 && (
+              <span className="rounded-full bg-amber-100 dark:bg-amber-900/30 px-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-400">
+                {buySignals.length}
+              </span>
+            )}
+          </label>
+          {/* 田端式CWH */}
+          <label className="flex items-center gap-1 text-xs">
+            <input
+              type="checkbox"
+              checked={showCWHSignals}
+              onChange={(e) => setShowCWHSignals(e.target.checked)}
+              className="h-3 w-3"
+            />
+            <span style={{ color: "#10b981" }}>田端式CWH</span>
+            {cwhSignals.length > 0 && (
+              <span className="rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-1.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
+                {cwhSignals.length}
+              </span>
+            )}
+          </label>
+          <span className="text-gray-300 dark:text-slate-600">|</span>
           {/* RSI / MACD */}
           {[
             { key: "rsi" as const, label: "RSI", color: "#8b5cf6" },
@@ -421,18 +691,54 @@ export default function PriceChart({
               <span style={{ color: ind.color }}>{ind.label}</span>
             </label>
           ))}
+          {/* 描画ツール */}
+          <span className="text-gray-300 dark:text-slate-600">|</span>
+          <button
+            onClick={() => { setDrawingMode(drawingMode === "hline" ? "none" : "hline"); setPendingTrendStart(null); }}
+            className={`rounded px-1.5 py-0.5 text-xs ${drawingMode === "hline" ? "bg-red-100 dark:bg-red-900/30 text-red-600" : "text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-700"}`}
+            title="水平線を描画"
+          >
+            ─ 水平線
+          </button>
+          <button
+            onClick={() => { setDrawingMode(drawingMode === "trendline" ? "none" : "trendline"); setPendingTrendStart(null); }}
+            className={`rounded px-1.5 py-0.5 text-xs ${drawingMode === "trendline" ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600" : "text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-700"}`}
+            title="トレンドラインを描画"
+          >
+            ╱ ライン
+          </button>
+          {(hLines.length > 0 || trendLines.length > 0) && (
+            <button
+              onClick={() => { setHLines([]); setTrendLines([]); setPendingTrendStart(null); }}
+              className="rounded px-1.5 py-0.5 text-xs text-gray-400 dark:text-slate-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500"
+              title="全消去"
+            >
+              クリア
+            </button>
+          )}
         </div>
-        <span className="text-xs text-gray-400">
+        <span className="text-xs text-gray-400 dark:text-slate-500">
           {viewStart + 1}-{viewEnd} / {data.length}
           {(canScrollLeft || canScrollRight) && " (Shift+ホイールでスクロール)"}
         </span>
       </div>
 
-      {/* チャートエリア (Shift+ホイールでスクロール) */}
+      {/* 描画モード時のヒント */}
+      {drawingMode !== "none" && (
+        <div className="mb-1 flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
+          <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+          {drawingMode === "hline"
+            ? "チャート上をクリックして水平線を配置"
+            : pendingTrendStart
+              ? "終点をクリック（ESCでキャンセル）"
+              : "始点をクリック（ESCでキャンセル）"}
+        </div>
+      )}
+      {/* チャートエリア */}
       <div ref={chartContainerRef}>
+      <div ref={mainChartWrapRef} style={{ position: "relative" }}>
       <ResponsiveContainer width="100%" height={chartHeight}>
         <ComposedChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
           <XAxis
             dataKey="date"
             tick={hasSubChart ? false : { fontSize: 10 }}
@@ -454,26 +760,26 @@ export default function PriceChart({
               const d = payload[0]?.payload;
               if (!d) return null;
               return (
-                <div className="rounded border border-gray-200 bg-white p-2 text-xs shadow">
+                <div className="rounded border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-2 text-xs shadow dark:shadow-slate-900/50">
                   <p className="font-medium text-gray-700">
                     {isIntraday(period) ? formatTickLabel(String(label ?? ""), period) : String(label ?? "")}
                   </p>
                   <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5">
-                    <span className="text-gray-500">始値:</span>
+                    <span className="text-gray-500 dark:text-slate-400">始値:</span>
                     <span className="text-right">{Number(d.open).toLocaleString()}</span>
-                    <span className="text-gray-500">高値:</span>
+                    <span className="text-gray-500 dark:text-slate-400">高値:</span>
                     <span className="text-right text-red-500">{Number(d.high).toLocaleString()}</span>
-                    <span className="text-gray-500">安値:</span>
+                    <span className="text-gray-500 dark:text-slate-400">安値:</span>
                     <span className="text-right text-blue-500">{Number(d.low).toLocaleString()}</span>
-                    <span className="text-gray-500">終値:</span>
+                    <span className="text-gray-500 dark:text-slate-400">終値:</span>
                     <span className={`text-right font-medium ${d.close >= d.open ? "text-green-600" : "text-red-600"}`}>
                       {Number(d.close).toLocaleString()}
                     </span>
-                    <span className="text-gray-500">出来高:</span>
+                    <span className="text-gray-500 dark:text-slate-400">出来高:</span>
                     <span className="text-right">{Number(d.volume).toLocaleString()}</span>
                     {d.rsi != null && (
                       <>
-                        <span className="text-gray-500">RSI:</span>
+                        <span className="text-gray-500 dark:text-slate-400">RSI:</span>
                         <span className="text-right">{d.rsi}</span>
                       </>
                     )}
@@ -485,17 +791,19 @@ export default function PriceChart({
           <Legend />
 
           {/* 出来高 */}
-          <Bar yAxisId="volume" dataKey="volume" name="出来高" barSize={3}>
-            {chartData.map((entry, index) => (
-              <Cell key={index} fill={entry.close >= entry.open ? "#bbf7d0" : "#fecaca"} />
-            ))}
-          </Bar>
+          {showVolume && (
+            <Bar yAxisId="volume" dataKey="volume" name="出来高" barSize={3}>
+              {chartData.map((entry, index) => (
+                <Cell key={index} fill={entry.close >= entry.open ? "#bbf7d0" : "#fecaca"} />
+              ))}
+            </Bar>
+          )}
 
           {/* ボリンジャーバンド 3σ */}
           {showBB.s3 && (
             <>
               <Area yAxisId="price" type="monotone" dataKey="bbUpper3" stroke="none" fill="#0369a1" fillOpacity={0.05} connectNulls legendType="none" name="BB+3σ" />
-              <Area yAxisId="price" type="monotone" dataKey="bbLower3" stroke="none" fill="#ffffff" fillOpacity={1} connectNulls legendType="none" name="BB-3σ" />
+              <Area yAxisId="price" type="monotone" dataKey="bbLower3" stroke="none" fill={bbMaskFill} fillOpacity={1} connectNulls legendType="none" name="BB-3σ" />
               <Line yAxisId="price" type="monotone" dataKey="bbUpper3" stroke="#0369a1" strokeWidth={1} strokeDasharray="2 2" dot={false} connectNulls name="+3σ" />
               <Line yAxisId="price" type="monotone" dataKey="bbLower3" stroke="#0369a1" strokeWidth={1} strokeDasharray="2 2" dot={false} connectNulls name="-3σ" />
             </>
@@ -504,7 +812,7 @@ export default function PriceChart({
           {showBB.s2 && (
             <>
               <Area yAxisId="price" type="monotone" dataKey="bbUpper2" stroke="none" fill="#0ea5e9" fillOpacity={0.06} connectNulls legendType="none" name="BB+2σ" />
-              <Area yAxisId="price" type="monotone" dataKey="bbLower2" stroke="none" fill="#ffffff" fillOpacity={1} connectNulls legendType="none" name="BB-2σ" />
+              <Area yAxisId="price" type="monotone" dataKey="bbLower2" stroke="none" fill={bbMaskFill} fillOpacity={1} connectNulls legendType="none" name="BB-2σ" />
               <Line yAxisId="price" type="monotone" dataKey="bbUpper2" stroke="#0ea5e9" strokeWidth={1} strokeDasharray="4 2" dot={false} connectNulls name="+2σ" />
               <Line yAxisId="price" type="monotone" dataKey="bbLower2" stroke="#0ea5e9" strokeWidth={1} strokeDasharray="4 2" dot={false} connectNulls name="-2σ" />
             </>
@@ -513,7 +821,7 @@ export default function PriceChart({
           {showBB.s1 && (
             <>
               <Area yAxisId="price" type="monotone" dataKey="bbUpper1" stroke="none" fill="#7dd3fc" fillOpacity={0.08} connectNulls legendType="none" name="BB+1σ" />
-              <Area yAxisId="price" type="monotone" dataKey="bbLower1" stroke="none" fill="#ffffff" fillOpacity={1} connectNulls legendType="none" name="BB-1σ" />
+              <Area yAxisId="price" type="monotone" dataKey="bbLower1" stroke="none" fill={bbMaskFill} fillOpacity={1} connectNulls legendType="none" name="BB-1σ" />
               <Line yAxisId="price" type="monotone" dataKey="bbUpper1" stroke="#7dd3fc" strokeWidth={1} strokeDasharray="6 2" dot={false} connectNulls name="+1σ" />
               <Line yAxisId="price" type="monotone" dataKey="bbLower1" stroke="#7dd3fc" strokeWidth={1} strokeDasharray="6 2" dot={false} connectNulls name="-1σ" />
             </>
@@ -522,6 +830,73 @@ export default function PriceChart({
           {(showBB.s1 || showBB.s2 || showBB.s3) && (
             <Line yAxisId="price" type="monotone" dataKey="bbMiddle" stroke="#0ea5e9" strokeWidth={1} dot={false} connectNulls name="BB中央" />
           )}
+
+          {/* PERバンド */}
+          {showPERBand && eps != null && eps > 0 &&
+            PER_BAND_LEVELS.map((m) => {
+              const price = eps * m;
+              if (price < priceDomain[0] || price > priceDomain[1]) return null;
+              return (
+                <ReferenceLine
+                  key={`per-${m}`}
+                  yAxisId="price"
+                  y={price}
+                  stroke={PER_BAND_COLOR}
+                  strokeDasharray="6 3"
+                  strokeWidth={1}
+                  label={{
+                    value: `PER ${m}x`,
+                    position: "right",
+                    fontSize: 9,
+                    fill: "#e87964",
+                  }}
+                />
+              );
+            })
+          }
+
+          {/* 水平線 */}
+          {hLines.map((line) => (
+            <ReferenceLine
+              key={line.id}
+              yAxisId="price"
+              y={line.price}
+              stroke="#ef4444"
+              strokeWidth={1.5}
+              strokeDasharray="8 4"
+              label={{
+                value: line.price.toLocaleString(),
+                position: "left",
+                fontSize: 9,
+                fill: "#ef4444",
+              }}
+            />
+          ))}
+
+          {/* トレンドライン始点マーカー */}
+          {pendingTrendStart && (() => {
+            const vi = pendingTrendStart.globalIdx - viewStart;
+            if (vi < 0 || vi >= chartData.length) return null;
+            const date = chartData[vi]?.date;
+            if (!date) return null;
+            return (
+              <ReferenceDot
+                yAxisId="price"
+                x={date}
+                y={pendingTrendStart.price}
+                r={5}
+                fill="#3b82f6"
+                stroke="#fff"
+                strokeWidth={2}
+                label={{
+                  value: `始点 ${pendingTrendStart.price.toLocaleString()}`,
+                  position: "top",
+                  fontSize: 10,
+                  fill: "#3b82f6",
+                }}
+              />
+            );
+          })()}
 
           {/* ローソク足 / 折れ線 */}
           {chartType === "candle" ? (
@@ -553,22 +928,214 @@ export default function PriceChart({
             <Line yAxisId="price" type="monotone" dataKey="ma5" stroke="#f59e0b" strokeWidth={1} dot={false} name="MA5" connectNulls />
           )}
           {showMA.ma25 && (
-            <Line yAxisId="price" type="monotone" dataKey="ma25" stroke="#8b5cf6" strokeWidth={1} dot={false} name="MA25" connectNulls />
+            <Line
+              yAxisId="price"
+              type="monotone"
+              dataKey="ma25"
+              stroke={showBuySignals ? "#f59e0b" : "#8b5cf6"}
+              strokeWidth={showBuySignals ? 2.5 : 1}
+              strokeDasharray={showBuySignals ? "none" : undefined}
+              dot={false}
+              name={showBuySignals ? "MA25 (ターゲット)" : "MA25"}
+              connectNulls
+            />
           )}
           {showMA.ma75 && (
             <Line yAxisId="price" type="monotone" dataKey="ma75" stroke="#ec4899" strokeWidth={1} dot={false} name="MA75" connectNulls />
           )}
+
+          {/* トレンドライン */}
+          {trendLines.map((line) => {
+            const dataKey = `tl_${line.id}`;
+            const hasData = chartData.some((d: any) => d[dataKey] != null);
+            if (!hasData) return null;
+            return (
+              <Line
+                key={line.id}
+                yAxisId="price"
+                type="linear"
+                dataKey={dataKey}
+                stroke="#3b82f6"
+                strokeWidth={2}
+                dot={false}
+                connectNulls
+                legendType="none"
+                name=""
+              />
+            );
+          })}
+
+          {/* CWH カップ・ハンドル可視化 */}
+          {showCWHSignals && cwhOverlays.map((o, i) => (
+            <g key={`cwh-vis-${i}`}>
+              {/* カップ領域 */}
+              {o.cupStartDate && o.cupEndDate && (
+                <ReferenceArea
+                  yAxisId="price"
+                  x1={o.cupStartDate}
+                  x2={o.cupEndDate}
+                  fill="#10b981"
+                  fillOpacity={0.07}
+                  strokeOpacity={0}
+                />
+              )}
+              {/* ハンドル領域 */}
+              {o.cupEndDate && o.handleEndDate && o.cupEndDate !== o.handleEndDate && (
+                <ReferenceArea
+                  yAxisId="price"
+                  x1={o.cupEndDate}
+                  x2={o.handleEndDate}
+                  fill="#10b981"
+                  fillOpacity={0.12}
+                  strokeOpacity={0}
+                />
+              )}
+              {/* 左リム */}
+              {o.leftRimDate && (
+                <ReferenceDot
+                  yAxisId="price"
+                  x={o.leftRimDate}
+                  y={o.leftRimHigh}
+                  r={4}
+                  fill="#10b981"
+                  stroke="#fff"
+                  strokeWidth={1.5}
+                  label={{ value: "L", position: "top", fontSize: 9, fill: "#10b981" }}
+                />
+              )}
+              {/* カップ底 */}
+              {o.bottomDate && (
+                <ReferenceDot
+                  yAxisId="price"
+                  x={o.bottomDate}
+                  y={o.bottomLow}
+                  r={4}
+                  fill="#10b981"
+                  stroke="#fff"
+                  strokeWidth={1.5}
+                  label={{ value: "B", position: "bottom", fontSize: 9, fill: "#10b981" }}
+                />
+              )}
+              {/* 右リム */}
+              {o.rightRimDate && (
+                <ReferenceDot
+                  yAxisId="price"
+                  x={o.rightRimDate}
+                  y={o.rightRimHigh}
+                  r={4}
+                  fill="#10b981"
+                  stroke="#fff"
+                  strokeWidth={1.5}
+                  label={{ value: "R", position: "top", fontSize: 9, fill: "#10b981" }}
+                />
+              )}
+            </g>
+          ))}
+
         </ComposedChart>
       </ResponsiveContainer>
+
+      {/* 描画オーバーレイ（メインチャートのみカバー） */}
+      {drawingMode !== "none" && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: chartHeight,
+            cursor: "crosshair",
+            zIndex: 10,
+          }}
+          onClick={handleDrawingClick}
+        />
+      )}
+      </div>
+
+      {/* シグナルストリップ（チャート外マーカー） */}
+      {((showBuySignals && chartData.some((d: any) => d.signalMarker != null)) ||
+        (showCWHSignals && chartData.some((d: any) => d.cwhMarker != null))) && (
+        <div className="-mt-2">
+          <ResponsiveContainer width="100%" height={24}>
+            <ComposedChart data={chartData} margin={{ top: 0, right: 50, bottom: 0, left: 0 }}>
+              <XAxis
+                dataKey="date"
+                tick={false}
+                tickLine={false}
+                axisLine={false}
+                height={1}
+              />
+              <YAxis domain={[0, 1]} hide />
+              {/* ちょる子式マーカー */}
+              {showBuySignals && (
+                <Line
+                  type="monotone"
+                  dataKey="signalMarker"
+                  stroke="none"
+                  isAnimationActive={false}
+                  connectNulls={false}
+                  legendType="none"
+                  activeDot={false}
+                  dot={(props: any) => {
+                    const d = chartData[props.index];
+                    if (!d?.signalMarker) return <circle key={props.key} r={0} />;
+                    return (
+                      <text
+                        key={props.key}
+                        x={props.cx}
+                        y={12}
+                        textAnchor="middle"
+                        fill={d.buySignalType === "shitabanare" ? "#ef4444" : "#f59e0b"}
+                        fontSize={16}
+                        fontWeight="bold"
+                      >
+                        ▲
+                      </text>
+                    );
+                  }}
+                />
+              )}
+              {/* 田端式CWHマーカー */}
+              {showCWHSignals && (
+                <Line
+                  type="monotone"
+                  dataKey="cwhMarker"
+                  stroke="none"
+                  isAnimationActive={false}
+                  connectNulls={false}
+                  legendType="none"
+                  activeDot={false}
+                  dot={(props: any) => {
+                    const d = chartData[props.index];
+                    if (!d?.cwhMarker) return <circle key={props.key} r={0} />;
+                    return (
+                      <text
+                        key={props.key}
+                        x={props.cx}
+                        y={d.signalMarker && showBuySignals ? 22 : 12}
+                        textAnchor="middle"
+                        fill="#10b981"
+                        fontSize={16}
+                        fontWeight="bold"
+                      >
+                        ◆
+                      </text>
+                    );
+                  }}
+                />
+              )}
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       {/* RSI サブチャート */}
       {showIndicators.rsi && (
         <div className="mt-1">
-          <div className="text-xs font-medium text-gray-500 mb-0.5">RSI(14)</div>
+          <div className="text-xs font-medium text-gray-500 dark:text-slate-400 mb-0.5">RSI(14)</div>
           <ResponsiveContainer width="100%" height={120}>
             <ComposedChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis
+                  <XAxis
                 {...subXAxisProps}
                 tick={showIndicators.macd ? false : { fontSize: 10 }}
                 height={showIndicators.macd ? 5 : undefined}
@@ -587,7 +1154,7 @@ export default function PriceChart({
                   if (!active || !payload?.length) return null;
                   const val = payload[0]?.value;
                   return val != null ? (
-                    <div className="rounded border border-gray-200 bg-white px-2 py-1 text-xs shadow">
+                    <div className="rounded border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 text-xs shadow dark:shadow-slate-900/50">
                       RSI: {val}
                     </div>
                   ) : null;
@@ -612,8 +1179,7 @@ export default function PriceChart({
           <div className="text-xs font-medium text-gray-500 mb-0.5">MACD(12,26,9)</div>
           <ResponsiveContainer width="100%" height={120}>
             <ComposedChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis {...subXAxisProps} tick={{ fontSize: 10 }} />
+                  <XAxis {...subXAxisProps} tick={{ fontSize: 10 }} />
               <YAxis orientation="right" tick={{ fontSize: 10 }} width={35} />
               <ReferenceLine y={0} stroke="#9ca3af" strokeWidth={1} />
               <Tooltip
@@ -622,7 +1188,7 @@ export default function PriceChart({
                   const d = payload[0]?.payload;
                   if (!d) return null;
                   return (
-                    <div className="rounded border border-gray-200 bg-white px-2 py-1 text-xs shadow">
+                    <div className="rounded border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 text-xs shadow dark:shadow-slate-900/50">
                       <div>MACD: {d.macd ?? "-"}</div>
                       <div>Signal: {d.macdSignal ?? "-"}</div>
                       <div>Hist: {d.macdHist ?? "-"}</div>
@@ -658,6 +1224,68 @@ export default function PriceChart({
               />
             </ComposedChart>
           </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* 直近ちょる子式シグナル一覧 */}
+      {showBuySignals && recentSignals.length > 0 && (
+        <div className="mt-3 rounded border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/10 p-3">
+          <h4 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-amber-800 dark:text-amber-400">
+            <span>▲</span> ちょる子式・直近シグナル
+          </h4>
+          <div className="space-y-1.5">
+            {recentSignals.map((s) => (
+              <div key={`${s.date}-${s.type}`} className="flex items-start gap-2 text-xs">
+                <span className={`mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full ${
+                  s.type === "shitabanare" ? "bg-red-500" : "bg-amber-500"
+                }`} />
+                <div>
+                  <span className="font-medium text-gray-800 dark:text-slate-200">{s.date}</span>
+                  <span className={`ml-2 rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                    s.type === "shitabanare"
+                      ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                      : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
+                  }`}>
+                    {s.label}
+                  </span>
+                  <p className="mt-0.5 text-gray-500 dark:text-slate-400">{s.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          {visibleSignals.length > 0 && (
+            <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-400">
+              表示範囲内に {visibleSignals.length}件
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* 直近CWHシグナル一覧 */}
+      {showCWHSignals && recentCWHSignals.length > 0 && (
+        <div className="mt-3 rounded border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50 dark:bg-emerald-900/10 p-3">
+          <h4 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-emerald-800 dark:text-emerald-400">
+            <span>◆</span> 田端式CWH・直近シグナル
+          </h4>
+          <div className="space-y-1.5">
+            {recentCWHSignals.map((s) => (
+              <div key={`cwh-${s.date}`} className="flex items-start gap-2 text-xs">
+                <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
+                <div>
+                  <span className="font-medium text-gray-800 dark:text-slate-200">{s.date}</span>
+                  <span className="ml-2 rounded bg-emerald-100 dark:bg-emerald-900/30 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
+                    {s.label}
+                  </span>
+                  <p className="mt-0.5 text-gray-500 dark:text-slate-400">{s.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          {visibleCWHSignals.length > 0 && (
+            <p className="mt-2 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+              表示範囲内に {visibleCWHSignals.length}件
+            </p>
+          )}
         </div>
       )}
       </div>

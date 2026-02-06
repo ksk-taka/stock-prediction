@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import StockCard from "./StockCard";
 import AddStockModal from "./AddStockModal";
+import { isJPMarketOpen, isUSMarketOpen } from "@/lib/utils/date";
 import type { Stock } from "@/types";
 
 interface StockQuote {
@@ -11,9 +12,29 @@ interface StockQuote {
   changePercent: number;
 }
 
+interface StockStats {
+  per: number | null;
+  pbr: number | null;
+  roe: number | null;
+  eps: number | null;
+}
+
+export interface SignalSummary {
+  daily: {
+    choruko: { count: number; latest: string | null };
+    cwh: { count: number; latest: string | null };
+  };
+  weekly: {
+    choruko: { count: number; latest: string | null };
+    cwh: { count: number; latest: string | null };
+  };
+}
+
 export default function WatchList() {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [quotes, setQuotes] = useState<Record<string, StockQuote>>({});
+  const [stats, setStats] = useState<Record<string, StockStats>>({});
+  const [signals, setSignals] = useState<Record<string, SignalSummary>>({});
   const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -34,35 +55,96 @@ export default function WatchList() {
   }, [fetchWatchlist]);
 
   // 株価を取得
+  const fetchQuotes = useCallback(async () => {
+    if (stocks.length === 0) return;
+    const results: Record<string, StockQuote> = {};
+    await Promise.allSettled(
+      stocks.map(async (stock) => {
+        try {
+          const res = await fetch(
+            `/api/price?symbol=${encodeURIComponent(stock.symbol)}&period=daily`
+          );
+          const data = await res.json();
+          if (data.quote) {
+            results[stock.symbol] = {
+              symbol: stock.symbol,
+              price: data.quote.price,
+              changePercent: data.quote.changePercent,
+            };
+          }
+        } catch {
+          // skip
+        }
+      })
+    );
+    setQuotes(results);
+  }, [stocks]);
+
   useEffect(() => {
     if (stocks.length === 0) return;
 
-    const fetchQuotes = async () => {
-      const results: Record<string, StockQuote> = {};
+    fetchQuotes();
+
+    // stats は初回のみ取得
+    const fetchStats = async () => {
+      const results: Record<string, StockStats> = {};
       await Promise.allSettled(
         stocks.map(async (stock) => {
           try {
             const res = await fetch(
-              `/api/price?symbol=${encodeURIComponent(stock.symbol)}&period=1d`
+              `/api/stats?symbol=${encodeURIComponent(stock.symbol)}`
             );
             const data = await res.json();
-            if (data.quote) {
-              results[stock.symbol] = {
-                symbol: stock.symbol,
-                price: data.quote.price,
-                changePercent: data.quote.changePercent,
-              };
+            results[stock.symbol] = {
+              per: data.per ?? null,
+              pbr: data.pbr ?? null,
+              roe: data.roe ?? null,
+              eps: data.eps ?? null,
+            };
+          } catch {
+            // skip
+          }
+        })
+      );
+      setStats(results);
+    };
+    fetchStats();
+
+    // シグナル検出（初回のみ）
+    const fetchSignals = async () => {
+      const results: Record<string, SignalSummary> = {};
+      await Promise.allSettled(
+        stocks.map(async (stock) => {
+          try {
+            const res = await fetch(
+              `/api/signals?symbol=${encodeURIComponent(stock.symbol)}`
+            );
+            if (res.ok) {
+              results[stock.symbol] = await res.json();
             }
           } catch {
             // skip
           }
         })
       );
-      setQuotes(results);
+      setSignals(results);
     };
+    fetchSignals();
+  }, [stocks, fetchQuotes]);
 
-    fetchQuotes();
-  }, [stocks]);
+  // 取引時間中の自動更新（30秒間隔）
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (stocks.length === 0) return;
+    const tick = () => {
+      const anyMarketOpen = isJPMarketOpen() || isUSMarketOpen();
+      if (anyMarketOpen) fetchQuotes();
+    };
+    intervalRef.current = setInterval(tick, 30_000);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [stocks, fetchQuotes]);
 
   const handleAddStock = (stock: Stock) => {
     setStocks((prev) => [...prev, stock]);
@@ -87,10 +169,10 @@ export default function WatchList() {
     return (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="animate-pulse rounded-lg bg-white p-4 shadow">
-            <div className="h-5 w-1/2 rounded bg-gray-200" />
-            <div className="mt-2 h-4 w-1/3 rounded bg-gray-100" />
-            <div className="mt-4 h-8 w-1/2 rounded bg-gray-200" />
+          <div key={i} className="animate-pulse rounded-lg bg-white dark:bg-slate-800 p-4 shadow">
+            <div className="h-5 w-1/2 rounded bg-gray-200 dark:bg-slate-700" />
+            <div className="mt-2 h-4 w-1/3 rounded bg-gray-100 dark:bg-slate-700" />
+            <div className="mt-4 h-8 w-1/2 rounded bg-gray-200 dark:bg-slate-700" />
           </div>
         ))}
       </div>
@@ -100,7 +182,7 @@ export default function WatchList() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-900">ウォッチリスト</h2>
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white">ウォッチリスト</h2>
         <button
           onClick={() => setModalOpen(true)}
           className="flex items-center gap-1 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
@@ -113,8 +195,8 @@ export default function WatchList() {
       </div>
 
       {stocks.length === 0 ? (
-        <div className="rounded-lg border-2 border-dashed border-gray-300 p-12 text-center">
-          <p className="text-gray-500">
+        <div className="rounded-lg border-2 border-dashed border-gray-300 dark:border-slate-600 p-12 text-center">
+          <p className="text-gray-500 dark:text-slate-400">
             ウォッチリストに銘柄がありません
           </p>
           <button
@@ -128,12 +210,18 @@ export default function WatchList() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {stocks.map((stock) => {
             const q = quotes[stock.symbol];
+            const s = stats[stock.symbol];
+            const sig = signals[stock.symbol];
             return (
               <StockCard
                 key={stock.symbol}
                 stock={stock}
                 price={q?.price}
                 change={q?.changePercent}
+                per={s?.per ?? undefined}
+                pbr={s?.pbr ?? undefined}
+                roe={s?.roe ?? undefined}
+                signals={sig}
                 onDelete={handleDeleteStock}
               />
             );

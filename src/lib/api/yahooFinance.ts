@@ -100,26 +100,47 @@ export async function getHistoricalPrices(
  */
 export async function getQuote(symbol: string) {
   const result = await yf.quote(symbol);
+  const r = result as Record<string, unknown>;
   return {
     symbol: result.symbol,
     name:
-      ("shortName" in result ? (result as Record<string, unknown>).shortName : null) ??
-      ("longName" in result ? (result as Record<string, unknown>).longName : null) ??
+      (r.shortName as string | null) ??
+      (r.longName as string | null) ??
       symbol,
     price: result.regularMarketPrice ?? 0,
-    previousClose:
-      ("regularMarketPreviousClose" in result
-        ? (result as Record<string, unknown>).regularMarketPreviousClose
-        : 0) as number,
+    previousClose: (r.regularMarketPreviousClose as number) ?? 0,
     change: result.regularMarketChange ?? 0,
     changePercent: result.regularMarketChangePercent ?? 0,
     volume: result.regularMarketVolume ?? 0,
-    marketCap:
-      ("marketCap" in result
-        ? (result as Record<string, unknown>).marketCap
-        : 0) as number,
+    marketCap: (r.marketCap as number) ?? 0,
     currency: result.currency ?? "JPY",
+    // ファンダメンタル指標
+    per: (r.trailingPE as number) ?? null,
+    forwardPer: (r.forwardPE as number) ?? null,
+    pbr: (r.priceToBook as number) ?? null,
+    eps: (r.epsTrailingTwelveMonths as number) ?? null,
+    dividendYield: (r.trailingAnnualDividendYield as number) ?? null,
   };
+}
+
+/**
+ * ROE等の財務指標を取得（quoteSummary経由）
+ */
+export async function getFinancialData(symbol: string) {
+  try {
+    const result = await yf.quoteSummary(symbol, { modules: ["financialData", "defaultKeyStatistics"] });
+    const fd = result.financialData;
+    const ks = result.defaultKeyStatistics;
+    return {
+      roe: (fd as Record<string, unknown> | undefined)?.returnOnEquity as number | null ?? null,
+      roa: (fd as Record<string, unknown> | undefined)?.returnOnAssets as number | null ?? null,
+      debtToEquity: (fd as Record<string, unknown> | undefined)?.debtToEquity as number | null ?? null,
+      forwardEps: (ks as Record<string, unknown> | undefined)?.forwardEps as number | null ?? null,
+      pegRatio: (ks as Record<string, unknown> | undefined)?.pegRatio as number | null ?? null,
+    };
+  } catch {
+    return { roe: null, roa: null, debtToEquity: null, forwardEps: null, pegRatio: null };
+  }
 }
 
 /**
