@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="utf-8"><title>Loading...</title>
+<style>body{display:flex;justify-content:center;align-items:center;height:100vh;margin:0;background:#f9fafb;font-family:sans-serif;color:#6b7280}</style>
+</head>
+<body>
+<p>読み込み中...</p>
+<script>
+(function() {
+  function redirect() {
+    window.location.replace(window.location.origin + '/');
+  }
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function(regs) {
+      if (regs.length === 0) { redirect(); return; }
+      Promise.all(regs.map(function(r) { return r.unregister(); })).then(function() {
+        return caches.keys().then(function(keys) {
+          return Promise.all(keys.map(function(k) { return caches.delete(k); }));
+        });
+      }).then(function() {
+        console.log('SW unregistered, caches cleared');
+        setTimeout(redirect, 100);
+      });
+    }).catch(function() { redirect(); });
+  } else {
+    redirect();
+  }
+})();
+</script>
+</body>
+</html>
