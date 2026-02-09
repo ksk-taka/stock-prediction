@@ -1,31 +1,51 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { Stock, WatchList } from "@/types";
 
+const PAGE_SIZE = 1000;
+
 /**
  * ウォッチリストを読み込む (Supabase)
+ * Supabase デフォルト 1000行制限を回避するためページネーションで全件取得
  */
 export async function getWatchList(userId: string): Promise<WatchList> {
   const supabase = await createServerSupabaseClient();
 
-  const [{ data: stocks, error }, { data: judgments }] = await Promise.all([
-    supabase
+  // stocks: ページネーションで全件取得
+  type StockRow = { symbol: string; name: string; market: string; market_segment: string | null; sectors: string[] | null; favorite: boolean | null };
+  const allStocks: StockRow[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabase
       .from("stocks")
       .select("*")
       .eq("user_id", userId)
-      .order("created_at", { ascending: true }),
-    supabase
+      .order("created_at", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    const rows = (data ?? []) as StockRow[];
+    allStocks.push(...rows);
+    if (rows.length < PAGE_SIZE) break;
+  }
+
+  // fundamental_judgments: ページネーションで全件取得
+  type JudgmentRow = { symbol: string; judgment: string; memo: string; analyzed_at: string };
+  const allJudgments: JudgmentRow[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabase
       .from("fundamental_judgments")
       .select("*")
-      .eq("user_id", userId),
-  ]);
-
-  if (error) throw error;
+      .eq("user_id", userId)
+      .range(from, from + PAGE_SIZE);
+    if (error) throw error;
+    const rows = (data ?? []) as JudgmentRow[];
+    allJudgments.push(...rows);
+    if (rows.length < PAGE_SIZE) break;
+  }
 
   const judgmentMap = new Map(
-    (judgments ?? []).map((j: { symbol: string; judgment: string; memo: string; analyzed_at: string }) => [j.symbol, j])
+    allJudgments.map((j) => [j.symbol, j])
   );
 
-  const mappedStocks: Stock[] = (stocks ?? []).map((s: { symbol: string; name: string; market: string; market_segment: string | null; sectors: string[] | null; favorite: boolean | null }) => ({
+  const mappedStocks: Stock[] = allStocks.map((s) => ({
     symbol: s.symbol,
     name: s.name,
     market: s.market as "JP" | "US",
