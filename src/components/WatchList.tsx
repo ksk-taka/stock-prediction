@@ -64,7 +64,7 @@ interface FilterPreset {
   strategies: string[];
   segments: string[];
   signalFilterMode?: "or" | "and";
-  signalAgeDays: number | null;
+  signalPeriodFilter?: string;
   decision: string | null;
   judgment: string | null;
 }
@@ -100,7 +100,6 @@ export default function WatchList() {
   const [selectedStrategies, setSelectedStrategies] = useState<Set<string>>(new Set());
   const [selectedSegments, setSelectedSegments] = useState<Set<string>>(new Set());
   const [signalFilterMode, setSignalFilterMode] = useState<"or" | "and">("or");
-  const [signalAgeDays, setSignalAgeDays] = useState<number | null>(null);
   const [selectedDecision, setSelectedDecision] = useState<string | null>(null);
   const [selectedJudgment, setSelectedJudgment] = useState<string | null>(null);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
@@ -144,7 +143,7 @@ export default function WatchList() {
   // フィルタ変更時に表示件数をリセット
   useEffect(() => {
     setDisplayCount(PAGE_SIZE);
-  }, [searchQuery, selectedSectors, selectedStrategies, selectedSegments, signalFilterMode, signalAgeDays, selectedDecision, selectedJudgment, showFavoritesOnly, breakoutFilter, consolidationFilter]);
+  }, [searchQuery, selectedSectors, selectedStrategies, selectedSegments, signalFilterMode, signalPeriodFilter, selectedDecision, selectedJudgment, showFavoritesOnly, breakoutFilter, consolidationFilter]);
 
   const fetchWatchlist = useCallback(async () => {
     try {
@@ -566,8 +565,8 @@ export default function WatchList() {
       const match = stock.sectors?.some((s) => selectedSectors.has(s));
       if (!match) return false;
     }
-    // シグナル（戦略 × 検知日）フィルタ - 保有中 + 直近シグナル
-    if (selectedStrategies.size > 0 || signalAgeDays !== null) {
+    // シグナル（戦略 × 期間）フィルタ - 保有中 + 直近シグナル
+    if (selectedStrategies.size > 0 || signalPeriodFilter !== "all") {
       const sig = signals[stock.symbol];
       // 保有中 + 直近シグナルを統合（date フィールドを buyDate に正規化）
       const allSignals = [
@@ -577,8 +576,9 @@ export default function WatchList() {
         ...(sig?.recentSignals?.weekly ?? []).map((r) => ({ strategyId: r.strategyId, date: r.date })),
       ];
       if (allSignals.length === 0) return false;
-      const cutoffStr = signalAgeDays !== null
-        ? (() => { const d = new Date(); d.setDate(d.getDate() - signalAgeDays); return d.toISOString().slice(0, 10); })()
+      const periodDays: Record<string, number> = { "1w": 7, "1m": 31, "3m": 93, "6m": 183 };
+      const cutoffStr = signalPeriodFilter !== "all"
+        ? (() => { const d = new Date(); d.setDate(d.getDate() - (periodDays[signalPeriodFilter] ?? 0)); return d.toISOString().slice(0, 10); })()
         : null;
 
       if (signalFilterMode === "and" && selectedStrategies.size > 0) {
@@ -672,7 +672,7 @@ export default function WatchList() {
     });
   };
 
-  const hasAnyFilter = searchQuery !== "" || selectedSectors.size > 0 || selectedStrategies.size > 0 || selectedSegments.size > 0 || signalAgeDays !== null || selectedDecision !== null || selectedJudgment !== null || signalFilterMode !== "or" || showFavoritesOnly || breakoutFilter || consolidationFilter;
+  const hasAnyFilter = searchQuery !== "" || selectedSectors.size > 0 || selectedStrategies.size > 0 || selectedSegments.size > 0 || signalPeriodFilter !== "all" || selectedDecision !== null || selectedJudgment !== null || signalFilterMode !== "or" || showFavoritesOnly || breakoutFilter || consolidationFilter;
 
   const clearAllFilters = () => {
     setSearchQuery("");
@@ -680,7 +680,7 @@ export default function WatchList() {
     setSelectedStrategies(new Set());
     setSelectedSegments(new Set());
     setSignalFilterMode("or");
-    setSignalAgeDays(null);
+    setSignalPeriodFilter("all");
     setSelectedDecision(null);
     setSelectedJudgment(null);
     setShowFavoritesOnly(false);
@@ -698,7 +698,7 @@ export default function WatchList() {
       strategies: Array.from(selectedStrategies),
       segments: Array.from(selectedSegments),
       signalFilterMode: signalFilterMode !== "or" ? signalFilterMode : undefined,
-      signalAgeDays,
+      signalPeriodFilter: signalPeriodFilter !== "all" ? signalPeriodFilter : undefined,
       decision: selectedDecision,
       judgment: selectedJudgment,
     };
@@ -713,7 +713,7 @@ export default function WatchList() {
     setSelectedStrategies(new Set(preset.strategies));
     setSelectedSegments(new Set(preset.segments ?? []));
     setSignalFilterMode(preset.signalFilterMode ?? "or");
-    setSignalAgeDays(preset.signalAgeDays);
+    setSignalPeriodFilter(preset.signalPeriodFilter ?? "all");
     setSelectedDecision(preset.decision);
     setSelectedJudgment(preset.judgment);
     setActivePresetName(preset.name);
@@ -973,44 +973,18 @@ export default function WatchList() {
             )}
           </div>
 
-          {/* シグナル検知日フィルタ */}
-          {allActiveStrategies.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-medium text-gray-500 dark:text-slate-400">検知日:</span>
-              {([
-                { label: "1週間以内", days: 7 },
-                { label: "1ヶ月以内", days: 30 },
-                { label: "3ヶ月以内", days: 90 },
-              ] as const).map(({ label, days }) => (
-                <button
-                  key={days}
-                  onClick={() => setSignalAgeDays(signalAgeDays === days ? null : days)}
-                  className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
-                    signalAgeDays === days
-                      ? "border-indigo-400 bg-indigo-50 text-indigo-700 dark:border-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-300"
-                      : "border-gray-300 bg-white text-gray-500 hover:border-gray-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-500"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* シグナル表示期間フィルタ */}
+          {/* シグナル期間フィルタ（検知日 + 表示の統合） */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-gray-500 dark:text-slate-400">シグナル表示:</span>
+            <span className="text-xs font-medium text-gray-500 dark:text-slate-400">期間:</span>
             {([
               { value: "1w", label: "1週間" },
               { value: "1m", label: "1ヶ月" },
               { value: "3m", label: "3ヶ月" },
               { value: "6m", label: "半年" },
-              { value: "1y", label: "1年" },
-              { value: "all", label: "全期間" },
             ] as const).map(({ value, label }) => (
               <button
                 key={value}
-                onClick={() => setSignalPeriodFilter(value)}
+                onClick={() => setSignalPeriodFilter(signalPeriodFilter === value ? "all" : value)}
                 className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
                   signalPeriodFilter === value
                     ? "border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-900/30 dark:text-blue-300"
