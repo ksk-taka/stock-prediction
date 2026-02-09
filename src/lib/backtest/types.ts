@@ -47,10 +47,19 @@ export interface BacktestStats {
   numLosses: number;
   maxDrawdown: number;
   maxDrawdownPct: number;
+  avgDrawdownPct: number;
   sharpeRatio: number;
   profitFactor: number;
   avgWin: number;
   avgLoss: number;
+  maxTradeReturnPct: number;
+  recoveryFactor: number;
+  avgHoldingDays: number;
+  holdingDaysMin: number;
+  holdingDaysQ1: number;
+  holdingDaysMedian: number;
+  holdingDaysQ3: number;
+  holdingDaysMax: number;
 }
 
 export interface BacktestResult {

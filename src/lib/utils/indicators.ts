@@ -126,6 +126,40 @@ export interface BollingerPoint {
  * upperN = middle + N * 標準偏差
  * lowerN = middle - N * 標準偏差
  */
+/**
+ * ATR (Average True Range)
+ * True Range = max(high-low, |high-prevClose|, |low-prevClose|)
+ * ATR = SMA of True Range over period
+ */
+export function calcATR(
+  data: PriceData[],
+  period: number = 14
+): (number | null)[] {
+  const result: (number | null)[] = new Array(data.length).fill(null);
+  if (data.length < period + 1) return result;
+
+  // True Range計算
+  const tr: number[] = [data[0].high - data[0].low];
+  for (let i = 1; i < data.length; i++) {
+    const hl = data[i].high - data[i].low;
+    const hc = Math.abs(data[i].high - data[i - 1].close);
+    const lc = Math.abs(data[i].low - data[i - 1].close);
+    tr.push(Math.max(hl, hc, lc));
+  }
+
+  // 最初のATR = SMA
+  let atr = tr.slice(1, period + 1).reduce((a, b) => a + b, 0) / period;
+  result[period] = Math.round(atr * 100) / 100;
+
+  // Wilder's smoothing
+  for (let i = period + 1; i < data.length; i++) {
+    atr = (atr * (period - 1) + tr[i]) / period;
+    result[i] = Math.round(atr * 100) / 100;
+  }
+
+  return result;
+}
+
 export function calcBollingerBands(
   data: PriceData[],
   period: number = 25

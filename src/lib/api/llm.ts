@@ -34,7 +34,8 @@ function resolveProviderChain(): ProviderName[] {
 
 async function callGemini(prompt: string, system: string | undefined, timeoutMs: number): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY!;
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  const model = process.env.GEMINI_MODEL ?? "gemma-3-27b-it";
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
   const body: Record<string, unknown> = {
     contents: [{ role: "user", parts: [{ text: prompt }] }],

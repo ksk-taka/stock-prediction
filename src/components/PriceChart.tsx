@@ -45,6 +45,8 @@ interface PriceChartProps {
   chartHeight?: number;
   /** EPS（PERバンド描画用） */
   eps?: number;
+  /** 過去10年来の最高値 */
+  tenYearHigh?: number | null;
 }
 
 export const PERIODS: { value: Period; label: string }[] = [
@@ -106,7 +108,7 @@ function CandlestickShape(props: CandlestickShapeProps) {
     high = 0,
   } = props;
 
-  const fill = close >= open ? "#22c55e" : "#ef4444";
+  const fill = close >= open ? "#ef4444" : "#22c55e";
   const range = high - low;
   const cx = x + width / 2;
 
@@ -176,6 +178,7 @@ export default function PriceChart({
   onRemove,
   chartHeight = 350,
   eps,
+  tenYearHigh,
 }: PriceChartProps) {
   const { theme } = useTheme();
   const bbMaskFill = theme === "dark" ? "#1e293b" : "#ffffff";
@@ -185,6 +188,9 @@ export default function PriceChart({
   const [showIndicators, setShowIndicators] = useState({ rsi: false, macd: true });
   const [showBB, setShowBB] = useState({ s1: false, s2: true, s3: false });
   const [showPERBand, setShowPERBand] = useState(false);
+  const [showYtdHigh, setShowYtdHigh] = useState(false);
+  const [showPrevYearHigh, setShowPrevYearHigh] = useState(false);
+  const [showTenYearHigh, setShowTenYearHigh] = useState(false);
   const [showBuySignals, setShowBuySignals] = useState(false);
   const [showCWHSignals, setShowCWHSignals] = useState(false);
   // 戦略シグナル表示トグル
@@ -242,7 +248,7 @@ export default function PriceChart({
 
   // 買いシグナル検出（ちょる子式）
   const buySignals = useMemo(() => detectBuySignals(data), [data]);
-  // カップウィズハンドル検出（田端式）
+  // カップウィズハンドル検出（CWH）
   const cwhSignals = useMemo(() => detectCupWithHandle(data), [data]);
 
   // 戦略シグナル計算（RSI逆張り / MAクロス / MACD）
@@ -461,7 +467,7 @@ export default function PriceChart({
         entry.buySignalLabel = signal.label;
         entry.signalMarker = 0.5;
       }
-      // CWHシグナルマーカー（田端式）
+      // CWHシグナルマーカー（CWH）
       const cwh = cwhSignals.find((s) => s.index === gi);
       if (cwh) {
         entry.cwhSignalPrice = d.close;
@@ -511,6 +517,23 @@ export default function PriceChart({
     });
   }, [visibleData, viewStart, viewEnd, allIndicators, trendLines, buySignals, cwhSignals, bbMa25TouchPoints, stratSignals, showStratSignals, trailStopLevels]);
 
+  // 年初来高値・昨年来高値（全データから算出）
+  const { ytdHigh, prevYearHigh } = useMemo(() => {
+    const now = new Date();
+    const ytdStart = `${now.getFullYear()}-01-01`;
+    const prevStart = `${now.getFullYear() - 1}-01-01`;
+    let ytd = -Infinity, prev = -Infinity;
+    for (const d of data) {
+      const dateStr = d.date.slice(0, 10);
+      if (dateStr >= ytdStart && d.high > ytd) ytd = d.high;
+      if (dateStr >= prevStart && d.high > prev) prev = d.high;
+    }
+    return {
+      ytdHigh: ytd === -Infinity ? null : ytd,
+      prevYearHigh: prev === -Infinity ? null : prev,
+    };
+  }, [data]);
+
   // 表示範囲の価格 min/max を計算して Y 軸ドメインを決定
   const priceDomain = useMemo((): [number, number] => {
     if (chartData.length === 0) return [0, 100];
@@ -545,13 +568,26 @@ export default function PriceChart({
         }
       }
     }
+    // 年初来高値・昨年来高値が有効な場合
+    if (showYtdHigh && ytdHigh != null) {
+      if (ytdHigh > max) max = ytdHigh;
+      if (ytdHigh < min) min = ytdHigh;
+    }
+    if (showPrevYearHigh && prevYearHigh != null) {
+      if (prevYearHigh > max) max = prevYearHigh;
+      if (prevYearHigh < min) min = prevYearHigh;
+    }
+    if (showTenYearHigh && tenYearHigh != null) {
+      if (tenYearHigh > max) max = tenYearHigh;
+      if (tenYearHigh < min) min = tenYearHigh;
+    }
     const range = max - min;
     const padding = range * 0.05 || max * 0.02;
     return [
       Math.floor((min - padding) * 100) / 100,
       Math.ceil((max + padding) * 100) / 100,
     ];
-  }, [chartData, showBB, showPERBand, eps]);
+  }, [chartData, showBB, showPERBand, eps, showYtdHigh, ytdHigh, showPrevYearHigh, prevYearHigh, showTenYearHigh, tenYearHigh]);
 
   // チャートコンテナ ref（Shift+ホイールスクロール用）
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -795,6 +831,35 @@ export default function PriceChart({
             </>
           )}
           <span className="text-gray-300 dark:text-slate-600">|</span>
+          {/* 年初来高値・昨年来高値 */}
+          <label className="flex items-center gap-1 text-xs">
+            <input
+              type="checkbox"
+              checked={showYtdHigh}
+              onChange={(e) => setShowYtdHigh(e.target.checked)}
+              className="h-3 w-3"
+            />
+            <span style={{ color: "#f97316" }}>年初来高値</span>
+          </label>
+          <label className="flex items-center gap-1 text-xs">
+            <input
+              type="checkbox"
+              checked={showPrevYearHigh}
+              onChange={(e) => setShowPrevYearHigh(e.target.checked)}
+              className="h-3 w-3"
+            />
+            <span style={{ color: "#dc2626" }}>昨年来高値</span>
+          </label>
+          <label className="flex items-center gap-1 text-xs">
+            <input
+              type="checkbox"
+              checked={showTenYearHigh}
+              onChange={(e) => setShowTenYearHigh(e.target.checked)}
+              className="h-3 w-3"
+            />
+            <span style={{ color: "#7c3aed" }}>10年来高値</span>
+          </label>
+          <span className="text-gray-300 dark:text-slate-600">|</span>
           {/* ちょる子式買いシグナル */}
           <label className="flex items-center gap-1 text-xs">
             <input
@@ -816,7 +881,7 @@ export default function PriceChart({
               </span>
             )}
           </label>
-          {/* 田端式CWH */}
+          {/* CWH(TP20/SL8) */}
           <label className="flex items-center gap-1 text-xs">
             <input
               type="checkbox"
@@ -824,7 +889,7 @@ export default function PriceChart({
               onChange={(e) => setShowCWHSignals(e.target.checked)}
               className="h-3 w-3"
             />
-            <span style={{ color: "#10b981" }}>田端式CWH</span>
+            <span style={{ color: "#10b981" }}>CWH(TP20/SL8)</span>
             {cwhSignals.length > 0 && (
               <span className="rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-1.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
                 {cwhSignals.length}
@@ -959,7 +1024,7 @@ export default function PriceChart({
                     <span className="text-gray-500 dark:text-slate-400">安値:</span>
                     <span className="text-right text-blue-500">{Number(d.low).toLocaleString()}</span>
                     <span className="text-gray-500 dark:text-slate-400">終値:</span>
-                    <span className={`text-right font-medium ${d.close >= d.open ? "text-green-600" : "text-red-600"}`}>
+                    <span className={`text-right font-medium ${d.close >= d.open ? "text-red-600" : "text-green-600"}`}>
                       {Number(d.close).toLocaleString()}
                     </span>
                     <span className="text-gray-500 dark:text-slate-400">出来高:</span>
@@ -981,7 +1046,7 @@ export default function PriceChart({
           {showVolume && (
             <Bar yAxisId="volume" dataKey="volume" name="出来高" barSize={3}>
               {chartData.map((entry, index) => (
-                <Cell key={index} fill={entry.close >= entry.open ? "#bbf7d0" : "#fecaca"} />
+                <Cell key={index} fill={entry.close >= entry.open ? "#fecaca" : "#bbf7d0"} />
               ))}
             </Bar>
           )}
@@ -1041,6 +1106,55 @@ export default function PriceChart({
               );
             })
           }
+
+          {/* 年初来高値 */}
+          {showYtdHigh && ytdHigh != null && (
+            <ReferenceLine
+              yAxisId="price"
+              y={ytdHigh}
+              stroke="#f97316"
+              strokeDasharray="8 4"
+              strokeWidth={1.5}
+              label={{
+                value: `年初来高値 ${ytdHigh.toLocaleString()}`,
+                position: "left",
+                fontSize: 9,
+                fill: "#f97316",
+              }}
+            />
+          )}
+          {/* 昨年来高値 */}
+          {showPrevYearHigh && prevYearHigh != null && (
+            <ReferenceLine
+              yAxisId="price"
+              y={prevYearHigh}
+              stroke="#dc2626"
+              strokeDasharray="8 4"
+              strokeWidth={1.5}
+              label={{
+                value: `昨年来高値 ${prevYearHigh.toLocaleString()}`,
+                position: "left",
+                fontSize: 9,
+                fill: "#dc2626",
+              }}
+            />
+          )}
+          {/* 10年来高値 */}
+          {showTenYearHigh && tenYearHigh != null && (
+            <ReferenceLine
+              yAxisId="price"
+              y={tenYearHigh}
+              stroke="#7c3aed"
+              strokeDasharray="8 4"
+              strokeWidth={1.5}
+              label={{
+                value: `10年来高値 ${tenYearHigh.toLocaleString()}`,
+                position: "left",
+                fontSize: 9,
+                fill: "#7c3aed",
+              }}
+            />
+          )}
 
           {/* 水平線 */}
           {hLines.map((line) => (
@@ -1114,7 +1228,7 @@ export default function PriceChart({
               shape={<CandlestickShape />}
             >
               {chartData.map((entry, index) => (
-                <Cell key={index} fill={entry.close >= entry.open ? "#22c55e" : "#ef4444"} />
+                <Cell key={index} fill={entry.close >= entry.open ? "#ef4444" : "#22c55e"} />
               ))}
             </Bar>
           ) : (
@@ -1447,7 +1561,7 @@ export default function PriceChart({
                   }}
                 />
               )}
-              {/* 田端式CWHマーカー */}
+              {/* CWH(TP20/SL8)マーカー */}
               {showCWHSignals && (
                 <Line
                   type="monotone"
@@ -1614,7 +1728,7 @@ export default function PriceChart({
                 {chartData.map((entry, index) => (
                   <Cell
                     key={index}
-                    fill={(entry.macdHist ?? 0) >= 0 ? "#22c55e" : "#ef4444"}
+                    fill={(entry.macdHist ?? 0) >= 0 ? "#ef4444" : "#22c55e"}
                   />
                 ))}
               </Bar>
@@ -1743,11 +1857,11 @@ export default function PriceChart({
       {showCWHSignals && recentCWHSignals.length > 0 && (
         <div className="mt-3 rounded border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50 dark:bg-emerald-900/10 p-3">
           <h4 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-emerald-800 dark:text-emerald-400">
-            <span>◆</span> 田端式CWH・直近シグナル
+            <span>◆</span> CWH(TP20/SL8)・直近シグナル
           </h4>
           {/* ルール早見表 */}
           <div className="mb-2 rounded bg-emerald-100/60 dark:bg-emerald-900/20 px-2 py-1.5 text-[10px] text-emerald-800 dark:text-emerald-300 leading-relaxed">
-            <b>田端式:</b> 利確→買値から+20%到達 or MA割れ ／ 損切→買値から-7%到達
+            <b>CWH:</b> 利確→買値から+20%到達 ／ 損切→買値から-8%到達
           </div>
           <div className="space-y-2">
             {recentCWHSignals.map((s) => {

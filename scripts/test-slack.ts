@@ -2,7 +2,8 @@
 // Slack Webhook 接続テスト
 // 使い方: npx tsx scripts/test-slack.ts
 
-import "dotenv/config";
+import dotenv from "dotenv";
+dotenv.config({ path: ".env.local" });
 import { sendTestMessage, isSlackConfigured } from "@/lib/api/slack";
 
 async function main() {

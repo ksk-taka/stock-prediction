@@ -4,7 +4,22 @@ import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { formatChange } from "@/lib/utils/format";
 import type { Stock } from "@/types";
-import type { SignalSummary, ActiveSignalInfo } from "./WatchList";
+import type { SignalSummary, ActiveSignalInfo, RecentSignalInfo } from "./WatchList";
+
+function isWithinPeriod(buyDate: string, filter: string): boolean {
+  if (filter === "all") return true;
+  const d = new Date(buyDate);
+  const diffMs = Date.now() - d.getTime();
+  const days = diffMs / (1000 * 60 * 60 * 24);
+  switch (filter) {
+    case "1w": return days <= 7;
+    case "1m": return days <= 31;
+    case "3m": return days <= 93;
+    case "6m": return days <= 183;
+    case "1y": return days <= 366;
+    default: return true;
+  }
+}
 
 interface StockCardProps {
   stock: Stock;
@@ -15,9 +30,11 @@ interface StockCardProps {
   pbr?: number;
   roe?: number;
   signals?: SignalSummary;
+  signalPeriodFilter?: string;
   fundamentalJudgment?: "bullish" | "neutral" | "bearish";
   fundamentalMemo?: string;
   onDelete?: (symbol: string) => void;
+  onToggleFavorite?: (symbol: string) => void;
   onVisible?: (symbol: string, isVisible: boolean) => void;
 }
 
@@ -30,9 +47,11 @@ export default function StockCard({
   pbr,
   roe,
   signals,
+  signalPeriodFilter = "all",
   fundamentalJudgment,
   fundamentalMemo,
   onDelete,
+  onToggleFavorite,
   onVisible,
 }: StockCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
@@ -54,14 +73,33 @@ export default function StockCard({
   const isPositive = (change ?? 0) >= 0;
   const hasData = price !== undefined;
 
-  // アクティブシグナル（保有中ポジション）
+  // アクティブシグナル（保有中ポジション）- 期間フィルタ適用
   const activeSignals: { period: string; signal: ActiveSignalInfo }[] = [];
   if (signals?.activeSignals) {
     for (const s of signals.activeSignals.daily) {
-      activeSignals.push({ period: "日足", signal: s });
+      if (isWithinPeriod(s.buyDate, signalPeriodFilter)) activeSignals.push({ period: "日足", signal: s });
     }
     for (const s of signals.activeSignals.weekly) {
-      activeSignals.push({ period: "週足", signal: s });
+      if (isWithinPeriod(s.buyDate, signalPeriodFilter)) activeSignals.push({ period: "週足", signal: s });
+    }
+  }
+
+  // 直近シグナル（保有中でないものも含む）
+  const recentSignals: { period: string; signal: RecentSignalInfo }[] = [];
+  if (signals?.recentSignals) {
+    // 保有中の戦略+日付の組み合わせを除外キーとして作成
+    const activeKeys = new Set(
+      activeSignals.map((a) => `${a.signal.strategyId}_${a.period === "日足" ? "daily" : "weekly"}_${a.signal.buyDate}`)
+    );
+    for (const s of signals.recentSignals.daily) {
+      if (!activeKeys.has(`${s.strategyId}_daily_${s.date}`) && isWithinPeriod(s.date, signalPeriodFilter)) {
+        recentSignals.push({ period: "日足", signal: s });
+      }
+    }
+    for (const s of signals.recentSignals.weekly) {
+      if (!activeKeys.has(`${s.strategyId}_weekly_${s.date}`) && isWithinPeriod(s.date, signalPeriodFilter)) {
+        recentSignals.push({ period: "週足", signal: s });
+      }
     }
   }
 
@@ -74,7 +112,10 @@ export default function StockCard({
       case "rsi_reversal": return "RSI";
       case "ma_cross": return "MAクロス";
       case "macd_signal": return "MACD";
+      case "macd_trail": return "MACDトレ";
       case "macd_trail12": return "Trail12";
+      case "cwh_trail": return "CWHトレ";
+      case "dip_buy": return "急落買";
       default: return id;
     }
   };
@@ -93,8 +134,13 @@ export default function StockCard({
         return "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400";
       case "macd_signal":
         return "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400";
+      case "macd_trail":
       case "macd_trail12":
         return "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400";
+      case "cwh_trail":
+        return "bg-lime-100 dark:bg-lime-900/30 text-lime-700 dark:text-lime-400";
+      case "dip_buy":
+        return "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400";
       default:
         return "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400";
     }
@@ -123,14 +169,27 @@ export default function StockCard({
         className="block"
       >
       <div className="flex items-start justify-between">
-        <div>
-          <h3 className="font-semibold text-gray-900 dark:text-white">{stock.name}</h3>
-          <p className="text-sm text-gray-500 dark:text-slate-400">
-            {stock.symbol}
-            {stock.marketSegment && (
-              <span className="ml-1.5 text-[10px] text-gray-400 dark:text-slate-500">{stock.marketSegment}</span>
-            )}
-          </p>
+        <div className="flex items-start gap-1.5">
+          {onToggleFavorite && (
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleFavorite(stock.symbol); }}
+              className={`mt-0.5 shrink-0 transition-colors ${stock.favorite ? "text-yellow-400" : "text-gray-300 dark:text-slate-600 hover:text-yellow-300"}`}
+              title={stock.favorite ? "お気に入り解除" : "お気に入り"}
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill={stock.favorite ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.562.562 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+              </svg>
+            </button>
+          )}
+          <div>
+            <h3 className="font-semibold text-gray-900 dark:text-white">{stock.name}</h3>
+            <p className="text-sm text-gray-500 dark:text-slate-400">
+              {stock.symbol}
+              {stock.marketSegment && (
+                <span className="ml-1.5 text-[10px] text-gray-400 dark:text-slate-500">{stock.marketSegment}</span>
+              )}
+            </p>
+          </div>
         </div>
         {stock.sectors && stock.sectors.length > 0 && (
           <div className="mr-5 flex flex-wrap gap-1">
@@ -277,6 +336,66 @@ export default function StockCard({
                   <>
                     <div className="text-[9px] font-bold text-gray-400 dark:text-slate-500 border-b border-gray-100 dark:border-slate-700 pb-0.5 mb-0.5">週足</div>
                     {weeklySigs.map(renderSignal)}
+                  </>
+                ) : (
+                  <div className="text-[9px] text-gray-300 dark:text-slate-600">週足: なし</div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+      {/* 直近シグナル（保有中でないもの） */}
+      {recentSignals.length > 0 && (() => {
+        const dailyRecent = recentSignals.filter((r) => r.period === "日足").sort((a, b) => b.signal.date.localeCompare(a.signal.date));
+        const weeklyRecent = recentSignals.filter((r) => r.period === "週足").sort((a, b) => b.signal.date.localeCompare(a.signal.date));
+        const renderRecent = (r: { period: string; signal: RecentSignalInfo }) => {
+          const validationCompositeKey = `${r.signal.strategyId}_${r.period === "日足" ? "daily" : "weekly"}_${r.signal.date}`;
+          const validation = signals?.validations?.[validationCompositeKey];
+          return (
+            <div key={`${r.period}-${r.signal.strategyId}-${r.signal.date}`} className="flex items-center gap-1 text-[10px]">
+              <span className={`shrink-0 rounded px-1 py-0.5 font-bold ${strategyBadgeClass(r.signal.strategyId)}`}>
+                {strategyShortName(r.signal.strategyId)}
+              </span>
+              {validation && (
+                <span className={`shrink-0 rounded px-0.5 py-0.5 text-[9px] font-bold ${
+                  validation.decision === "entry"
+                    ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                    : validation.decision === "avoid"
+                      ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                      : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
+                }`}>
+                  {validation.decision === "entry" ? "Go" : validation.decision === "avoid" ? "NG" : "様子見"}
+                </span>
+              )}
+              <span className="text-gray-400 dark:text-slate-500">
+                {r.signal.date.slice(2).replace(/-/g, "/")}
+              </span>
+              <span className="ml-auto text-gray-500 dark:text-slate-400">
+                ¥{r.signal.price.toLocaleString()}
+              </span>
+            </div>
+          );
+        };
+        return (
+          <div className={`mt-2 border-t border-gray-100 dark:border-slate-700 pt-2 ${activeSignals.length === 0 ? "" : ""}`}>
+            <span className="text-[10px] font-semibold text-gray-500 dark:text-slate-400">直近シグナル</span>
+            <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0">
+              <div className="space-y-0.5">
+                {dailyRecent.length > 0 ? (
+                  <>
+                    <div className="text-[9px] font-bold text-gray-400 dark:text-slate-500 border-b border-gray-100 dark:border-slate-700 pb-0.5 mb-0.5">日足</div>
+                    {dailyRecent.map(renderRecent)}
+                  </>
+                ) : (
+                  <div className="text-[9px] text-gray-300 dark:text-slate-600">日足: なし</div>
+                )}
+              </div>
+              <div className="space-y-0.5">
+                {weeklyRecent.length > 0 ? (
+                  <>
+                    <div className="text-[9px] font-bold text-gray-400 dark:text-slate-500 border-b border-gray-100 dark:border-slate-700 pb-0.5 mb-0.5">週足</div>
+                    {weeklyRecent.map(renderRecent)}
                   </>
                 ) : (
                   <div className="text-[9px] text-gray-300 dark:text-slate-600">週足: なし</div>

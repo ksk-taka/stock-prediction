@@ -20,6 +20,7 @@ export interface PositionSizingConfig {
 
 export interface NotificationConfig {
   enabled: boolean;
+  favoritesOnly: boolean;   // お気に入り銘柄のみ対象にするか
   strategies: StrategyNotificationSetting[];
   positionSizing: PositionSizingConfig;
   lookbackDays: number;    // シグナル検出対象の直近日数
@@ -28,21 +29,23 @@ export interface NotificationConfig {
 
 const DEFAULT_CONFIG: NotificationConfig = {
   enabled: true,
+  favoritesOnly: true,       // お気に入り銘柄のみ
   strategies: [
-    { strategyId: "choruko_bb", enabled: true, timeframes: ["daily", "weekly"] },
-    { strategyId: "choruko_shitabanare", enabled: true, timeframes: ["daily", "weekly"] },
-    { strategyId: "tabata_cwh", enabled: true, timeframes: ["daily", "weekly"] },
     { strategyId: "rsi_reversal", enabled: true, timeframes: ["daily"] },
+    { strategyId: "macd_trail", enabled: true, timeframes: ["daily"] },
+    { strategyId: "dip_buy", enabled: true, timeframes: ["daily"] },
+    { strategyId: "tabata_cwh", enabled: true, timeframes: ["daily"] },
+    { strategyId: "choruko_bb", enabled: false, timeframes: ["daily", "weekly"] },
+    { strategyId: "choruko_shitabanare", enabled: false, timeframes: ["daily", "weekly"] },
     { strategyId: "ma_cross", enabled: false, timeframes: ["daily"] },
     { strategyId: "macd_signal", enabled: false, timeframes: ["daily"] },
-    { strategyId: "dip_buy", enabled: false, timeframes: ["daily"] },
   ],
   positionSizing: {
     defaultAmount: 100_000,  // 10万円
     lotSize: 100,            // 100株単位
     maxPositionPct: 10,
   },
-  lookbackDays: 3,
+  lookbackDays: 7,           // 直近1週間
   sendSummary: true,
 };
 

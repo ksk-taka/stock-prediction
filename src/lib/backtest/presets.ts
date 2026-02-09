@@ -1,8 +1,9 @@
 /**
  * 最適化済みパラメータプリセット
  *
- * グリッドサーチにより全9銘柄×3年分のバックテストで
- * 勝率最大化を基準に探索した結果（2026-02-06実施）
+ * daily: ウォークフォワード分析（訓練3年→検証1年 × 7窓, 22銘柄）の
+ *        パラメータ安定性評価に基づく推奨値（2026-02-07実施）
+ * weekly: グリッドサーチ in-sample 最適化（2026-02-06実施）
  */
 
 export type PresetType = "default" | "optimized";
@@ -30,10 +31,11 @@ export interface StrategyPresets {
 export const optimizedPresets: Record<string, StrategyPresets> = {
   ma_cross: {
     daily: {
-      params: { shortPeriod: 20, longPeriod: 50 },
-      winRate: 59.3,
-      totalReturnPct: 486.0,
-      trades: 54,
+      // WF安定性スコア: 0.784, 検証中央値: +6.9%
+      params: { shortPeriod: 2, longPeriod: 5 },
+      winRate: 0,
+      totalReturnPct: 6.9,
+      trades: 0,
     },
     weekly: {
       params: { shortPeriod: 10, longPeriod: 20 },
@@ -44,13 +46,14 @@ export const optimizedPresets: Record<string, StrategyPresets> = {
   },
   rsi_reversal: {
     daily: {
-      params: { period: 10, oversold: 20, overbought: 80 },
-      winRate: 100,
-      totalReturnPct: 635.9,
-      trades: 16,
+      // WF安定性スコア: 0.859, 検証中央値: +16.6%
+      params: { period: 5, oversold: 37, overbought: 70, atrPeriod: 14, atrMultiple: 2, stopLossPct: 5 },
+      winRate: 0,
+      totalReturnPct: 16.6,
+      trades: 0,
     },
     weekly: {
-      params: { period: 10, oversold: 40, overbought: 75 },
+      params: { period: 10, oversold: 40, overbought: 75, atrPeriod: 14, atrMultiple: 2, stopLossPct: 10 },
       winRate: 100,
       totalReturnPct: 376.0,
       trades: 10,
@@ -58,10 +61,11 @@ export const optimizedPresets: Record<string, StrategyPresets> = {
   },
   macd_signal: {
     daily: {
-      params: { shortPeriod: 10, longPeriod: 20, signalPeriod: 9 },
-      winRate: 46.7,
-      totalReturnPct: 684.9,
-      trades: 285,
+      // WF安定性スコア: 0.852, 検証中央値: +13.5%
+      params: { shortPeriod: 5, longPeriod: 10, signalPeriod: 12 },
+      winRate: 0,
+      totalReturnPct: 13.5,
+      trades: 0,
     },
     weekly: {
       params: { shortPeriod: 10, longPeriod: 30, signalPeriod: 12 },
@@ -72,13 +76,14 @@ export const optimizedPresets: Record<string, StrategyPresets> = {
   },
   dip_buy: {
     daily: {
-      params: { dipPct: 3, recoveryPct: 15 },
-      winRate: 100,
-      totalReturnPct: 1153.9,
-      trades: 68,
+      // WF安定性スコア: 0.781, 検証中央値: +17.4%
+      params: { dipPct: 3, recoveryPct: 39, stopLossPct: 5 },
+      winRate: 0,
+      totalReturnPct: 17.4,
+      trades: 0,
     },
     weekly: {
-      params: { dipPct: 3, recoveryPct: 30 },
+      params: { dipPct: 3, recoveryPct: 30, stopLossPct: 15 },
       winRate: 100,
       totalReturnPct: 1206.6,
       trades: 35,
@@ -86,10 +91,11 @@ export const optimizedPresets: Record<string, StrategyPresets> = {
   },
   dip_kairi: {
     daily: {
-      params: { entryKairi: -8, exitKairi: -3, stopLossPct: 10, timeStopDays: 10 },
-      winRate: 73.7,
-      totalReturnPct: 97.4,
-      trades: 95,
+      // WF安定性スコア: 0.633, 検証中央値: +0.0% (取引機会なし)
+      params: { entryKairi: -30, exitKairi: -15, stopLossPct: 3, timeStopDays: 2 },
+      winRate: 0,
+      totalReturnPct: 0.0,
+      trades: 0,
     },
     weekly: {
       params: { entryKairi: -8, exitKairi: -5, stopLossPct: 7, timeStopDays: 5 },
@@ -100,10 +106,11 @@ export const optimizedPresets: Record<string, StrategyPresets> = {
   },
   dip_rsi_volume: {
     daily: {
-      params: { rsiThreshold: 25, volumeMultiple: 1.2, rsiExit: 35, takeProfitPct: 3 },
-      winRate: 81.3,
-      totalReturnPct: 104.3,
-      trades: 16,
+      // WF安定性スコア: 0.533, 検証中央値: +0.0% (取引機会なし)
+      params: { rsiThreshold: 30, volumeMultiple: 2, rsiExit: 55, takeProfitPct: 6 },
+      winRate: 0,
+      totalReturnPct: 0.0,
+      trades: 0,
     },
     weekly: {
       params: { rsiThreshold: 35, volumeMultiple: 1.2, rsiExit: 35, takeProfitPct: 3 },
@@ -114,10 +121,11 @@ export const optimizedPresets: Record<string, StrategyPresets> = {
   },
   dip_bb3sigma: {
     daily: {
-      params: { stopLossPct: 7 },
-      winRate: 69.2,
-      totalReturnPct: 65.7,
-      trades: 26,
+      // WF安定性スコア: 0.616, 検証中央値: +0.0% (取引機会なし)
+      params: { stopLossPct: 3 },
+      winRate: 0,
+      totalReturnPct: 0.0,
+      trades: 0,
     },
     weekly: {
       // 週足はサンプル1件のみ、デフォルト維持
@@ -127,18 +135,50 @@ export const optimizedPresets: Record<string, StrategyPresets> = {
       trades: 1,
     },
   },
-  tabata_cwh: {
+  macd_trail: {
     daily: {
-      params: { takeProfitPct: 5, stopLossPct: 15 },
-      winRate: 91.3,
-      totalReturnPct: 326.2,
-      trades: 69,
+      // WF安定性スコア: 0.785, 検証中央値: +18.9%
+      params: { shortPeriod: 5, longPeriod: 23, signalPeriod: 3, trailPct: 12, stopLossPct: 15 },
+      winRate: 0,
+      totalReturnPct: 18.9,
+      trades: 0,
     },
     weekly: {
-      params: { takeProfitPct: 20, stopLossPct: 5 },
+      params: { shortPeriod: 12, longPeriod: 26, signalPeriod: 9, trailPct: 12, stopLossPct: 5 },
+      winRate: 0,
+      totalReturnPct: 0,
+      trades: 0,
+    },
+  },
+  tabata_cwh: {
+    daily: {
+      // 全銘柄ポートフォリオシム: 52w高値+CWH, PF1.75, 年率19.8%
+      params: { takeProfitPct: 20, stopLossPct: 8 },
+      winRate: 43.8,
+      totalReturnPct: 19.8,
+      trades: 1241,
+    },
+    weekly: {
+      params: { takeProfitPct: 20, stopLossPct: 8 },
       winRate: 75.0,
       totalReturnPct: 57.4,
       trades: 4,
+    },
+  },
+  cwh_trail: {
+    daily: {
+      // WF安定性スコア: 0.874, 検証中央値: +0.0%
+      params: { trailPct: 8, stopLossPct: 6 },
+      winRate: 28.8,
+      totalReturnPct: 0.0,
+      trades: 243,
+    },
+    weekly: {
+      // 週足はCWHシグナル少数のためデフォルト維持
+      params: { trailPct: 12, stopLossPct: 5 },
+      winRate: 0,
+      totalReturnPct: 0,
+      trades: 0,
     },
   },
 };

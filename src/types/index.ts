@@ -5,6 +5,7 @@ export interface Stock {
   market: "JP" | "US";      // 市場
   marketSegment?: "プライム" | "スタンダード" | "グロース";  // 市場区分
   sectors?: string[];        // セクター（複数可）
+  favorite?: boolean;        // お気に入り
   fundamental?: {
     judgment: "bullish" | "neutral" | "bearish";
     memo: string;            // 一言メモ（summaryから抽出）

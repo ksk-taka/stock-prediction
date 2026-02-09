@@ -44,6 +44,20 @@ export function updateStockFundamental(
 }
 
 /**
+ * お気に入りトグル
+ */
+export function toggleFavorite(symbol: string): WatchList {
+  const list = getWatchList();
+  const stock = list.stocks.find((s) => s.symbol === symbol);
+  if (stock) {
+    stock.favorite = !stock.favorite;
+    list.updatedAt = new Date().toISOString();
+    fs.writeFileSync(WATCHLIST_PATH, JSON.stringify(list, null, 2), "utf-8");
+  }
+  return list;
+}
+
+/**
  * ウォッチリストから銘柄を削除
  */
 export function removeStock(symbol: string): WatchList {

@@ -6,7 +6,7 @@ import { getCacheBaseDir } from "./cacheDir";
 const CACHE_DIR = path.join(getCacheBaseDir(), "fundamental");
 const RESEARCH_TTL = 12 * 60 * 60 * 1000; // 12時間
 const ANALYSIS_TTL = 24 * 60 * 60 * 1000; // 24時間
-const VALIDATION_TTL = 24 * 60 * 60 * 1000; // 24時間
+const VALIDATION_TTL = 7 * 24 * 60 * 60 * 1000; // 7日間
 
 function ensureDir() {
   if (!fs.existsSync(CACHE_DIR)) {

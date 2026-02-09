@@ -40,6 +40,10 @@ export default function StockDetailPage() {
   const [loadingNews, setLoadingNews] = useState(false);
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
   const [eps, setEps] = useState<number | null>(null);
+  const [per, setPer] = useState<number | null>(null);
+  const [pbr, setPbr] = useState<number | null>(null);
+  const [roe, setRoe] = useState<number | null>(null);
+  const [tenYearHigh, setTenYearHigh] = useState<number | null>(null);
   const [activeSignals, setActiveSignals] = useState<{
     daily: { strategyId: string; strategyName: string; buyDate: string; buyPrice: number; currentPrice: number; pnlPct: number; takeProfitPrice?: number; takeProfitLabel?: string; stopLossPrice?: number; stopLossLabel?: string }[];
     weekly: { strategyId: string; strategyName: string; buyDate: string; buyPrice: number; currentPrice: number; pnlPct: number; takeProfitPrice?: number; takeProfitLabel?: string; stopLossPrice?: number; stopLossLabel?: string }[];
@@ -56,6 +60,12 @@ export default function StockDetailPage() {
   // ニュースの追加データ
   const [snsOverview, setSnsOverview] = useState("");
   const [analystRating, setAnalystRating] = useState("");
+  // お気に入り
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [inWatchlist, setInWatchlist] = useState(false);
+  const [togglingFav, setTogglingFav] = useState(false);
+  // シグナル期間フィルタ
+  const [signalPeriodFilter, setSignalPeriodFilter] = useState<string>("all");
 
   // 特定期間の株価データ取得
   const fetchPricesForPeriod = useCallback(
@@ -215,6 +225,49 @@ export default function StockDetailPage() {
     runAnalysis();
   };
 
+  // ウォッチリスト状態の取得
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/watchlist");
+        if (res.ok) {
+          const data = await res.json();
+          const stock = data.stocks?.find((s: { symbol: string }) => s.symbol === symbol);
+          if (stock) {
+            setInWatchlist(true);
+            setIsFavorite(!!stock.favorite);
+          }
+        }
+      } catch { /* skip */ }
+    })();
+  }, [symbol]);
+
+  // お気に入りトグル（ウォッチリスト未登録なら先に追加）
+  const toggleFavorite = async () => {
+    setTogglingFav(true);
+    try {
+      if (!inWatchlist) {
+        const market = symbol.endsWith(".T") ? "JP" : "US";
+        await fetch("/api/watchlist", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ symbol, name: quote?.name ?? symbol, market }),
+        });
+        setInWatchlist(true);
+      }
+      const res = await fetch("/api/watchlist", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setIsFavorite(data.favorite);
+      }
+    } catch { /* skip */ }
+    setTogglingFav(false);
+  };
+
   // EPS取得（PERバンド用）+ アクティブシグナル取得
   useEffect(() => {
     const fetchStats = async () => {
@@ -222,6 +275,9 @@ export default function StockDetailPage() {
         const res = await fetch(`/api/stats?symbol=${encodeURIComponent(symbol)}`);
         const data = await res.json();
         if (data.eps != null) setEps(data.eps);
+        if (data.per != null) setPer(data.per);
+        if (data.pbr != null) setPbr(data.pbr);
+        if (data.roe != null) setRoe(data.roe);
       } catch {
         // skip
       }
@@ -251,8 +307,18 @@ export default function StockDetailPage() {
         // skip
       }
     };
+    const fetchPriceHighs = async () => {
+      try {
+        const res = await fetch(`/api/price-highs?symbol=${encodeURIComponent(symbol)}`);
+        const data = await res.json();
+        if (data.tenYearHigh != null) setTenYearHigh(data.tenYearHigh);
+      } catch {
+        // skip
+      }
+    };
     fetchStats();
     fetchSignals();
+    fetchPriceHighs();
   }, [symbol]);
 
   // 取引時間中の自動更新（30秒間隔）
@@ -317,13 +383,27 @@ export default function StockDetailPage() {
 
   return (
     <div>
-      {/* 上部: 銘柄情報 */}
-      <div className="mb-6 flex flex-wrap items-end gap-3 sm:gap-4">
-        <div className="min-w-0">
-          <h1 className="truncate text-xl font-bold text-gray-900 dark:text-white sm:text-2xl">
-            {quote?.name ?? symbol}
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-slate-400">{symbol}</p>
+      {/* 上部: 銘柄情報（sticky） */}
+      <div className="sticky top-[49px] z-[9] -mx-3 mb-6 flex flex-wrap items-end gap-3 bg-gray-50 px-3 py-2 dark:bg-slate-900 sm:-mx-4 sm:gap-4 sm:px-4">
+        <div className="flex items-center gap-2 min-w-0">
+          <button
+            onClick={toggleFavorite}
+            disabled={togglingFav}
+            title={isFavorite ? "お気に入り解除" : inWatchlist ? "お気に入りに追加" : "ウォッチリストに追加してお気に入り登録"}
+            className="text-2xl transition-colors disabled:opacity-50 hover:scale-110"
+          >
+            {isFavorite ? (
+              <span className="text-yellow-400">&#9733;</span>
+            ) : (
+              <span className="text-gray-300 dark:text-slate-600 hover:text-yellow-300">&#9734;</span>
+            )}
+          </button>
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-bold text-gray-900 dark:text-white sm:text-2xl">
+              {quote?.name ?? symbol}
+            </h1>
+            <p className="text-sm text-gray-500 dark:text-slate-400">{symbol}</p>
+          </div>
         </div>
         {quote && (
           <div className="flex items-end gap-2 sm:gap-3">
@@ -338,6 +418,19 @@ export default function StockDetailPage() {
               {isPositive ? "+" : ""}
               {quote.change.toLocaleString()} ({formatChange(quote.changePercent)})
             </span>
+          </div>
+        )}
+        {(per != null || pbr != null || roe != null) && (
+          <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-slate-400">
+            {per != null && (
+              <span>PER <b className="text-gray-700 dark:text-slate-300">{per.toFixed(1)}</b></span>
+            )}
+            {pbr != null && (
+              <span>PBR <b className={pbr < 1 ? "text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-slate-300"}>{pbr.toFixed(2)}</b></span>
+            )}
+            {roe != null && (
+              <span>ROE <b className={roe >= 10 ? "text-green-600 dark:text-green-400" : "text-gray-700 dark:text-slate-300"}>{roe.toFixed(1)}%</b></span>
+            )}
           </div>
         )}
         <div className="ml-auto flex items-center gap-2">
@@ -374,18 +467,62 @@ export default function StockDetailPage() {
       </div>
 
       {/* アクティブシグナル（保有中ポジション） */}
-      {activeSignals && (activeSignals.daily.length > 0 || activeSignals.weekly.length > 0) && (
+      {activeSignals && (activeSignals.daily.length > 0 || activeSignals.weekly.length > 0) && (() => {
+        const signalPeriodOptions = [
+          { value: "1w", label: "1週間" },
+          { value: "1m", label: "1ヶ月" },
+          { value: "3m", label: "3ヶ月" },
+          { value: "6m", label: "半年" },
+          { value: "1y", label: "1年" },
+          { value: "all", label: "全期間" },
+        ];
+        const filterByPeriod = (buyDate: string) => {
+          if (signalPeriodFilter === "all") return true;
+          const d = new Date(buyDate);
+          const now = new Date();
+          const diffMs = now.getTime() - d.getTime();
+          const days = diffMs / (1000 * 60 * 60 * 24);
+          switch (signalPeriodFilter) {
+            case "1w": return days <= 7;
+            case "1m": return days <= 31;
+            case "3m": return days <= 93;
+            case "6m": return days <= 183;
+            case "1y": return days <= 366;
+            default: return true;
+          }
+        };
+        const allMerged = [
+          ...activeSignals.daily.map((s) => ({ ...s, period: "日足" as const })),
+          ...activeSignals.weekly.map((s) => ({ ...s, period: "週足" as const })),
+        ];
+        const filteredSignals = allMerged.filter((s) => filterByPeriod(s.buyDate));
+        return (
         <div className="mb-4 rounded-lg bg-white dark:bg-slate-800 p-4 shadow dark:shadow-slate-900/50">
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300">
               保有中シグナル
             </h3>
+            <div className="flex gap-0.5">
+              {signalPeriodOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setSignalPeriodFilter(opt.value)}
+                  className={`rounded px-1.5 py-0.5 text-[10px] transition ${
+                    signalPeriodFilter === opt.value
+                      ? "bg-blue-500 text-white"
+                      : "bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-slate-600"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <span className="text-[10px] text-gray-400 dark:text-slate-500">
+              {filteredSignals.length}/{allMerged.length}件
+            </span>
+            <div className="ml-auto">
             {(() => {
-              const allSigs = [
-                ...activeSignals!.daily,
-                ...activeSignals!.weekly,
-              ];
-              const unvalidated = allSigs.filter((s) => !signalValidations[s.strategyId]);
+              const unvalidated = allMerged.filter((s) => !signalValidations[s.strategyId]);
               if (unvalidated.length === 0) return null;
               return (
                 <button
@@ -394,17 +531,17 @@ export default function StockDetailPage() {
                   className="rounded bg-indigo-50 dark:bg-indigo-900/20 px-2.5 py-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 disabled:opacity-50"
                 >
                   {validatingAll
-                    ? `検証中 (${allSigs.length - unvalidated.length}/${allSigs.length})...`
+                    ? `検証中 (${allMerged.length - unvalidated.length}/${allMerged.length})...`
                     : `全検証 (${unvalidated.length}件)`}
                 </button>
               );
             })()}
+            </div>
           </div>
           <div className="space-y-2">
-            {[
-              ...activeSignals.daily.map((s) => ({ ...s, period: "日足" as const })),
-              ...activeSignals.weekly.map((s) => ({ ...s, period: "週足" as const })),
-            ].map((s) => {
+            {filteredSignals.length === 0 ? (
+              <p className="text-xs text-gray-400 dark:text-slate-500">該当するシグナルはありません</p>
+            ) : filteredSignals.map((s) => {
               const diff = s.currentPrice - s.buyPrice;
               const isProfit = diff >= 0;
               const validation = signalValidations[s.strategyId];
@@ -509,7 +646,8 @@ export default function StockDetailPage() {
             })}
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* 期間マルチセレクタ */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -561,6 +699,7 @@ export default function StockDetailPage() {
                     }
                     chartHeight={260}
                     eps={eps ?? undefined}
+                    tenYearHigh={tenYearHigh}
                   />
                 )}
               </div>
@@ -578,6 +717,7 @@ export default function StockDetailPage() {
               period={activePeriods[0]}
               onPeriodChange={handleSinglePeriodChange}
               eps={eps ?? undefined}
+              tenYearHigh={tenYearHigh}
             />
           )
         )}

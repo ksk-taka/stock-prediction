@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getWatchList, addStock, removeStock, updateStockFundamental } from "@/lib/data/watchlist";
+import { getWatchList, addStock, removeStock, updateStockFundamental, toggleFavorite } from "@/lib/data/watchlist";
 import type { Stock } from "@/types";
 
 export async function GET() {
@@ -32,6 +32,21 @@ export async function POST(request: NextRequest) {
       { error: "Failed to add stock" },
       { status: 500 }
     );
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const { symbol } = await request.json();
+    if (!symbol) {
+      return NextResponse.json({ error: "symbol is required" }, { status: 400 });
+    }
+    const list = toggleFavorite(symbol);
+    const stock = list.stocks.find((s) => s.symbol === symbol);
+    return NextResponse.json({ favorite: stock?.favorite ?? false });
+  } catch (error) {
+    console.error("Watchlist PUT error:", error);
+    return NextResponse.json({ error: "Failed to toggle favorite" }, { status: 500 });
   }
 }
 

@@ -4,9 +4,10 @@
 // 使い方: npx tsx scripts/monitor-signals.ts [--dry-run]
 // ============================================================
 
-import "dotenv/config";
+import dotenv from "dotenv";
+dotenv.config({ path: ".env.local" });
 import { getWatchList } from "@/lib/data/watchlist";
-import { getHistoricalPrices } from "@/lib/api/yahooFinance";
+import { getHistoricalPrices, getQuote, getFinancialData } from "@/lib/api/yahooFinance";
 import { strategies, getStrategyParams } from "@/lib/backtest/strategies";
 import { getExitLevels } from "@/lib/utils/exitLevels";
 import {
@@ -25,7 +26,11 @@ import {
   isSlackConfigured,
   type SignalNotification,
 } from "@/lib/api/slack";
-import type { PriceData } from "@/types";
+import { fetchNewsAndSentiment, fetchFundamentalResearch } from "@/lib/api/webResearch";
+import { analyzeSentiment, validateSignal } from "@/lib/api/llm";
+import { setCachedValidation, getCachedValidation } from "@/lib/cache/fundamentalCache";
+import { setCachedNews } from "@/lib/cache/newsCache";
+import type { PriceData, NewsItem } from "@/types";
 import type { Signal } from "@/lib/backtest/types";
 import type { PeriodType } from "@/lib/backtest/presets";
 
@@ -59,15 +64,151 @@ function findRecentBuySignals(
   return results;
 }
 
+// ---------- 分析パイプライン ----------
+
+interface AnalysisResult {
+  validation?: {
+    decision: "entry" | "wait" | "avoid";
+    summary: string;
+    signalEvaluation: string;
+    riskFactor: string;
+    catalyst: string;
+  };
+  sentiment?: { score: number; label: string };
+  newsHighlights?: string[];
+  fundamentalSummary?: string;
+}
+
+/**
+ * シグナルに対してニュース・ファンダ・Go/NoGo判定を実行
+ * 各ステップの失敗は個別にcatchし、部分結果を返す（graceful degradation）
+ */
+async function analyzeSignal(
+  symbol: string,
+  name: string,
+  strategyId: string,
+  strategyName: string,
+  timeframe: "daily" | "weekly",
+  buyDate: string,
+  buyPrice: number,
+  currentPrice: number,
+): Promise<AnalysisResult> {
+  const result: AnalysisResult = {};
+
+  try {
+    // Step 1: 定量データ取得
+    console.log(`    [分析] 定量データ取得中...`);
+    const [quote, financial] = await Promise.all([
+      getQuote(symbol),
+      getFinancialData(symbol),
+    ]);
+    const stats = {
+      per: quote.per,
+      pbr: quote.pbr,
+      roe: financial.roe,
+      dividendYield: quote.dividendYield,
+    };
+    const ticker = symbol.replace(".T", "");
+
+    // Step 2: ニュース + センチメント（Gemini Grounding）
+    let newsData: { news: NewsItem[]; snsOverview: string; analystRating: string } = {
+      news: [], snsOverview: "", analystRating: "",
+    };
+    console.log(`    [分析] ニュース収集中...`);
+    try {
+      newsData = await fetchNewsAndSentiment(symbol, name);
+      setCachedNews(symbol, newsData.news, newsData.snsOverview, newsData.analystRating);
+      result.newsHighlights = newsData.news
+        .slice(0, 3)
+        .map((n) => `${n.title} (${n.source})`);
+    } catch (err) {
+      console.warn(`    [分析] ニュース取得失敗: ${err instanceof Error ? err.message : err}`);
+    }
+
+    // Step 3: ファンダメンタルズ調査（Gemini Grounding）
+    let fundamentalRawText = "";
+    if (stats.pbr != null && stats.per != null) {
+      console.log(`    [分析] ファンダメンタルズ調査中...`);
+      try {
+        const research = await fetchFundamentalResearch(symbol, name, ticker, {
+          pbr: stats.pbr ?? 0,
+          per: stats.per ?? 0,
+        });
+        fundamentalRawText = research.rawText;
+        result.fundamentalSummary = [
+          research.valuationReason ? `評価: ${research.valuationReason.slice(0, 80)}` : "",
+          research.catalystAndRisk ? `材料/リスク: ${research.catalystAndRisk.slice(0, 80)}` : "",
+        ].filter(Boolean).join(" | ");
+      } catch (err) {
+        console.warn(`    [分析] ファンダ調査失敗: ${err instanceof Error ? err.message : err}`);
+      }
+    }
+
+    // Step 4: センチメント分析（LLM）
+    if (newsData.news.length > 0) {
+      console.log(`    [分析] センチメント分析中...`);
+      try {
+        const sentimentResult = await analyzeSentiment(
+          newsData.news,
+          newsData.snsOverview,
+          newsData.analystRating,
+        );
+        result.sentiment = {
+          score: sentimentResult.score,
+          label: sentimentResult.label,
+        };
+      } catch (err) {
+        console.warn(`    [分析] センチメント失敗: ${err instanceof Error ? err.message : err}`);
+      }
+    }
+
+    // Step 5: Go/NoGo判定（LLM）
+    console.log(`    [分析] Go/NoGo判定中...`);
+    try {
+      const pnlPct = ((currentPrice - buyPrice) / buyPrice * 100).toFixed(1);
+      const signalDesc = `${strategyName} (${timeframe === "daily" ? "日足" : "週足"}): ${buyDate}にエントリー (買値:${buyPrice}円, 現在価格:${currentPrice}円, 損益:${Number(pnlPct) > 0 ? "+" : ""}${pnlPct}%)`;
+
+      const validationResult = await validateSignal(
+        symbol,
+        name,
+        { description: signalDesc, strategyName },
+        stats,
+        fundamentalRawText || "ファンダ調査データなし",
+      );
+
+      result.validation = {
+        decision: validationResult.decision,
+        summary: validationResult.summary,
+        signalEvaluation: validationResult.signalEvaluation,
+        riskFactor: validationResult.riskFactor,
+        catalyst: validationResult.catalyst,
+      };
+
+      // UI用にキャッシュ書込み（compositeキー形式）
+      const compositeKey = `${strategyId}_${timeframe}_${buyDate}`;
+      setCachedValidation(symbol, compositeKey, validationResult);
+      console.log(`    [分析] 判定: ${validationResult.decision} - ${validationResult.summary.slice(0, 60)}`);
+    } catch (err) {
+      console.warn(`    [分析] Go/NoGo判定失敗: ${err instanceof Error ? err.message : err}`);
+    }
+  } catch (err) {
+    console.warn(`    [分析] パイプラインエラー: ${err instanceof Error ? err.message : err}`);
+  }
+
+  return result;
+}
+
 // ---------- メイン処理 ----------
 
 async function main() {
   const isDryRun = process.argv.includes("--dry-run");
+  const skipAnalysis = process.argv.includes("--skip-analysis");
   const startTime = Date.now();
 
   console.log("=".repeat(60));
   console.log(`シグナルモニター開始 (${new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })})`);
   if (isDryRun) console.log("** DRY RUN モード - 通知は送信しません **");
+  if (skipAnalysis) console.log("** SKIP ANALYSIS - 分析なし高速モード **");
   console.log("=".repeat(60));
 
   // Slack設定チェック
@@ -93,8 +234,15 @@ async function main() {
 
   // ウォッチリスト読み込み
   const watchlist = getWatchList();
-  const jpStocks = watchlist.stocks.filter((s) => s.market === "JP");
-  console.log(`チェック対象: ${jpStocks.length} 銘柄\n`);
+  let jpStocks = watchlist.stocks.filter((s) => s.market === "JP");
+
+  // お気に入りフィルタ
+  if (config.favoritesOnly) {
+    jpStocks = jpStocks.filter((s) => s.favorite);
+    console.log(`対象: お気に入り銘柄のみ (${jpStocks.length} 銘柄)\n`);
+  } else {
+    console.log(`チェック対象: ${jpStocks.length} 銘柄\n`);
+  }
 
   let totalNewSignals = 0;
   let totalSkipped = 0;
@@ -144,8 +292,30 @@ async function main() {
           const recentBuys = findRecentBuySignals(data, signals, config.lookbackDays);
 
           for (const buy of recentBuys) {
-            // 重複チェック
-            if (hasBeenNotified(stock.symbol, stratConfig.strategyId, tf, buy.date)) {
+            const alreadyNotified = hasBeenNotified(stock.symbol, stratConfig.strategyId, tf, buy.date);
+
+            // 通知済みの場合: バリデーションキャッシュが切れていれば再分析のみ実行
+            if (alreadyNotified) {
+              const compositeKey = `${stratConfig.strategyId}_${tf}_${buy.date}`;
+              const cachedVal = getCachedValidation(stock.symbol, compositeKey);
+              if (cachedVal || skipAnalysis) {
+                totalSkipped++;
+                continue;
+              }
+              // バリデーションキャッシュ切れ → 再分析（Slack通知なし）
+              console.log(
+                `${progress} ${stock.name} (${stock.symbol}) - ${strat.name} [${tf === "daily" ? "日足" : "週足"}] バリデーション再分析: ${buy.date}`,
+              );
+              await analyzeSignal(
+                stock.symbol,
+                stock.name,
+                stratConfig.strategyId,
+                strat.name,
+                tf,
+                buy.date,
+                buy.price,
+                currentPrice,
+              );
               totalSkipped++;
               continue;
             }
@@ -164,6 +334,26 @@ async function main() {
               ? ((exits.stopLossPrice - currentPrice) / currentPrice) * 100
               : undefined;
 
+            console.log(
+              `${progress} ${stock.name} (${stock.symbol}) - ${strat.name} [${tf === "daily" ? "日足" : "週足"}] シグナル: ${buy.date} 現在値: ¥${currentPrice.toLocaleString()}`,
+            );
+
+            // 分析パイプライン実行
+            let analysisResult: AnalysisResult = {};
+            if (!skipAnalysis) {
+              console.log(`  → 分析パイプライン実行中...`);
+              analysisResult = await analyzeSignal(
+                stock.symbol,
+                stock.name,
+                stratConfig.strategyId,
+                strat.name,
+                tf,
+                buy.date,
+                buy.price,
+                currentPrice,
+              );
+            }
+
             const notification: SignalNotification = {
               symbol: stock.symbol,
               symbolName: stock.name,
@@ -179,11 +369,8 @@ async function main() {
               ...exits,
               pnlAtTakeProfit,
               pnlAtStopLoss,
+              ...analysisResult,
             };
-
-            console.log(
-              `${progress} ${stock.name} (${stock.symbol}) - ${strat.name} [${tf === "daily" ? "日足" : "週足"}] シグナル: ${buy.date} 現在値: ¥${currentPrice.toLocaleString()}`,
-            );
 
             if (!isDryRun) {
               const sent = await sendSignalNotification(notification);

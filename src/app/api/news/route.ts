@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchNewsAndSentiment } from "@/lib/api/perplexity";
+import { fetchNewsAndSentiment } from "@/lib/api/webResearch";
 import { getCachedNews, setCachedNews } from "@/lib/cache/newsCache";
 
 export async function GET(request: NextRequest) {

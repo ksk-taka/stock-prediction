@@ -1,6 +1,6 @@
 import type { StrategyDef, Signal } from "./types";
 import type { PriceData } from "@/types";
-import { calcRSI, calcMACD, calcBollingerBands } from "@/lib/utils/indicators";
+import { calcRSI, calcMACD, calcBollingerBands, calcATR } from "@/lib/utils/indicators";
 import { detectCupWithHandle } from "@/lib/utils/signals";
 import { getPresetParams, type PresetType, type PeriodType } from "./presets";
 
@@ -36,20 +36,39 @@ export const strategies: StrategyDef[] = [
   {
     id: "rsi_reversal",
     name: "RSI逆張り",
-    description: "RSIが売られすぎで買い、買われすぎで売り",
+    description: "RSIが売られすぎで買い、買われすぎで売り、ATR×2 or -10%で損切り",
     mode: "all_in_out",
     params: [
       { key: "period", label: "RSI期間", default: 14, min: 5, max: 30 },
       { key: "oversold", label: "買い(RSI<)", default: 30, min: 10, max: 50 },
       { key: "overbought", label: "売り(RSI>)", default: 70, min: 50, max: 90 },
+      { key: "atrPeriod", label: "ATR期間", default: 14, min: 5, max: 30 },
+      { key: "atrMultiple", label: "ATR倍率", default: 2, min: 1, max: 5, step: 0.5 },
+      { key: "stopLossPct", label: "損切上限(%)", default: 10, min: 5, max: 20, step: 1 },
     ],
     compute: (data, params) => {
       const rsi = calcRSI(data, params.period);
+      const atr = calcATR(data, params.atrPeriod);
       let inPosition = false;
-      return data.map((_, i): Signal => {
+      let entryPrice = 0;
+      let stopLevel = 0;
+      return data.map((d, i): Signal => {
         if (rsi[i] == null) return "hold";
-        if (!inPosition && rsi[i]! < params.oversold) { inPosition = true; return "buy"; }
-        if (inPosition && rsi[i]! > params.overbought) { inPosition = false; return "sell"; }
+        if (!inPosition && rsi[i]! < params.oversold) {
+          inPosition = true;
+          entryPrice = d.close;
+          // 損切ライン: ATR×N下 or エントリーから-M% の厳しい方（高い方）
+          const atrStop = atr[i] != null ? entryPrice - atr[i]! * params.atrMultiple : 0;
+          const pctStop = entryPrice * (1 - params.stopLossPct / 100);
+          stopLevel = Math.max(atrStop, pctStop);
+          return "buy";
+        }
+        if (inPosition) {
+          // 利確: RSI > overbought
+          if (rsi[i]! > params.overbought) { inPosition = false; return "sell"; }
+          // 損切: 終値がストップレベル以下
+          if (d.close <= stopLevel) { inPosition = false; return "sell"; }
+        }
         return "hold";
       });
     },
@@ -100,11 +119,12 @@ export const strategies: StrategyDef[] = [
   {
     id: "dip_buy",
     name: "急落買い",
-    description: "直近高値からN%下落で買い、M%回復で売り",
+    description: "直近高値からN%下落で買い、M%回復で利確、-L%で損切り",
     mode: "all_in_out",
     params: [
       { key: "dipPct", label: "下落率(%)", default: 10, min: 3, max: 30, step: 1 },
       { key: "recoveryPct", label: "回復率(%)", default: 15, min: 5, max: 50, step: 1 },
+      { key: "stopLossPct", label: "損切(%)", default: 15, min: 5, max: 30, step: 1 },
     ],
     compute: (data, params) => {
       let peak = data[0]?.close ?? 0;
@@ -120,8 +140,15 @@ export const strategies: StrategyDef[] = [
             return "buy";
           }
         } else {
+          // 利確: エントリーからM%回復
           const gainPct = ((d.close - buyPrice) / buyPrice) * 100;
           if (gainPct >= params.recoveryPct) {
+            inPosition = false;
+            peak = d.close;
+            return "sell";
+          }
+          // 損切: エントリーから-L%
+          if (gainPct <= -params.stopLossPct) {
             inPosition = false;
             peak = d.close;
             return "sell";
@@ -374,15 +401,66 @@ export const strategies: StrategyDef[] = [
       });
     },
   },
-  // ── 田端式CWH ──
+  // ── MACDトレーリング ──
+  {
+    id: "macd_trail",
+    name: "MACDトレーリング",
+    description: "MACDゴールデンクロスで買い、高値からN%下落のトレーリングストップで売り、損切り付き",
+    mode: "all_in_out",
+    params: [
+      { key: "shortPeriod", label: "短期EMA", default: 12, min: 5, max: 30 },
+      { key: "longPeriod", label: "長期EMA", default: 26, min: 10, max: 50 },
+      { key: "signalPeriod", label: "シグナル", default: 9, min: 3, max: 20 },
+      { key: "trailPct", label: "トレーリング(%)", default: 12, min: 5, max: 25, step: 1 },
+      { key: "stopLossPct", label: "損切(%)", default: 5, min: 2, max: 15, step: 1 },
+    ],
+    compute: (data, params) => {
+      const macd = calcMACD(data, params.shortPeriod, params.longPeriod, params.signalPeriod);
+      let inPosition = false;
+      let entryPrice = 0;
+      let peakPrice = 0;
+
+      return data.map((d, i): Signal => {
+        if (!inPosition) {
+          if (i < 1 || !macd[i] || !macd[i - 1]) return "hold";
+          const prev = macd[i - 1];
+          const cur = macd[i];
+          if (prev.macd == null || prev.signal == null || cur.macd == null || cur.signal == null) return "hold";
+          // MACDゴールデンクロスでエントリー
+          if (prev.macd <= prev.signal && cur.macd > cur.signal) {
+            inPosition = true;
+            entryPrice = d.close;
+            peakPrice = d.close;
+            return "buy";
+          }
+        } else {
+          if (d.close > peakPrice) peakPrice = d.close;
+          // 損切: エントリーから-N%
+          const pnl = ((d.close - entryPrice) / entryPrice) * 100;
+          if (pnl <= -params.stopLossPct) {
+            inPosition = false;
+            return "sell";
+          }
+          // トレーリングストップ: 高値から-M%
+          const dropFromPeak = ((peakPrice - d.close) / peakPrice) * 100;
+          if (dropFromPeak >= params.trailPct) {
+            inPosition = false;
+            return "sell";
+          }
+        }
+        return "hold";
+      });
+    },
+  },
+  // ── CWH (TP20/SL8) ──
   {
     id: "tabata_cwh",
-    name: "田端式CWH",
-    description: "カップウィズハンドルのブレイクアウトで買い、+20%利確、-7%損切り",
+    name: "CWH(TP20/SL8)",
+    description: "カップウィズハンドルのブレイクアウトで買い、+20%利確、-8%損切り",
     mode: "all_in_out",
     params: [
       { key: "takeProfitPct", label: "利確(%)", default: 20, min: 5, max: 50, step: 1 },
-      { key: "stopLossPct", label: "損切(%)", default: 7, min: 2, max: 20, step: 1 },
+      { key: "stopLossPct", label: "損切(%)", default: 8, min: 2, max: 20, step: 1 },
     ],
     compute: (data, params) => {
       const cwhSignals = detectCupWithHandle(data);
@@ -407,6 +485,50 @@ export const strategies: StrategyDef[] = [
           }
           // 損切: -M%
           if (d.close <= entryPrice * (1 - sl)) {
+            inPosition = false;
+            return "sell";
+          }
+        }
+        return "hold";
+      });
+    },
+  },
+  // ── CWHトレーリング ──
+  {
+    id: "cwh_trail",
+    name: "CWHトレーリング",
+    description: "CWHブレイクアウトで買い、高値からN%下落のトレーリングストップで売り、損切り付き",
+    mode: "all_in_out",
+    params: [
+      { key: "trailPct", label: "トレーリング(%)", default: 12, min: 5, max: 25, step: 1 },
+      { key: "stopLossPct", label: "損切(%)", default: 5, min: 2, max: 15, step: 1 },
+    ],
+    compute: (data, params) => {
+      const cwhSignals = detectCupWithHandle(data);
+      const signalIndices = new Set(cwhSignals.map((s) => s.index));
+      let inPosition = false;
+      let entryPrice = 0;
+      let peakPrice = 0;
+
+      return data.map((d, i): Signal => {
+        if (!inPosition) {
+          if (signalIndices.has(i)) {
+            inPosition = true;
+            entryPrice = d.close;
+            peakPrice = d.close;
+            return "buy";
+          }
+        } else {
+          if (d.close > peakPrice) peakPrice = d.close;
+          // 損切: エントリーから-N%
+          const pnl = ((d.close - entryPrice) / entryPrice) * 100;
+          if (pnl <= -params.stopLossPct) {
+            inPosition = false;
+            return "sell";
+          }
+          // トレーリングストップ: 高値から-M%
+          const dropFromPeak = ((peakPrice - d.close) / peakPrice) * 100;
+          if (dropFromPeak >= params.trailPct) {
             inPosition = false;
             return "sell";
           }

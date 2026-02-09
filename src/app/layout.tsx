@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import ThemeProvider from "@/components/ThemeProvider";
+import Sidebar, { SidebarProvider } from "@/components/Sidebar";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 
 const geistSans = Geist({
@@ -54,9 +55,14 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50 dark:bg-slate-900`}
       >
         <ThemeProvider>
-          <Header />
-          <main className="mx-auto max-w-7xl px-3 py-4 sm:px-4 sm:py-6">{children}</main>
-          <ServiceWorkerRegister />
+          <SidebarProvider>
+            <Header />
+            <div className="flex">
+              <Sidebar />
+              <main className="min-w-0 flex-1 px-3 py-4 sm:px-4 sm:py-6">{children}</main>
+            </div>
+            <ServiceWorkerRegister />
+          </SidebarProvider>
         </ThemeProvider>
       </body>
     </html>

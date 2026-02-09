@@ -1,0 +1,357 @@
+"use client";
+
+import { useEffect, useState, useMemo, useCallback } from "react";
+import Link from "next/link";
+
+interface Stock {
+  code: string;
+  symbol: string;
+  name: string;
+  market: string;
+  price: number;
+  changePct: number;
+  volume: number;
+  per: number | null;
+  pbr: number | null;
+  yield: number | null;
+  fiftyTwoWeekHigh: number;
+  currentYfPrice: number;
+  isTrue52wBreakout: boolean;
+  pctAbove52wHigh: number;
+  consolidationDays: number;
+  consolidationRangePct: number;
+}
+
+type SortKey = keyof Stock;
+type SortDir = "asc" | "desc";
+
+const MARKET_FILTERS = [
+  { label: "全て", value: "" },
+  { label: "プライム", value: "東Ｐ" },
+  { label: "スタンダード", value: "東Ｓ" },
+  { label: "グロース", value: "東Ｇ" },
+];
+
+const COLUMNS: { key: SortKey; label: string; align: "left" | "right"; width?: string }[] = [
+  { key: "code", label: "コード", align: "left" },
+  { key: "name", label: "銘柄名", align: "left", width: "min-w-[120px]" },
+  { key: "market", label: "市場", align: "left" },
+  { key: "currentYfPrice", label: "株価", align: "right" },
+  { key: "changePct", label: "前日比%", align: "right" },
+  { key: "per", label: "PER", align: "right" },
+  { key: "pbr", label: "PBR", align: "right" },
+  { key: "fiftyTwoWeekHigh", label: "52w高値", align: "right" },
+  { key: "pctAbove52wHigh", label: "乖離%", align: "right" },
+  { key: "consolidationDays", label: "もみ合い", align: "right" },
+  { key: "consolidationRangePct", label: "レンジ%", align: "right" },
+  { key: "volume", label: "出来高", align: "right" },
+];
+
+function formatNum(v: number | null, digits = 1): string {
+  if (v === null) return "－";
+  return v.toLocaleString("ja-JP", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}
+
+function formatVolume(v: number): string {
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+  if (v >= 1_000) return `${(v / 1_000).toFixed(0)}K`;
+  return String(v);
+}
+
+export default function NewHighsPage() {
+  const [stocks, setStocks] = useState<Stock[]>([]);
+  const [scannedAt, setScannedAt] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const [sortKey, setSortKey] = useState<SortKey>("pctAbove52wHigh");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [marketFilter, setMarketFilter] = useState("");
+  const [search, setSearch] = useState("");
+  const [breakoutOnly, setBreakoutOnly] = useState(true);
+  const [consolidationOnly, setConsolidationOnly] = useState(false);
+  const [scanning, setScanning] = useState(false);
+
+  const loadData = useCallback(async () => {
+    try {
+      const res = await fetch("/api/new-highs");
+      const data = await res.json();
+      setStocks(data.stocks ?? []);
+      setScannedAt(data.scannedAt ?? null);
+      if (data.error) setError(data.error);
+      else setError(null);
+    } catch {
+      setError("データの取得に失敗しました");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleScan = async () => {
+    setScanning(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/new-highs/scan", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "スキャンに失敗しました");
+        return;
+      }
+      await loadData();
+    } catch {
+      setError("スキャンの実行に失敗しました");
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const filtered = useMemo(() => {
+    let list = stocks;
+    if (breakoutOnly) list = list.filter((s) => s.isTrue52wBreakout);
+    if (consolidationOnly) list = list.filter((s) => s.consolidationDays >= 10);
+    if (marketFilter) list = list.filter((s) => s.market.includes(marketFilter));
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter(
+        (s) => s.code.includes(q) || s.name.toLowerCase().includes(q) || s.symbol.toLowerCase().includes(q),
+      );
+    }
+    // Sort
+    list = [...list].sort((a, b) => {
+      const av = a[sortKey];
+      const bv = b[sortKey];
+      if (av === null && bv === null) return 0;
+      if (av === null) return 1;
+      if (bv === null) return -1;
+      if (typeof av === "string" && typeof bv === "string") {
+        return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      }
+      if (typeof av === "number" && typeof bv === "number") {
+        return sortDir === "asc" ? av - bv : bv - av;
+      }
+      return 0;
+    });
+    return list;
+  }, [stocks, sortKey, sortDir, marketFilter, search, breakoutOnly, consolidationOnly]);
+
+  function handleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(key === "name" || key === "code" ? "asc" : "desc");
+    }
+  }
+
+  function changePctColor(v: number): string {
+    if (v > 0) return "text-red-600 dark:text-red-400";
+    if (v < 0) return "text-blue-600 dark:text-blue-400";
+    return "";
+  }
+
+  function breakoutColor(v: number): string {
+    if (v >= 0) return "text-emerald-600 dark:text-emerald-400 font-semibold";
+    if (v >= -0.5) return "text-yellow-600 dark:text-yellow-400";
+    return "text-gray-500 dark:text-slate-400";
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="text-gray-500 dark:text-slate-400">読み込み中...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            52週高値ブレイクアウト
+          </h1>
+          {scannedAt && (
+            <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
+              スキャン日時: {scannedAt}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-600 dark:text-slate-300">
+            {filtered.length} / {stocks.length} 銘柄
+          </span>
+          <button
+            onClick={handleScan}
+            disabled={scanning}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              scanning
+                ? "cursor-not-allowed bg-gray-200 text-gray-400 dark:bg-slate-700 dark:text-slate-500"
+                : "bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+            }`}
+          >
+            {scanning ? (
+              <>
+                <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                スキャン中...
+              </>
+            ) : (
+              <>
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
+                </svg>
+                スキャン更新
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {error && stocks.length === 0 && (
+        <div className="rounded-lg bg-yellow-50 p-4 text-sm text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200">
+          {error}
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <input
+          type="text"
+          placeholder="コード / 銘柄名で検索..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white dark:focus:border-blue-400"
+        />
+        <div className="flex gap-1">
+          {MARKET_FILTERS.map((m) => (
+            <button
+              key={m.value}
+              onClick={() => setMarketFilter(m.value)}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                marketFilter === m.value
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+              }`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => setBreakoutOnly((v) => !v)}
+          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+            breakoutOnly
+              ? "bg-emerald-600 text-white"
+              : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+          }`}
+        >
+          52w突破のみ
+        </button>
+        <button
+          onClick={() => setConsolidationOnly((v) => !v)}
+          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+            consolidationOnly
+              ? "bg-amber-600 text-white"
+              : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+          }`}
+        >
+          もみ合いあり
+        </button>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-200 bg-gray-50 dark:border-slate-700 dark:bg-slate-900/50">
+              {COLUMNS.map((col) => (
+                <th
+                  key={col.key}
+                  onClick={() => handleSort(col.key)}
+                  className={`cursor-pointer select-none whitespace-nowrap px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-white ${
+                    col.align === "right" ? "text-right" : "text-left"
+                  } ${col.width ?? ""}`}
+                >
+                  {col.label}
+                  {sortKey === col.key && (
+                    <span className="ml-1">{sortDir === "asc" ? "▲" : "▼"}</span>
+                  )}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 dark:divide-slate-700/50">
+            {filtered.map((s) => (
+              <tr
+                key={s.symbol}
+                className="transition-colors hover:bg-blue-50/50 dark:hover:bg-slate-700/30"
+              >
+                <td className="whitespace-nowrap px-3 py-2">
+                  <Link
+                    href={`/stock/${s.symbol}`}
+                    className="font-mono text-blue-600 hover:underline dark:text-blue-400"
+                  >
+                    {s.code}
+                  </Link>
+                </td>
+                <td className="px-3 py-2 font-medium text-gray-900 dark:text-white">
+                  <Link href={`/stock/${s.symbol}`} className="hover:underline">
+                    {s.name}
+                  </Link>
+                </td>
+                <td className="whitespace-nowrap px-3 py-2 text-gray-500 dark:text-slate-400">
+                  {s.market}
+                </td>
+                <td className="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums">
+                  {s.currentYfPrice.toLocaleString()}
+                </td>
+                <td className={`whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums ${changePctColor(s.changePct)}`}>
+                  {s.changePct > 0 ? "+" : ""}{s.changePct.toFixed(1)}%
+                </td>
+                <td className="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums">
+                  {formatNum(s.per)}
+                </td>
+                <td className="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums">
+                  {formatNum(s.pbr, 2)}
+                </td>
+                <td className="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums">
+                  {s.fiftyTwoWeekHigh.toLocaleString()}
+                </td>
+                <td className={`whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums ${breakoutColor(s.pctAbove52wHigh)}`}>
+                  {s.pctAbove52wHigh >= 0 ? "+" : ""}{s.pctAbove52wHigh.toFixed(2)}%
+                </td>
+                <td className={`whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums ${
+                  s.consolidationDays >= 20
+                    ? "text-amber-600 dark:text-amber-400 font-semibold"
+                    : s.consolidationDays >= 10
+                      ? "text-amber-500 dark:text-amber-300"
+                      : "text-gray-400 dark:text-slate-500"
+                }`}>
+                  {s.consolidationDays > 0 ? `${s.consolidationDays}日` : "－"}
+                </td>
+                <td className="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums text-gray-500 dark:text-slate-400">
+                  {s.consolidationDays > 0 ? `${s.consolidationRangePct.toFixed(1)}%` : "－"}
+                </td>
+                <td className="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums text-gray-500 dark:text-slate-400">
+                  {formatVolume(s.volume)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {filtered.length === 0 && (
+          <div className="py-12 text-center text-gray-500 dark:text-slate-400">
+            条件に合う銘柄がありません
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

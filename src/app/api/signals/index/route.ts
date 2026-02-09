@@ -27,6 +27,7 @@ export async function GET() {
   const now = Date.now();
   const signals: Record<string, unknown> = {};
   let scannedCount = 0;
+  let latestCachedAt = 0;
 
   for (const file of files) {
     try {
@@ -39,16 +40,22 @@ export async function GET() {
       // ファイル名からシンボルを復元 (例: "1301_T.json" → "1301.T")
       const symbol = file.replace(".json", "").replace(/_/g, ".");
 
-      // activeSignalsのみ抽出（軽量化）
+      // activeSignals + recentSignals を抽出
       const data = entry.data;
       signals[symbol] = {
         activeSignals: data?.activeSignals ?? { daily: [], weekly: [] },
+        recentSignals: data?.recentSignals ?? { daily: [], weekly: [] },
       };
       scannedCount++;
+      if (entry.cachedAt > latestCachedAt) latestCachedAt = entry.cachedAt;
     } catch {
       // skip corrupted files
     }
   }
 
-  return NextResponse.json({ signals, scannedCount });
+  return NextResponse.json({
+    signals,
+    scannedCount,
+    lastScannedAt: latestCachedAt > 0 ? new Date(latestCachedAt).toISOString() : null,
+  });
 }

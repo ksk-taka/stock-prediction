@@ -32,12 +32,30 @@ export interface ActiveSignalInfo {
   stopLossLabel?: string;
 }
 
+export interface RecentSignalInfo {
+  strategyId: string;
+  strategyName: string;
+  date: string;
+  price: number;
+}
+
 export interface SignalSummary {
   activeSignals?: {
     daily: ActiveSignalInfo[];
     weekly: ActiveSignalInfo[];
   };
+  recentSignals?: {
+    daily: RecentSignalInfo[];
+    weekly: RecentSignalInfo[];
+  };
   validations?: Record<string, SignalValidation>;
+}
+
+interface NewHighInfo {
+  isTrue52wBreakout: boolean;
+  consolidationDays: number;
+  consolidationRangePct: number;
+  pctAbove52wHigh: number;
 }
 
 interface FilterPreset {
@@ -85,8 +103,15 @@ export default function WatchList() {
   const [signalAgeDays, setSignalAgeDays] = useState<number | null>(null);
   const [selectedDecision, setSelectedDecision] = useState<string | null>(null);
   const [selectedJudgment, setSelectedJudgment] = useState<string | null>(null);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [breakoutFilter, setBreakoutFilter] = useState(false);
+  const [consolidationFilter, setConsolidationFilter] = useState(false);
+  const [newHighsMap, setNewHighsMap] = useState<Record<string, NewHighInfo>>({});
+  const [newHighsScannedAt, setNewHighsScannedAt] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
   const [filterPresets, setFilterPresets] = useState<FilterPreset[]>([]);
   const [activePresetName, setActivePresetName] = useState<string | null>(null);
+  const [signalPeriodFilter, setSignalPeriodFilter] = useState("all");
 
   // 表示件数制御
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
@@ -99,6 +124,11 @@ export default function WatchList() {
   const signalsFetchedRef = useRef<Set<string>>(new Set());
   // スキャン済み件数
   const [signalScannedCount, setSignalScannedCount] = useState(0);
+  const [signalLastScannedAt, setSignalLastScannedAt] = useState<string | null>(null);
+  // 全銘柄シグナルスキャン
+  const [signalScanning, setSignalScanning] = useState(false);
+  const [signalScanProgress, setSignalScanProgress] = useState<{ scanned: number; total: number } | null>(null);
+  const signalScanAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     setFilterPresets(loadPresets());
@@ -107,7 +137,7 @@ export default function WatchList() {
   // フィルタ変更時に表示件数をリセット
   useEffect(() => {
     setDisplayCount(PAGE_SIZE);
-  }, [searchQuery, selectedSectors, selectedStrategies, selectedSegments, signalFilterMode, signalAgeDays, selectedDecision, selectedJudgment]);
+  }, [searchQuery, selectedSectors, selectedStrategies, selectedSegments, signalFilterMode, signalAgeDays, selectedDecision, selectedJudgment, showFavoritesOnly, breakoutFilter, consolidationFilter]);
 
   const fetchWatchlist = useCallback(async () => {
     try {
@@ -124,6 +154,46 @@ export default function WatchList() {
   useEffect(() => {
     fetchWatchlist();
   }, [fetchWatchlist]);
+
+  // 新高値スキャンデータを読み込み（フィルタ用）
+  const loadNewHighs = useCallback(async () => {
+    try {
+      const res = await fetch("/api/new-highs");
+      if (!res.ok) return;
+      const data = await res.json();
+      const map: Record<string, NewHighInfo> = {};
+      for (const s of data.stocks ?? []) {
+        map[s.symbol] = {
+          isTrue52wBreakout: s.isTrue52wBreakout,
+          consolidationDays: s.consolidationDays ?? 0,
+          consolidationRangePct: s.consolidationRangePct ?? 0,
+          pctAbove52wHigh: s.pctAbove52wHigh ?? 0,
+        };
+      }
+      setNewHighsMap(map);
+      setNewHighsScannedAt(data.scannedAt ?? null);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    loadNewHighs();
+  }, [loadNewHighs]);
+
+  const handleScan = async () => {
+    setScanning(true);
+    try {
+      const res = await fetch("/api/new-highs/scan", { method: "POST" });
+      if (res.ok) {
+        await loadNewHighs();
+      }
+    } catch {
+      // ignore
+    } finally {
+      setScanning(false);
+    }
+  };
 
   // キャッシュ済みシグナル＋バリデーションインデックスを一括読み込み（起動時）
   useEffect(() => {
@@ -146,6 +216,7 @@ export default function WatchList() {
               signalsFetchedRef.current.add(symbol);
             }
             setSignalScannedCount(sigData.scannedCount ?? 0);
+            setSignalLastScannedAt(sigData.lastScannedAt ?? null);
           }
         }
 
@@ -170,6 +241,79 @@ export default function WatchList() {
     };
     loadIndices();
   }, [stocks]);
+
+  // 全銘柄シグナルスキャン
+  const handleSignalScan = useCallback(async () => {
+    if (signalScanning) return;
+    setSignalScanning(true);
+    setSignalScanProgress(null);
+
+    const abort = new AbortController();
+    signalScanAbortRef.current = abort;
+
+    try {
+      const res = await fetch("/api/signals/scan", {
+        method: "POST",
+        signal: abort.signal,
+      });
+      if (!res.ok || !res.body) throw new Error("Scan request failed");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+
+        const lines = buf.split("\n\n");
+        buf = lines.pop() ?? "";
+
+        for (const line of lines) {
+          const match = line.match(/^data:\s*(.+)$/m);
+          if (!match) continue;
+          try {
+            const evt = JSON.parse(match[1]);
+            if (evt.type === "progress" || evt.type === "done") {
+              setSignalScanProgress({ scanned: evt.scanned, total: evt.total });
+            }
+            if (evt.type === "done") {
+              setSignalLastScannedAt(evt.completedAt);
+            }
+          } catch { /* skip parse error */ }
+        }
+      }
+
+      // 完了後にシグナルインデックスを再読み込み
+      const sigRes = await fetch("/api/signals/index");
+      if (sigRes.ok) {
+        const sigData = await sigRes.json();
+        if (sigData.signals) {
+          const merged: Record<string, SignalSummary> = {};
+          for (const [symbol, value] of Object.entries(sigData.signals)) {
+            merged[symbol] = value as SignalSummary;
+            signalsFetchedRef.current.add(symbol);
+          }
+          setSignals((prev) => ({ ...prev, ...merged }));
+          setSignalScannedCount(sigData.scannedCount ?? 0);
+          setSignalLastScannedAt(sigData.lastScannedAt ?? null);
+        }
+      }
+    } catch (e) {
+      if ((e as Error).name !== "AbortError") {
+        console.error("Signal scan error:", e);
+      }
+    } finally {
+      setSignalScanning(false);
+      setSignalScanProgress(null);
+      signalScanAbortRef.current = null;
+    }
+  }, [signalScanning]);
+
+  const handleSignalScanAbort = useCallback(() => {
+    signalScanAbortRef.current?.abort();
+  }, []);
 
   // 個別銘柄データ取得（遅延ロード用）
   const fetchDataForSymbol = useCallback(async (symbol: string) => {
@@ -232,6 +376,7 @@ export default function WatchList() {
           [symbol]: {
             ...prev[symbol],
             activeSignals: data.activeSignals,
+            recentSignals: data.recentSignals,
           },
         }));
         signalsFetchedRef.current.add(symbol);
@@ -321,6 +466,21 @@ export default function WatchList() {
     }
   };
 
+  const handleToggleFavorite = async (symbol: string) => {
+    // 即座にUI更新（楽観的更新）
+    setStocks((prev) => prev.map((s) => s.symbol === symbol ? { ...s, favorite: !s.favorite } : s));
+    try {
+      await fetch("/api/watchlist", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol }),
+      });
+    } catch {
+      // ロールバック
+      setStocks((prev) => prev.map((s) => s.symbol === symbol ? { ...s, favorite: !s.favorite } : s));
+    }
+  };
+
   // セクター一覧を抽出
   const allSectors = Array.from(
     new Set(stocks.flatMap((s) => s.sectors ?? []))
@@ -329,13 +489,15 @@ export default function WatchList() {
   // 市場区分一覧
   const allSegments: ("プライム" | "スタンダード" | "グロース")[] = ["プライム", "スタンダード", "グロース"];
 
-  // アクティブシグナルの戦略一覧を抽出
+  // シグナル検出済み戦略一覧を抽出（保有中 + 直近シグナル）
   const allActiveStrategies = Array.from(
     new Map(
       Object.values(signals)
         .flatMap((s) => [
           ...(s.activeSignals?.daily ?? []),
           ...(s.activeSignals?.weekly ?? []),
+          ...(s.recentSignals?.daily ?? []),
+          ...(s.recentSignals?.weekly ?? []),
         ])
         .map((a) => [a.strategyId, a.strategyName] as const)
     )
@@ -343,6 +505,8 @@ export default function WatchList() {
 
   // フィルタ適用
   const filteredStocks = stocks.filter((stock) => {
+    // お気に入りフィルタ
+    if (showFavoritesOnly && !stock.favorite) return false;
     // テキスト検索
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -359,12 +523,15 @@ export default function WatchList() {
       const match = stock.sectors?.some((s) => selectedSectors.has(s));
       if (!match) return false;
     }
-    // 保有中シグナル（戦略 × 検知日）フィルタ
+    // シグナル（戦略 × 検知日）フィルタ - 保有中 + 直近シグナル
     if (selectedStrategies.size > 0 || signalAgeDays !== null) {
       const sig = signals[stock.symbol];
+      // 保有中 + 直近シグナルを統合（date フィールドを buyDate に正規化）
       const allSignals = [
-        ...(sig?.activeSignals?.daily ?? []),
-        ...(sig?.activeSignals?.weekly ?? []),
+        ...(sig?.activeSignals?.daily ?? []).map((a) => ({ strategyId: a.strategyId, date: a.buyDate })),
+        ...(sig?.activeSignals?.weekly ?? []).map((a) => ({ strategyId: a.strategyId, date: a.buyDate })),
+        ...(sig?.recentSignals?.daily ?? []).map((r) => ({ strategyId: r.strategyId, date: r.date })),
+        ...(sig?.recentSignals?.weekly ?? []).map((r) => ({ strategyId: r.strategyId, date: r.date })),
       ];
       if (allSignals.length === 0) return false;
       const cutoffStr = signalAgeDays !== null
@@ -372,20 +539,20 @@ export default function WatchList() {
         : null;
 
       if (signalFilterMode === "and" && selectedStrategies.size > 0) {
-        // AND: 選択した全戦略がアクティブシグナルに存在する
-        const activeStratIds = new Set(
+        // AND: 選択した全戦略がシグナルに存在する
+        const stratIds = new Set(
           allSignals
-            .filter((a) => !cutoffStr || a.buyDate >= cutoffStr)
+            .filter((a) => !cutoffStr || a.date >= cutoffStr)
             .map((a) => a.strategyId)
         );
         for (const stratId of selectedStrategies) {
-          if (!activeStratIds.has(stratId)) return false;
+          if (!stratIds.has(stratId)) return false;
         }
       } else {
         // OR: いずれかの戦略がマッチ
         const match = allSignals.some((a) => {
           if (selectedStrategies.size > 0 && !selectedStrategies.has(a.strategyId)) return false;
-          if (cutoffStr && a.buyDate < cutoffStr) return false;
+          if (cutoffStr && a.date < cutoffStr) return false;
           return true;
         });
         if (!match) return false;
@@ -415,12 +582,25 @@ export default function WatchList() {
     if (selectedJudgment !== null) {
       if (stock.fundamental?.judgment !== selectedJudgment) return false;
     }
+    // 52週ブレイクアウトフィルタ
+    if (breakoutFilter) {
+      const nh = newHighsMap[stock.symbol];
+      if (!nh?.isTrue52wBreakout) return false;
+    }
+    // もみ合いフィルタ
+    if (consolidationFilter) {
+      const nh = newHighsMap[stock.symbol];
+      if (!nh || nh.consolidationDays < 10) return false;
+    }
     return true;
   });
 
+  // お気に入りを先頭にソート
+  const sortedStocks = [...filteredStocks].sort((a, b) => (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0));
+
   // 表示する銘柄（Load More制御）
-  const displayedStocks = filteredStocks.slice(0, displayCount);
-  const hasMore = displayCount < filteredStocks.length;
+  const displayedStocks = sortedStocks.slice(0, displayCount);
+  const hasMore = displayCount < sortedStocks.length;
 
   const toggleSector = (sector: string) => {
     setSelectedSectors((prev) => {
@@ -449,7 +629,7 @@ export default function WatchList() {
     });
   };
 
-  const hasAnyFilter = searchQuery !== "" || selectedSectors.size > 0 || selectedStrategies.size > 0 || selectedSegments.size > 0 || signalAgeDays !== null || selectedDecision !== null || selectedJudgment !== null || signalFilterMode !== "or";
+  const hasAnyFilter = searchQuery !== "" || selectedSectors.size > 0 || selectedStrategies.size > 0 || selectedSegments.size > 0 || signalAgeDays !== null || selectedDecision !== null || selectedJudgment !== null || signalFilterMode !== "or" || showFavoritesOnly || breakoutFilter || consolidationFilter;
 
   const clearAllFilters = () => {
     setSearchQuery("");
@@ -460,6 +640,9 @@ export default function WatchList() {
     setSignalAgeDays(null);
     setSelectedDecision(null);
     setSelectedJudgment(null);
+    setShowFavoritesOnly(false);
+    setBreakoutFilter(false);
+    setConsolidationFilter(false);
     setActivePresetName(null);
   };
 
@@ -517,7 +700,23 @@ export default function WatchList() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white">ウォッチリスト</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">ウォッチリスト</h2>
+          <button
+            onClick={() => setShowFavoritesOnly((v) => !v)}
+            className={`flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+              showFavoritesOnly
+                ? "border-yellow-400 bg-yellow-50 text-yellow-700 dark:border-yellow-500 dark:bg-yellow-900/30 dark:text-yellow-300"
+                : "border-gray-300 bg-white text-gray-500 hover:border-yellow-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400"
+            }`}
+          >
+            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill={showFavoritesOnly ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.562.562 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+            </svg>
+            お気に入り
+            {showFavoritesOnly && <span>({stocks.filter((s) => s.favorite).length})</span>}
+          </button>
+        </div>
         <button
           onClick={() => setModalOpen(true)}
           className="flex items-center gap-1 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
@@ -605,10 +804,10 @@ export default function WatchList() {
             </div>
           )}
 
-          {/* 保有中シグナル（戦略別）フィルタ */}
+          {/* シグナル（戦略別）フィルタ */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-medium text-gray-500 dark:text-slate-400">
-              保有中
+              シグナル
               {signalScannedCount > 0 && (
                 <span className="ml-1 font-normal text-gray-400 dark:text-slate-500">
                   ({signalScannedCount}/{stocks.length}スキャン済)
@@ -616,6 +815,42 @@ export default function WatchList() {
               )}
               :
             </span>
+            {/* 全銘柄スキャンボタン */}
+            {!signalScanning ? (
+              <button
+                onClick={handleSignalScan}
+                className="rounded-full border border-blue-300 bg-white px-2.5 py-0.5 text-xs font-medium text-blue-600 transition-colors hover:border-blue-400 hover:bg-blue-50 dark:border-blue-600 dark:bg-slate-800 dark:text-blue-400 dark:hover:border-blue-500 dark:hover:bg-slate-700"
+              >
+                全銘柄スキャン
+              </button>
+            ) : (
+              <span className="inline-flex items-center gap-2">
+                <span className="text-xs text-blue-600 dark:text-blue-400">
+                  {signalScanProgress
+                    ? `${signalScanProgress.scanned.toLocaleString()}/${signalScanProgress.total.toLocaleString()} スキャン中...`
+                    : "スキャン開始中..."}
+                </span>
+                {signalScanProgress && (
+                  <span className="inline-block h-1.5 w-24 overflow-hidden rounded-full bg-gray-200 dark:bg-slate-700">
+                    <span
+                      className="block h-full rounded-full bg-blue-500 transition-all"
+                      style={{ width: `${(signalScanProgress.scanned / signalScanProgress.total) * 100}%` }}
+                    />
+                  </span>
+                )}
+                <button
+                  onClick={handleSignalScanAbort}
+                  className="rounded-full border border-red-300 px-2 py-0.5 text-xs text-red-500 hover:bg-red-50 dark:border-red-600 dark:text-red-400 dark:hover:bg-red-900/20"
+                >
+                  中断
+                </button>
+              </span>
+            )}
+            {signalLastScannedAt && !signalScanning && (
+              <span className="text-[10px] text-gray-400 dark:text-slate-500">
+                更新: {new Date(signalLastScannedAt).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+              </span>
+            )}
             {allActiveStrategies.length > 0 ? (
               <>
                 {allActiveStrategies.map(([id, name]) => (
@@ -692,6 +927,31 @@ export default function WatchList() {
             </div>
           )}
 
+          {/* シグナル表示期間フィルタ */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-gray-500 dark:text-slate-400">シグナル表示:</span>
+            {([
+              { value: "1w", label: "1週間" },
+              { value: "1m", label: "1ヶ月" },
+              { value: "3m", label: "3ヶ月" },
+              { value: "6m", label: "半年" },
+              { value: "1y", label: "1年" },
+              { value: "all", label: "全期間" },
+            ] as const).map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => setSignalPeriodFilter(value)}
+                className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                  signalPeriodFilter === value
+                    ? "border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-900/30 dark:text-blue-300"
+                    : "border-gray-300 bg-white text-gray-500 hover:border-gray-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-500"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
           {/* Go/No Go フィルタ */}
           {Object.values(signals).some((s) => s.validations && Object.keys(s.validations).length > 0) && (
             <div className="flex flex-wrap items-center gap-2">
@@ -738,6 +998,56 @@ export default function WatchList() {
             ))}
           </div>
 
+          {/* 新高値フィルタ */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-gray-500 dark:text-slate-400">新高値:</span>
+            {Object.keys(newHighsMap).length > 0 ? (
+              <>
+                <button
+                  onClick={() => setBreakoutFilter((v) => !v)}
+                  className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                    breakoutFilter
+                      ? "border-emerald-400 bg-emerald-50 text-emerald-700 dark:border-emerald-500 dark:bg-emerald-900/30 dark:text-emerald-300"
+                      : "border-gray-300 bg-white text-gray-500 hover:border-gray-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-500"
+                  }`}
+                >
+                  52w突破
+                </button>
+                <button
+                  onClick={() => setConsolidationFilter((v) => !v)}
+                  className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                    consolidationFilter
+                      ? "border-amber-400 bg-amber-50 text-amber-700 dark:border-amber-500 dark:bg-amber-900/30 dark:text-amber-300"
+                      : "border-gray-300 bg-white text-gray-500 hover:border-gray-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-500"
+                  }`}
+                >
+                  もみ合いあり
+                </button>
+                <span className="text-[10px] text-gray-400 dark:text-slate-500">
+                  ({Object.values(newHighsMap).filter((v) => v.isTrue52wBreakout).length}銘柄)
+                </span>
+              </>
+            ) : (
+              <span className="text-xs text-gray-400 dark:text-slate-500">データなし</span>
+            )}
+            <button
+              onClick={handleScan}
+              disabled={scanning}
+              className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                scanning
+                  ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-600"
+                  : "border-blue-300 bg-white text-blue-600 hover:border-blue-400 hover:bg-blue-50 dark:border-blue-600 dark:bg-slate-800 dark:text-blue-400 dark:hover:border-blue-500 dark:hover:bg-slate-700"
+              }`}
+            >
+              {scanning ? "スキャン中..." : "スキャン更新"}
+            </button>
+            {newHighsScannedAt && (
+              <span className="text-[10px] text-gray-400 dark:text-slate-500">
+                更新: {newHighsScannedAt}
+              </span>
+            )}
+          </div>
+
           {/* セクターフィルタ */}
           <div className="flex flex-wrap gap-1.5">
             {allSectors.map((sector) => (
@@ -774,7 +1084,7 @@ export default function WatchList() {
           {/* 件数表示 */}
           {!hasAnyFilter && (
             <p className="mb-2 text-xs text-gray-400 dark:text-slate-500">
-              {Math.min(displayCount, filteredStocks.length)}/{filteredStocks.length}件表示中
+              {Math.min(displayCount, sortedStocks.length)}/{sortedStocks.length}件表示中
             </p>
           )}
 
@@ -800,9 +1110,11 @@ export default function WatchList() {
                     pbr={s?.pbr ?? undefined}
                     roe={s?.roe ?? undefined}
                     signals={sig}
+                    signalPeriodFilter={signalPeriodFilter}
                     fundamentalJudgment={stock.fundamental?.judgment}
                     fundamentalMemo={stock.fundamental?.memo}
                     onDelete={handleDeleteStock}
+                    onToggleFavorite={handleToggleFavorite}
                     onVisible={handleCardVisible}
                   />
                 );
@@ -817,7 +1129,7 @@ export default function WatchList() {
                 onClick={() => setDisplayCount((prev) => prev + PAGE_SIZE)}
                 className="rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-6 py-2.5 text-sm font-medium text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
               >
-                もっと見る（残り {filteredStocks.length - displayCount} 件）
+                もっと見る（残り {sortedStocks.length - displayCount} 件）
               </button>
             </div>
           )}

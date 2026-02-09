@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import type { MarketIntelligence } from "@/lib/api/perplexity";
+import type { MarketIntelligence } from "@/lib/api/webResearch";
 import { getCacheBaseDir } from "./cacheDir";
 
 const CACHE_DIR = path.join(getCacheBaseDir(), "market-intelligence");

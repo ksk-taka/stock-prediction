@@ -31,6 +31,25 @@ function calcBB(data: PriceData[], period = 25) {
   });
 }
 
+function calcATR(data: PriceData[], period: number = 14): (number | null)[] {
+  const result: (number | null)[] = new Array(data.length).fill(null);
+  if (data.length < period + 1) return result;
+  const tr: number[] = [data[0].high - data[0].low];
+  for (let i = 1; i < data.length; i++) {
+    const hl = data[i].high - data[i].low;
+    const hc = Math.abs(data[i].high - data[i - 1].close);
+    const lc = Math.abs(data[i].low - data[i - 1].close);
+    tr.push(Math.max(hl, hc, lc));
+  }
+  let atr = tr.slice(1, period + 1).reduce((a, b) => a + b, 0) / period;
+  result[period] = atr;
+  for (let i = period + 1; i < data.length; i++) {
+    atr = (atr * (period - 1) + tr[i]) / period;
+    result[i] = atr;
+  }
+  return result;
+}
+
 function calcEMA(data: PriceData[], period: number): (number | null)[] {
   const k = 2 / (period + 1);
   const result: (number | null)[] = [];
@@ -198,13 +217,26 @@ function maCross(data: PriceData[], shortP: number, longP: number): Signal[] {
   });
 }
 
-function rsiReversal(data: PriceData[], period: number, oversold: number, overbought: number): Signal[] {
+function rsiReversal(data: PriceData[], period: number, oversold: number, overbought: number, atrPeriod = 14, atrMultiple = 2, stopLossPct = 10): Signal[] {
   const rsi = calcRSI(data, period);
+  const atr = calcATR(data, atrPeriod);
   let inPos = false;
-  return data.map((_, i): Signal => {
+  let entryPrice = 0;
+  let stopLevel = 0;
+  return data.map((d, i): Signal => {
     if (rsi[i] == null) return "hold";
-    if (!inPos && rsi[i]! < oversold) { inPos = true; return "buy"; }
-    if (inPos && rsi[i]! > overbought) { inPos = false; return "sell"; }
+    if (!inPos && rsi[i]! < oversold) {
+      inPos = true;
+      entryPrice = d.close;
+      const atrStop = atr[i] != null ? entryPrice - atr[i]! * atrMultiple : 0;
+      const pctStop = entryPrice * (1 - stopLossPct / 100);
+      stopLevel = Math.max(atrStop, pctStop);
+      return "buy";
+    }
+    if (inPos) {
+      if (rsi[i]! > overbought) { inPos = false; return "sell"; }
+      if (d.close <= stopLevel) { inPos = false; return "sell"; }
+    }
     return "hold";
   });
 }
@@ -219,7 +251,7 @@ function macdSignal(data: PriceData[], shortP: number, longP: number, sigP: numb
   });
 }
 
-function dipBuy(data: PriceData[], dipPct: number, recoveryPct: number): Signal[] {
+function dipBuy(data: PriceData[], dipPct: number, recoveryPct: number, stopLossPct = 15): Signal[] {
   let peak = data[0]?.close ?? 0;
   let buyPrice = 0;
   let inPos = false;
@@ -231,6 +263,7 @@ function dipBuy(data: PriceData[], dipPct: number, recoveryPct: number): Signal[
     } else {
       const gainPct = ((d.close - buyPrice) / buyPrice) * 100;
       if (gainPct >= recoveryPct) { inPos = false; peak = d.close; return "sell"; }
+      if (gainPct <= -stopLossPct) { inPos = false; peak = d.close; return "sell"; }
     }
     return "hold";
   });
@@ -395,16 +428,18 @@ const strategyGrids: StrategyGrid[] = [
   {
     id: "rsi_reversal",
     name: "RSI逆張り",
-    defaults: { period: 14, oversold: 30, overbought: 70 },
+    defaults: { period: 14, oversold: 30, overbought: 70, atrPeriod: 14, atrMultiple: 2, stopLossPct: 10 },
     grid: cartesian(
       [7, 10, 14, 20],
       [20, 25, 30, 35, 40],
-      [60, 65, 70, 75, 80]
-    ).map(([p, os, ob]) => ({
-      label: `P${p}/OS${os}/OB${ob}`,
-      params: { period: p, oversold: os, overbought: ob },
+      [60, 65, 70, 75, 80],
+      [1.5, 2, 3],
+      [8, 10, 15]
+    ).map(([p, os, ob, atrM, sl]) => ({
+      label: `P${p}/OS${os}/OB${ob}/ATR${atrM}/SL${sl}`,
+      params: { period: p, oversold: os, overbought: ob, atrPeriod: 14, atrMultiple: atrM, stopLossPct: sl },
     })),
-    run: (d, p) => rsiReversal(d, p.period, p.oversold, p.overbought),
+    run: (d, p) => rsiReversal(d, p.period, p.oversold, p.overbought, p.atrPeriod, p.atrMultiple, p.stopLossPct),
   },
   {
     id: "macd_signal",
@@ -425,15 +460,16 @@ const strategyGrids: StrategyGrid[] = [
   {
     id: "dip_buy",
     name: "急落買い(旧)",
-    defaults: { dipPct: 10, recoveryPct: 15 },
+    defaults: { dipPct: 10, recoveryPct: 15, stopLossPct: 15 },
     grid: cartesian(
       [3, 5, 7, 10, 15, 20],
-      [5, 8, 10, 15, 20, 30]
-    ).map(([dip, rec]) => ({
-      label: `Dip${dip}%/Rec${rec}%`,
-      params: { dipPct: dip, recoveryPct: rec },
+      [5, 8, 10, 15, 20, 30],
+      [10, 15, 20]
+    ).map(([dip, rec, sl]) => ({
+      label: `Dip${dip}%/Rec${rec}%/SL${sl}%`,
+      params: { dipPct: dip, recoveryPct: rec, stopLossPct: sl },
     })),
-    run: (d, p) => dipBuy(d, p.dipPct, p.recoveryPct),
+    run: (d, p) => dipBuy(d, p.dipPct, p.recoveryPct, p.stopLossPct),
   },
   {
     id: "dip_kairi",

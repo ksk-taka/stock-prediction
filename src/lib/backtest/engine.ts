@@ -153,6 +153,24 @@ function runFixedAmount(
   return { trades, equity, stats, initialCapital, finalEquity };
 }
 
+/** 日付文字列間のカレンダー日数 */
+function daysBetween(d1: string, d2: string): number {
+  const t1 = new Date(d1).getTime();
+  const t2 = new Date(d2).getTime();
+  return Math.round((t2 - t1) / (1000 * 60 * 60 * 24));
+}
+
+/** ソート済み配列のパーセンタイル */
+function percentile(sorted: number[], p: number): number {
+  if (sorted.length === 0) return 0;
+  if (sorted.length === 1) return sorted[0];
+  const idx = (sorted.length - 1) * p;
+  const lo = Math.floor(idx);
+  const hi = Math.ceil(idx);
+  if (lo === hi) return sorted[lo];
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
+}
+
 /** パフォーマンス統計を算出 */
 function calcStats(
   trades: Trade[],
@@ -165,14 +183,28 @@ function calcStats(
   const totalReturnPct = initialCapital > 0 ? (totalReturn / initialCapital) * 100 : 0;
 
   // 勝敗計算（買い→売りのペア）
-  const roundTrips: { profit: number }[] = [];
+  interface RoundTrip {
+    profit: number;
+    returnPct: number;
+    entryDate: string;
+    exitDate: string;
+    holdingDays: number;
+  }
+  const roundTrips: RoundTrip[] = [];
   let lastBuy: Trade | null = null;
   for (const t of trades) {
     if (t.type === "buy") {
       lastBuy = t;
     } else if (t.type === "sell" && lastBuy) {
       const profit = (t.price - lastBuy.price) * t.shares;
-      roundTrips.push({ profit });
+      const returnPct = lastBuy.price > 0 ? ((t.price - lastBuy.price) / lastBuy.price) * 100 : 0;
+      roundTrips.push({
+        profit,
+        returnPct,
+        entryDate: lastBuy.date,
+        exitDate: t.date,
+        holdingDays: daysBetween(lastBuy.date, t.date),
+      });
       lastBuy = null;
     }
   }
@@ -191,6 +223,11 @@ function calcStats(
     : 0;
   const maxDrawdown = (maxDrawdownPct / 100) * initialCapital;
 
+  // 平均ドローダウン
+  const avgDrawdownPct = equity.length > 0
+    ? (equity.reduce((s, e) => s + e.drawdown, 0) / equity.length) * 100
+    : 0;
+
   // プロフィットファクター
   const grossProfit = wins.reduce((s, w) => s + w.profit, 0);
   const grossLoss = Math.abs(losses.reduce((s, l) => s + l.profit, 0));
@@ -198,6 +235,20 @@ function calcStats(
 
   // シャープレシオ（日次リターンベース、年換算）
   const sharpeRatio = calcSharpeRatio(equity, data);
+
+  // 最大トレードリターン%
+  const maxTradeReturnPct = roundTrips.length > 0
+    ? Math.max(...roundTrips.map((r) => r.returnPct))
+    : 0;
+
+  // リカバリーファクター = トータルリターン / 最大ドローダウン
+  const recoveryFactor = maxDrawdown > 0 ? totalReturn / maxDrawdown : totalReturn > 0 ? Infinity : 0;
+
+  // 保有期間統計
+  const holdingDays = roundTrips.map((r) => r.holdingDays).sort((a, b) => a - b);
+  const avgHoldingDays = holdingDays.length > 0
+    ? holdingDays.reduce((s, d) => s + d, 0) / holdingDays.length
+    : 0;
 
   return {
     totalReturn,
@@ -208,10 +259,19 @@ function calcStats(
     numLosses: losses.length,
     maxDrawdown,
     maxDrawdownPct,
+    avgDrawdownPct,
     sharpeRatio,
     profitFactor,
     avgWin,
     avgLoss,
+    maxTradeReturnPct,
+    recoveryFactor,
+    avgHoldingDays,
+    holdingDaysMin: holdingDays.length > 0 ? holdingDays[0] : 0,
+    holdingDaysQ1: percentile(holdingDays, 0.25),
+    holdingDaysMedian: percentile(holdingDays, 0.5),
+    holdingDaysQ3: percentile(holdingDays, 0.75),
+    holdingDaysMax: holdingDays.length > 0 ? holdingDays[holdingDays.length - 1] : 0,
   };
 }
 
@@ -253,10 +313,19 @@ function emptyResult(initialCapital: number): BacktestResult {
       numLosses: 0,
       maxDrawdown: 0,
       maxDrawdownPct: 0,
+      avgDrawdownPct: 0,
       sharpeRatio: 0,
       profitFactor: 0,
       avgWin: 0,
       avgLoss: 0,
+      maxTradeReturnPct: 0,
+      recoveryFactor: 0,
+      avgHoldingDays: 0,
+      holdingDaysMin: 0,
+      holdingDaysQ1: 0,
+      holdingDaysMedian: 0,
+      holdingDaysQ3: 0,
+      holdingDaysMax: 0,
     },
     initialCapital,
     finalEquity: initialCapital,

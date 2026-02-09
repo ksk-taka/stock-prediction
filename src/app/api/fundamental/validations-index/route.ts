@@ -10,7 +10,7 @@ import { getCacheBaseDir } from "@/lib/cache/cacheDir";
  * ファイルI/Oのみなので高速。WatchListの起動時一括読み込み用。
  */
 
-const VALIDATION_TTL = 24 * 60 * 60 * 1000; // 24時間
+const VALIDATION_TTL = 7 * 24 * 60 * 60 * 1000; // 7日間
 
 export async function GET() {
   const cacheDir = path.join(getCacheBaseDir(), "fundamental");

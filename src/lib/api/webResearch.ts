@@ -1,8 +1,78 @@
 import type { NewsItem, FundamentalResearchData } from "@/types";
 
-const PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions";
+// ============================================================
+// Gemini + Grounding with Google Search（Perplexity代替）
+// ============================================================
 
-const PERPLEXITY_SYSTEM_PROMPT = `あなたは株式市場の情報収集を専門とするリサーチャーです。
+const GEMINI_GROUNDING_MODEL = "gemini-2.5-flash-lite";
+
+function getGeminiGroundingUrl(): string {
+  const apiKey = process.env.GEMINI_API_KEY;
+  return `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_GROUNDING_MODEL}:generateContent?key=${apiKey}`;
+}
+
+async function callGeminiWithGrounding(
+  query: string,
+  systemPrompt: string,
+  timeoutMs = 120000,
+  maxRetries = 3
+): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
+
+  const body: Record<string, unknown> = {
+    contents: [{ role: "user", parts: [{ text: query }] }],
+    systemInstruction: { parts: [{ text: systemPrompt }] },
+    tools: [{ google_search: {} }],
+    generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
+  };
+
+  const deadline = Date.now() + timeoutMs;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) throw new Error("Gemini Grounding API: タイムアウト");
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), remaining);
+    try {
+      const res = await fetch(getGeminiGroundingUrl(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      if (res.status === 429 && attempt < maxRetries) {
+        clearTimeout(timer);
+        // retryDelay をレスポンスから抽出、なければ指数バックオフ
+        const errorBody = await res.text().catch(() => "");
+        const delayMatch = errorBody.match(/"retryDelay":\s*"(\d+)s?"/);
+        const waitSec = delayMatch ? parseInt(delayMatch[1], 10) : Math.min(30 * (attempt + 1), 90);
+        console.log(`[Gemini] 429 rate limited, retrying in ${waitSec}s (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise((r) => setTimeout(r, waitSec * 1000));
+        continue;
+      }
+
+      if (!res.ok) {
+        const errorText = await res.text().catch(() => "");
+        throw new Error(`Gemini Grounding API error: ${res.status} ${errorText}`);
+      }
+      const data = await res.json();
+      return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  throw new Error("Gemini Grounding API: max retries exceeded (429)");
+}
+
+// ============================================================
+// ニュース・SNS情報収集
+// ============================================================
+
+const NEWS_SYSTEM_PROMPT = `あなたは株式市場の情報収集を専門とするリサーチャーです。
 
 ## タスク
 指定された銘柄について、最新のニュース・SNS評判・アナリスト評価を調査してください。
@@ -30,7 +100,7 @@ const PERPLEXITY_SYSTEM_PROMPT = `あなたは株式市場の情報収集を専�
   "analystRating": "アナリスト評価の概要（200字程度）"
 }`;
 
-function buildQuery(name: string, symbol: string): string {
+function buildNewsQuery(name: string, symbol: string): string {
   return `${name}（${symbol}）について、以下の情報を調査してください：
 
 1. **最新ニュース**（過去1週間）
@@ -48,22 +118,21 @@ function buildQuery(name: string, symbol: string): string {
 ※各情報について、情報源と日付を明記してください。`;
 }
 
-interface PerplexityResponse {
+interface NewsResponse {
   news: NewsItem[];
   snsOverview: string;
   analystRating: string;
 }
 
 /**
- * Perplexity APIでニュース・SNS情報を収集
+ * Gemini Grounding でニュース・SNS情報を収集
  */
 export async function fetchNewsAndSentiment(
   symbol: string,
   name: string
-): Promise<PerplexityResponse> {
-  const apiKey = process.env.PERPLEXITY_API_KEY;
-  if (!apiKey || apiKey === "pplx-xxxx") {
-    // APIキー未設定時はダミーデータを返す
+): Promise<NewsResponse> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
     return {
       news: [
         {
@@ -72,7 +141,7 @@ export async function fetchNewsAndSentiment(
           url: "",
           publishedAt: new Date().toISOString().split("T")[0],
           summary:
-            "Perplexity APIキーが未設定のため、サンプルデータを表示しています。.env.localにPERPLEXITY_API_KEYを設定してください。",
+            "GEMINI_API_KEYが未設定のため、サンプルデータを表示しています。.env.localにGEMINI_API_KEYを設定してください。",
           sentiment: "neutral" as const,
         },
       ],
@@ -81,43 +150,26 @@ export async function fetchNewsAndSentiment(
     };
   }
 
-  const response = await fetch(PERPLEXITY_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "sonar",
-      messages: [
-        { role: "system", content: PERPLEXITY_SYSTEM_PROMPT },
-        { role: "user", content: buildQuery(name, symbol) },
-      ],
-      temperature: 0.1,
-    }),
-  });
+  const content = await callGeminiWithGrounding(
+    buildNewsQuery(name, symbol),
+    NEWS_SYSTEM_PROMPT
+  );
 
-  if (!response.ok) {
-    throw new Error(`Perplexity API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content ?? "";
-
-  // JSONを抽出
   const jsonMatch = content.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
     return { news: [], snsOverview: content, analystRating: "" };
   }
 
   try {
-    return JSON.parse(jsonMatch[0]) as PerplexityResponse;
+    return JSON.parse(jsonMatch[0]) as NewsResponse;
   } catch {
     return { news: [], snsOverview: content, analystRating: "" };
   }
 }
 
-// --- ファンダメンタルズ調査 ---
+// ============================================================
+// ファンダメンタルズ調査
+// ============================================================
 
 const FUNDAMENTAL_SYSTEM_PROMPT = `あなたは日本株式市場のファンダメンタルズ分析を専門とするリサーチャーです。
 指定された銘柄について、投資判断に必要な事実情報を収集してください。
@@ -154,7 +206,7 @@ function buildFundamentalQuery(
 }
 
 /**
- * Perplexity APIでファンダメンタルズ情報を収集
+ * Gemini Grounding でファンダメンタルズ情報を収集
  */
 export async function fetchFundamentalResearch(
   symbol: string,
@@ -162,45 +214,27 @@ export async function fetchFundamentalResearch(
   ticker: string,
   stats: { pbr: number; per: number }
 ): Promise<FundamentalResearchData> {
-  const apiKey = process.env.PERPLEXITY_API_KEY;
-  if (!apiKey || apiKey === "pplx-xxxx") {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
     return {
       valuationReason: "APIキー未設定のためデータなし",
       capitalPolicy: "APIキー未設定のためデータなし",
       earningsTrend: "APIキー未設定のためデータなし",
       catalystAndRisk: "APIキー未設定のためデータなし",
-      rawText: "Perplexity APIキーが未設定のため、サンプルデータを表示しています。",
+      rawText: "GEMINI_API_KEYが未設定のため、サンプルデータを表示しています。",
     };
   }
 
-  const response = await fetch(PERPLEXITY_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "sonar",
-      messages: [
-        { role: "system", content: FUNDAMENTAL_SYSTEM_PROMPT },
-        { role: "user", content: buildFundamentalQuery(name, ticker, stats.pbr, stats.per) },
-      ],
-      temperature: 0.1,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Perplexity API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  const content: string = data.choices?.[0]?.message?.content ?? "";
+  const content = await callGeminiWithGrounding(
+    buildFundamentalQuery(name, ticker, stats.pbr, stats.per),
+    FUNDAMENTAL_SYSTEM_PROMPT
+  );
 
   return parseFundamentalResponse(content);
 }
 
 /**
- * Perplexityのテキスト応答を【】ヘッダーでセクション分割
+ * テキスト応答を【】ヘッダーでセクション分割
  */
 function parseFundamentalResponse(text: string): FundamentalResearchData {
   const sections: Record<string, string> = {};
@@ -217,7 +251,6 @@ function parseFundamentalResponse(text: string): FundamentalResearchData {
     }
   }
 
-  // セクションキーのマッチング（部分一致）
   const find = (keywords: string[]): string => {
     for (const key of Object.keys(sections)) {
       if (keywords.some((kw) => key.includes(kw))) {
@@ -236,7 +269,9 @@ function parseFundamentalResponse(text: string): FundamentalResearchData {
   };
 }
 
-// --- 市場インテリジェンス ---
+// ============================================================
+// 市場インテリジェンス
+// ============================================================
 
 export interface MarketIntelligence {
   summary: string;
@@ -248,18 +283,18 @@ export interface MarketIntelligence {
 }
 
 /**
- * Perplexity APIで市場全体の市況情報を収集
+ * Gemini Grounding で市場全体の市況情報を収集
  */
 export async function fetchMarketIntelligence(): Promise<MarketIntelligence> {
-  const apiKey = process.env.PERPLEXITY_API_KEY;
-  if (!apiKey || apiKey === "pplx-xxxx") {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
     return {
       summary: "APIキー未設定のためデータなし",
       sectorHighlights: "",
       macroFactors: "",
       risks: "",
       opportunities: "",
-      rawText: "Perplexity APIキーが未設定のため、サンプルデータを表示しています。",
+      rawText: "GEMINI_API_KEYが未設定のため、サンプルデータを表示しています。",
     };
   }
 
@@ -287,28 +322,9 @@ export async function fetchMarketIntelligence(): Promise<MarketIntelligence> {
 
 出力は日本語の箇条書きで、事実と数値を重視してください。`;
 
-  const response = await fetch(PERPLEXITY_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "sonar",
-      messages: [
-        { role: "system", content: "あなたは日本株式市場の専門エコノミストです。市場全体の動向を分析してください。出力は日本語の箇条書きで、事実と数値を重視してください。" },
-        { role: "user", content: query },
-      ],
-      temperature: 0.1,
-    }),
-  });
+  const systemPrompt = "あなたは日本株式市場の専門エコノミストです。市場全体の動向を分析してください。出力は日本語の箇条書きで、事実と数値を重視してください。";
 
-  if (!response.ok) {
-    throw new Error(`Perplexity API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  const content: string = data.choices?.[0]?.message?.content ?? "";
+  const content = await callGeminiWithGrounding(query, systemPrompt);
 
   return parseMarketIntelligence(content);
 }

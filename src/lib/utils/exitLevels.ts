@@ -4,7 +4,7 @@
 // ============================================================
 
 import type { PriceData } from "@/types";
-import { calcBollingerBands } from "./indicators";
+import { calcBollingerBands, calcATR } from "./indicators";
 
 export interface ExitLevels {
   takeProfitPrice?: number;
@@ -42,7 +42,7 @@ export function getExitLevels(
     }
     case "tabata_cwh": {
       const tp = params.takeProfitPct ?? 20;
-      const sl = params.stopLossPct ?? 7;
+      const sl = params.stopLossPct ?? 8;
       return {
         takeProfitPrice: Math.round(buyPrice * (1 + tp / 100) * 100) / 100,
         takeProfitLabel: `+${tp}%`,
@@ -67,10 +67,42 @@ export function getExitLevels(
     }
     case "rsi_reversal": {
       const rsiPeriod = params.period ?? 14;
-      const oversold = params.oversold ?? 30;
       const overbought = params.overbought ?? 70;
+      const atrPeriod = params.atrPeriod ?? 14;
+      const atrMultiple = params.atrMultiple ?? 2;
+      const rsiStopPct = params.stopLossPct ?? 10;
+      // ATR×N or -M% の厳しい方
+      const atrValues = calcATR(data, atrPeriod);
+      const atrAtEntry = atrValues[buyIndex];
+      const atrStop = atrAtEntry != null ? buyPrice - atrAtEntry * atrMultiple : 0;
+      const pctStop = buyPrice * (1 - rsiStopPct / 100);
+      const stopPrice = Math.max(atrStop, pctStop);
+      const stopLabel = atrAtEntry != null && atrStop >= pctStop
+        ? `ATR(${rsiPeriod})×${atrMultiple} = -${((buyPrice - stopPrice) / buyPrice * 100).toFixed(1)}%`
+        : `-${rsiStopPct}%`;
       return {
-        stopLossLabel: `RSI(${rsiPeriod}) >${overbought}で売却 (買い: <${oversold})`,
+        takeProfitLabel: `RSI >${overbought}で利確`,
+        stopLossPrice: Math.round(stopPrice * 100) / 100,
+        stopLossLabel: `損切: ${stopLabel}`,
+      };
+    }
+    case "dip_buy": {
+      const recoveryPct = params.recoveryPct ?? 15;
+      const dipStopPct = params.stopLossPct ?? 15;
+      return {
+        takeProfitPrice: Math.round(buyPrice * (1 + recoveryPct / 100) * 100) / 100,
+        takeProfitLabel: `+${recoveryPct}%回復`,
+        stopLossPrice: Math.round(buyPrice * (1 - dipStopPct / 100) * 100) / 100,
+        stopLossLabel: `-${dipStopPct}%`,
+      };
+    }
+    case "macd_trail": {
+      const trailPct = params.trailPct ?? 12;
+      const macdSlPct = params.stopLossPct ?? 5;
+      return {
+        takeProfitLabel: `トレーリングストップ ${trailPct}%（高値追従）`,
+        stopLossPrice: Math.round(buyPrice * (1 - macdSlPct / 100) * 100) / 100,
+        stopLossLabel: `-${macdSlPct}%（初期損切）`,
       };
     }
     default:

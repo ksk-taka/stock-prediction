@@ -50,3 +50,6 @@ export class RequestQueue {
 
 /** Yahoo Finance API用のグローバルキュー（同時10リクエスト） */
 export const yfQueue = new RequestQueue(10);
+
+/** J-Quants API用のグローバルキュー（同時5リクエスト） */
+export const jqQueue = new RequestQueue(5);

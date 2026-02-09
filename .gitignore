@@ -46,6 +46,8 @@ data/notification-config.json
 data/order-history.json
 data/batch-progress.json
 data/signal-validation-progress.json
+data/*.csv
+data/*.txt
 
 # typescript
 *.tsbuildinfo

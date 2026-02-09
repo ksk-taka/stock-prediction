@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getHistoricalPrices } from "@/lib/api/yahooFinance";
 import { detectMarketSentiment } from "@/lib/utils/signals";
-import { fetchMarketIntelligence } from "@/lib/api/perplexity";
+import { fetchMarketIntelligence } from "@/lib/api/webResearch";
 import { getCachedMarketIntelligence, setCachedMarketIntelligence } from "@/lib/cache/marketIntelligenceCache";
 
 export async function GET(request: NextRequest) {

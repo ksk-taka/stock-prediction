@@ -36,17 +36,78 @@ export interface SignalNotification {
   stopLossLabel?: string;
   pnlAtTakeProfit?: number;
   pnlAtStopLoss?: number;
+  // --- 分析データ（オプション） ---
+  validation?: {
+    decision: "entry" | "wait" | "avoid";
+    summary: string;
+    signalEvaluation: string;
+    riskFactor: string;
+    catalyst: string;
+  };
+  sentiment?: { score: number; label: string };
+  newsHighlights?: string[];
+  fundamentalSummary?: string;
 }
 
 function getWebhookUrl(): string | null {
   return process.env.SLACK_WEBHOOK_URL || null;
 }
 
-export function isSlackConfigured(): boolean {
-  return !!getWebhookUrl();
+function getBotToken(): string | null {
+  return process.env.SLACK_BOT_TOKEN || null;
 }
 
+function getChannelId(): string | null {
+  return process.env.SLACK_CHANNEL_ID || null;
+}
+
+/** Bot Token モード（インタラクティブボタン対応）が使えるか */
+export function isBotMode(): boolean {
+  return !!getBotToken() && !!getChannelId();
+}
+
+export function isSlackConfigured(): boolean {
+  return !!getWebhookUrl() || isBotMode();
+}
+
+/**
+ * Slack にメッセージ送信
+ * Bot Token がある場合は chat.postMessage API を使用（メッセージ更新可能）
+ * ない場合は Incoming Webhook にフォールバック
+ */
 async function postToSlack(message: SlackMessage): Promise<boolean> {
+  const botToken = getBotToken();
+  const channelId = getChannelId();
+
+  // Bot Token モード
+  if (botToken && channelId) {
+    try {
+      const res = await fetch("https://slack.com/api/chat.postMessage", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${botToken}`,
+        },
+        body: JSON.stringify({
+          channel: message.channel || channelId,
+          text: message.text,
+          blocks: message.blocks,
+        }),
+      });
+
+      const data = await res.json() as { ok: boolean; error?: string };
+      if (!data.ok) {
+        console.error(`[Slack] Bot API送信失敗: ${data.error}`);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error("[Slack] Bot API送信エラー:", error);
+      return false;
+    }
+  }
+
+  // Webhook フォールバック
   const url = getWebhookUrl();
   if (!url) {
     console.warn("[Slack] SLACK_WEBHOOK_URL が未設定です");
@@ -143,7 +204,117 @@ export async function sendSignalNotification(signal: SignalNotification): Promis
     fields,
   });
 
+  // Go/NoGo判定
+  if (signal.validation) {
+    const decisionEmoji = signal.validation.decision === "entry"
+      ? ":large_green_circle:"
+      : signal.validation.decision === "avoid"
+        ? ":red_circle:"
+        : ":large_yellow_circle:";
+    const decisionLabel = signal.validation.decision === "entry"
+      ? "Go (エントリー推奨)"
+      : signal.validation.decision === "avoid"
+        ? "No Go (見送り推奨)"
+        : "様子見";
+
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `${decisionEmoji} *Go/NoGo判定: ${decisionLabel}*\n${signal.validation.summary}`,
+      },
+    });
+
+    const validationFields: { type: string; text: string }[] = [];
+    if (signal.validation.catalyst) {
+      validationFields.push({
+        type: "mrkdwn",
+        text: `*:rocket: カタリスト:*\n${signal.validation.catalyst.slice(0, 150)}`,
+      });
+    }
+    if (signal.validation.riskFactor) {
+      validationFields.push({
+        type: "mrkdwn",
+        text: `*:warning: リスク:*\n${signal.validation.riskFactor.slice(0, 150)}`,
+      });
+    }
+    if (validationFields.length > 0) {
+      blocks.push({ type: "section", fields: validationFields });
+    }
+  }
+
+  // センチメント
+  if (signal.sentiment) {
+    const sentimentEmoji = signal.sentiment.score > 0.2
+      ? ":chart_with_upwards_trend:"
+      : signal.sentiment.score < -0.2
+        ? ":chart_with_downwards_trend:"
+        : ":left_right_arrow:";
+    blocks.push({
+      type: "context",
+      elements: [{
+        type: "mrkdwn",
+        text: `${sentimentEmoji} *センチメント:* ${signal.sentiment.label} (${signal.sentiment.score > 0 ? "+" : ""}${signal.sentiment.score.toFixed(2)})`,
+      }],
+    });
+  }
+
+  // ニュースハイライト
+  if (signal.newsHighlights && signal.newsHighlights.length > 0) {
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `*:newspaper: 直近ニュース:*\n${signal.newsHighlights.map((n) => `• ${n}`).join("\n")}`,
+      },
+    });
+  }
+
+  // ファンダメンタルズ要約
+  if (signal.fundamentalSummary) {
+    blocks.push({
+      type: "context",
+      elements: [{
+        type: "mrkdwn",
+        text: `:bar_chart: *ファンダ:* ${signal.fundamentalSummary.slice(0, 200)}`,
+      }],
+    });
+  }
+
   blocks.push({ type: "divider" } as SlackBlock);
+
+  // Bot Token モード時のみ購入/スキップボタン追加
+  if (isBotMode() && signal.signalType === "buy") {
+    const actionPayload = JSON.stringify({
+      symbol: signal.symbol,
+      symbolName: signal.symbolName,
+      strategyId: signal.strategyId,
+      strategyName: signal.strategyName,
+      qty: signal.suggestedQty,
+      price: signal.currentPrice,
+      signalDate: signal.signalDate,
+      timeframe: signal.timeframe,
+    });
+
+    blocks.push({
+      type: "actions",
+      elements: [
+        {
+          type: "button",
+          text: { type: "plain_text", text: "購入実行", emoji: true },
+          style: "primary",
+          action_id: "execute_buy",
+          value: actionPayload,
+        },
+        {
+          type: "button",
+          text: { type: "plain_text", text: "スキップ", emoji: true },
+          action_id: "skip_signal",
+          value: actionPayload,
+        },
+      ],
+    } as SlackBlock);
+  }
 
   const fallbackText = `${sideLabel}: ${signal.symbolName} (${signal.symbol}) - ${signal.strategyName} [${tfLabel}] ¥${signal.currentPrice.toLocaleString()}`;
 
