@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.AIStock" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">#3b82f6</item>
+        <item name="android:navigationBarColor">#3b82f6</item>
+    </style>
+
+    <style name="Theme.AIStock.Splash" parent="Theme.AIStock">
+        <item name="android:windowBackground">#f9fafb</item>
+    </style>
+</resources>
