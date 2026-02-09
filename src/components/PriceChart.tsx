@@ -198,7 +198,7 @@ export default function PriceChart({
     rsi_reversal: false,
     ma_cross: false,
     macd_signal: false,
-    macd_trail12: true,
+    macd_trail: true,
   });
   // シグナル別の利確/損切ライン表示
   const [exitLineKeys, setExitLineKeys] = useState<Set<string>>(new Set());
@@ -498,15 +498,15 @@ export default function PriceChart({
         }
       }
       // トレーリングストップレベル（MACD Trail 12%）
-      if (showStratSignals.macd_trail12 && trailStopLevels) {
+      if (showStratSignals.macd_trail && trailStopLevels) {
         const trailVal = trailStopLevels[gi];
         if (trailVal != null) {
           entry.trailStopLevel = trailVal;
         }
       }
       // MACD Trail 12% マーカー（ストリップ表示用）
-      if (showStratSignals.macd_trail12 && stratSignals) {
-        const pt = stratSignals["macd_trail12"]?.find((p: StrategySignalPoint) => p.index === gi);
+      if (showStratSignals.macd_trail && stratSignals) {
+        const pt = stratSignals["macd_trail"]?.find((p: StrategySignalPoint) => p.index === gi);
         if (pt) {
           entry.trail12Marker = 0.5;
           entry.trail12Action = pt.action;
@@ -904,7 +904,7 @@ export default function PriceChart({
                 { key: "rsi_reversal" as StrategySignalType, label: "RSI逆張り", color: "#8b5cf6" },
                 { key: "ma_cross" as StrategySignalType, label: "MAクロス", color: "#3b82f6" },
                 { key: "macd_signal" as StrategySignalType, label: "MACDシグナル", color: "#059669" },
-                { key: "macd_trail12" as StrategySignalType, label: "MACD Trail12%", color: "#f97316" },
+                { key: "macd_trail" as StrategySignalType, label: "MACDトレーリング", color: "#f97316" },
               ] as const).map((s) => (
                 <label key={s.key} className="flex items-center gap-1 text-xs">
                   <input
@@ -1392,7 +1392,7 @@ export default function PriceChart({
           })}
 
           {/* トレーリングストップレベル線 (MACD Trail 12%) */}
-          {showStratSignals.macd_trail12 && (
+          {showStratSignals.macd_trail && (
             <Line
               yAxisId="price"
               type="stepAfter"
@@ -1596,7 +1596,7 @@ export default function PriceChart({
       )}
 
       {/* MACD Trail 12% シグナルストリップ */}
-      {showStratSignals.macd_trail12 && chartData.some((d: any) => d.trail12Marker != null) && (
+      {showStratSignals.macd_trail && chartData.some((d: any) => d.trail12Marker != null) && (
         <div className="-mt-1">
           <ResponsiveContainer width="100%" height={32}>
             <ComposedChart data={chartData} margin={{ top: 0, right: 65, bottom: 0, left: 5 }}>
@@ -1914,7 +1914,7 @@ export default function PriceChart({
         { key: "rsi_reversal" as StrategySignalType, label: "RSI逆張り", color: "#8b5cf6", borderColor: "border-violet-200 dark:border-violet-800/50", bgColor: "bg-violet-50 dark:bg-violet-900/10", headerColor: "text-violet-800 dark:text-violet-400", countColor: "text-violet-700 dark:text-violet-400", ruleText: "RSI売られすぎで買い、買われすぎで売り" },
         { key: "ma_cross" as StrategySignalType, label: "MAクロス(GC/DC)", color: "#3b82f6", borderColor: "border-blue-200 dark:border-blue-800/50", bgColor: "bg-blue-50 dark:bg-blue-900/10", headerColor: "text-blue-800 dark:text-blue-400", countColor: "text-blue-700 dark:text-blue-400", ruleText: "ゴールデンクロス(GC)で買い、デッドクロス(DC)で売り" },
         { key: "macd_signal" as StrategySignalType, label: "MACDシグナル", color: "#059669", borderColor: "border-teal-200 dark:border-teal-800/50", bgColor: "bg-teal-50 dark:bg-teal-900/10", headerColor: "text-teal-800 dark:text-teal-400", countColor: "text-teal-700 dark:text-teal-400", ruleText: "MACDがシグナル線を上抜けで買い、下抜けで売り" },
-        { key: "macd_trail12" as StrategySignalType, label: "MACD Trail 12%", color: "#f97316", borderColor: "border-orange-200 dark:border-orange-800/50", bgColor: "bg-orange-50 dark:bg-orange-900/10", headerColor: "text-orange-800 dark:text-orange-400", countColor: "text-orange-700 dark:text-orange-400", ruleText: "MACD GCで買い、高値から12%下落でトレーリングストップ売り（赤い破線=ストップレベル）" },
+        { key: "macd_trail" as StrategySignalType, label: "MACDトレーリング", color: "#f97316", borderColor: "border-orange-200 dark:border-orange-800/50", bgColor: "bg-orange-50 dark:bg-orange-900/10", headerColor: "text-orange-800 dark:text-orange-400", countColor: "text-orange-700 dark:text-orange-400", ruleText: "MACD GCで買い、トレーリングストップ or 損切りで売り（赤い破線=ストップレベル）" },
       ] as const).map((s) => {
         if (!showStratSignals[s.key]) return null;
         const points = stratSignals[s.key];

@@ -16,7 +16,6 @@ function isWithinPeriod(buyDate: string, filter: string): boolean {
     case "1m": return days <= 31;
     case "3m": return days <= 93;
     case "6m": return days <= 183;
-    case "1y": return days <= 366;
     default: return true;
   }
 }
@@ -113,7 +112,6 @@ export default function StockCard({
       case "ma_cross": return "MAクロス";
       case "macd_signal": return "MACD";
       case "macd_trail": return "MACDトレ";
-      case "macd_trail12": return "Trail12";
       case "cwh_trail": return "CWHトレ";
       case "dip_buy": return "急落買";
       default: return id;
@@ -135,7 +133,6 @@ export default function StockCard({
       case "macd_signal":
         return "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400";
       case "macd_trail":
-      case "macd_trail12":
         return "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400";
       case "cwh_trail":
         return "bg-lime-100 dark:bg-lime-900/30 text-lime-700 dark:text-lime-400";

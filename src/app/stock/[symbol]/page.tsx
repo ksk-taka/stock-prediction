@@ -473,8 +473,6 @@ export default function StockDetailPage() {
           { value: "1m", label: "1ヶ月" },
           { value: "3m", label: "3ヶ月" },
           { value: "6m", label: "半年" },
-          { value: "1y", label: "1年" },
-          { value: "all", label: "全期間" },
         ];
         const filterByPeriod = (buyDate: string) => {
           if (signalPeriodFilter === "all") return true;
@@ -487,7 +485,6 @@ export default function StockDetailPage() {
             case "1m": return days <= 31;
             case "3m": return days <= 93;
             case "6m": return days <= 183;
-            case "1y": return days <= 366;
             default: return true;
           }
         };
@@ -506,7 +503,7 @@ export default function StockDetailPage() {
               {signalPeriodOptions.map((opt) => (
                 <button
                   key={opt.value}
-                  onClick={() => setSignalPeriodFilter(opt.value)}
+                  onClick={() => setSignalPeriodFilter(signalPeriodFilter === opt.value ? "all" : opt.value)}
                   className={`rounded px-1.5 py-0.5 text-[10px] transition ${
                     signalPeriodFilter === opt.value
                       ? "bg-blue-500 text-white"
@@ -553,7 +550,7 @@ export default function StockDetailPage() {
                       : s.strategyId === "tabata_cwh" ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
                       : s.strategyId === "rsi_reversal" ? "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400"
                       : s.strategyId === "ma_cross" ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
-                      : s.strategyId === "macd_trail12" ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
+                      : s.strategyId === "macd_trail" ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
                       : "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400"
                     }`}>
                       {s.period}

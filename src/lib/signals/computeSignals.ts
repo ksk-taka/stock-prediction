@@ -5,7 +5,6 @@
 
 import { getHistoricalPrices } from "@/lib/api/yahooFinance";
 import { strategies, getStrategyParams } from "@/lib/backtest/strategies";
-import { calcMACD } from "@/lib/utils/indicators";
 import { getExitLevels } from "@/lib/utils/exitLevels";
 import { setCachedSignals } from "@/lib/cache/signalsCache";
 import { detectBuySignals, detectCupWithHandle } from "@/lib/utils/signals";
@@ -108,51 +107,6 @@ export function findRecentBuySignals(
   return results;
 }
 
-/** MACD Trail 12% のアクティブポジション検出 */
-export function findMacdTrail12Active(
-  data: PriceData[],
-  periodKey: PeriodType,
-): { buyDate: string; buyPrice: number; trailStopLevel: number; peakPrice: number } | null {
-  const params = getStrategyParams("macd_signal", "optimized", periodKey);
-  const macd = calcMACD(data, params.shortPeriod, params.longPeriod, params.signalPeriod);
-
-  let inPosition = false;
-  let buyDate = "";
-  let buyPrice = 0;
-  let peakSinceBuy = 0;
-
-  for (let i = 1; i < data.length; i++) {
-    const prev = macd[i - 1];
-    const cur = macd[i];
-
-    if (!inPosition) {
-      if (prev.macd != null && prev.signal != null && cur.macd != null && cur.signal != null) {
-        if (prev.macd <= prev.signal && cur.macd > cur.signal) {
-          inPosition = true;
-          buyPrice = data[i].close;
-          buyDate = data[i].date;
-          peakSinceBuy = data[i].close;
-        }
-      }
-    } else {
-      if (data[i].close > peakSinceBuy) peakSinceBuy = data[i].close;
-      if (data[i].close <= peakSinceBuy * 0.88) {
-        inPosition = false;
-      }
-    }
-  }
-
-  if (inPosition) {
-    return {
-      buyDate,
-      buyPrice: Math.round(buyPrice * 100) / 100,
-      trailStopLevel: Math.round(peakSinceBuy * 0.88 * 100) / 100,
-      peakPrice: Math.round(peakSinceBuy * 100) / 100,
-    };
-  }
-  return null;
-}
-
 /** 単一銘柄のシグナルを計算（price data は外から渡す） */
 export function detectSignalsFromData(
   data: PriceData[],
@@ -196,22 +150,6 @@ export function detectSignalsFromData(
         price: r.price,
       });
     }
-  }
-
-  // MACD Trail 12%
-  const trail12 = findMacdTrail12Active(data, periodKey);
-  if (trail12) {
-    const pnlPct = ((currentPrice - trail12.buyPrice) / trail12.buyPrice) * 100;
-    active.push({
-      strategyId: "macd_trail12",
-      strategyName: "MACD Trail 12%",
-      buyDate: trail12.buyDate,
-      buyPrice: trail12.buyPrice,
-      currentPrice: Math.round(currentPrice * 100) / 100,
-      pnlPct: Math.round(pnlPct * 100) / 100,
-      stopLossPrice: trail12.trailStopLevel,
-      stopLossLabel: `Trail Stop (高値${trail12.peakPrice.toLocaleString()}の-12%)`,
-    });
   }
 
   return { active, recent };

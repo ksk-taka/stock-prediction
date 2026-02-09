@@ -4,7 +4,7 @@ import { strategies, getStrategyParams } from "@/lib/backtest/strategies";
 import type { PeriodType } from "@/lib/backtest/presets";
 import { calcMACD } from "@/lib/utils/indicators";
 
-export type StrategySignalType = "rsi_reversal" | "ma_cross" | "macd_signal" | "macd_trail12";
+export type StrategySignalType = "rsi_reversal" | "ma_cross" | "macd_signal" | "macd_trail";
 
 export interface StrategySignalPoint {
   index: number;
@@ -23,7 +23,7 @@ const STRATEGY_LABELS: Record<StrategySignalType, { buy: string; tp: string; sl:
   rsi_reversal: { buy: "RSI買い", tp: "RSI利確", sl: "RSI損切" },
   ma_cross: { buy: "GC", tp: "DC", sl: "DC" },
   macd_signal: { buy: "MACD買い", tp: "MACD利確", sl: "MACD損切" },
-  macd_trail12: { buy: "MACD買い", tp: "Trail利確", sl: "Trail損切" },
+  macd_trail: { buy: "MACD買い", tp: "Trail利確", sl: "Trail損切" },
 };
 
 function extractSignalPoints(
@@ -73,13 +73,17 @@ function extractSignalPoints(
 }
 
 /**
- * MACD Trail 12% - MACD GCで買い、高値から12%下落でトレーリングストップ売り
+ * MACDトレーリング - MACD GCで買い、高値からN%下落のトレーリングストップ or 損切りで売り
  */
-function computeMacdTrail12(
+function computeMacdTrailSignals(
   data: PriceData[],
   period: PeriodType,
 ): { signals: StrategySignalPoint[]; trailLevels: (number | null)[] } {
-  const params = getStrategyParams("macd_signal", "optimized", period);
+  const params = getStrategyParams("macd_trail", "optimized", period);
+  const trailPct = params.trailPct ?? 12;
+  const stopLossPct = params.stopLossPct ?? 5;
+  const trailMult = 1 - trailPct / 100;
+  const slMult = 1 - stopLossPct / 100;
   const macd = calcMACD(data, params.shortPeriod, params.longPeriod, params.signalPeriod);
   const points: StrategySignalPoint[] = [];
   const trailLevels: (number | null)[] = new Array(data.length).fill(null);
@@ -98,7 +102,7 @@ function computeMacdTrail12(
           inPosition = true;
           buyPrice = data[i].close;
           peakSinceBuy = data[i].close;
-          trailLevels[i] = Math.round(peakSinceBuy * 0.88 * 100) / 100;
+          trailLevels[i] = Math.round(peakSinceBuy * trailMult * 100) / 100;
           points.push({
             index: i,
             date: data[i].date,
@@ -112,10 +116,23 @@ function computeMacdTrail12(
       if (data[i].close > peakSinceBuy) {
         peakSinceBuy = data[i].close;
       }
-      const trailLevel = peakSinceBuy * 0.88;
+      const trailLevel = peakSinceBuy * trailMult;
       trailLevels[i] = Math.round(trailLevel * 100) / 100;
 
-      if (data[i].close <= trailLevel) {
+      // 損切り: エントリーから-N%
+      if (data[i].close <= buyPrice * slMult) {
+        points.push({
+          index: i,
+          date: data[i].date,
+          price: data[i].close,
+          action: "stop_loss",
+          label: "損切",
+        });
+        inPosition = false;
+        buyPrice = 0;
+        peakSinceBuy = 0;
+      // トレーリングストップ: 高値から-M%
+      } else if (data[i].close <= trailLevel) {
         const isTakeProfit = data[i].close >= buyPrice;
         points.push({
           index: i,
@@ -135,7 +152,7 @@ function computeMacdTrail12(
 }
 
 /**
- * 4戦略(RSI逆張り, MAクロス, MACD, MACD Trail12%)のシグナルポイントを計算
+ * 4戦略(RSI逆張り, MAクロス, MACD, MACDトレーリング)のシグナルポイントを計算
  * 最適化プリセットを使用
  */
 export function computeStrategySignals(
@@ -156,9 +173,9 @@ export function computeStrategySignals(
     signals[id] = extractSignalPoints(id, data, sigs);
   }
 
-  // MACD Trail 12% (custom computation - not in strategies.ts)
-  const trail12 = computeMacdTrail12(data, period);
-  signals["macd_trail12"] = trail12.signals;
+  // MACDトレーリング (custom computation for chart display with trail levels)
+  const trail = computeMacdTrailSignals(data, period);
+  signals["macd_trail"] = trail.signals;
 
-  return { signals, trailStopLevels: trail12.trailLevels };
+  return { signals, trailStopLevels: trail.trailLevels };
 }
