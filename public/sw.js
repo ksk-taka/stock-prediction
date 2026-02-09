@@ -1,4 +1,4 @@
-const CACHE_NAME = "ai-stock-v1";
+const CACHE_NAME = "ai-stock-v2";
 const PRECACHE_URLS = ["/", "/manifest.json"];
 
 // インストール: 静的アセットをキャッシュ
@@ -26,6 +26,12 @@ self.addEventListener("activate", (event) => {
 // フェッチ: Network First (API), Cache First (静的アセット)
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
+
+  // ナビゲーションリクエスト (ページ遷移) はSWを通さない
+  // → 307リダイレクト (/login等) がWebViewで正しく処理される
+  if (event.request.mode === "navigate") {
+    return;
+  }
 
   // APIリクエスト: ネットワーク優先、失敗時キャッシュ
   if (url.pathname.startsWith("/api/")) {
