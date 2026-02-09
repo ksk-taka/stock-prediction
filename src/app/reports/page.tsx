@@ -18,6 +18,7 @@ import {
 } from "recharts";
 import { wfReportData, type WFStrategyResult } from "@/lib/reports/wfReportData";
 import { fullBacktestData, type FullBacktestStrategy, type ComparisonRow } from "@/lib/reports/backtestAllData";
+import { cwh52wComparison, type Cwh52wMode } from "@/lib/reports/cwh52wData";
 
 // ============================================================
 // Constants
@@ -1191,6 +1192,149 @@ function FavoritesYearlyHeatmap() {
 }
 
 // ============================================================
+// Component: CWH × 52週高値フィルタ分析
+// ============================================================
+
+const CWH52W_GROUP_COLORS: Record<string, string> = {
+  "全CWHシグナル": "#94a3b8",     // gray
+  "52週高値付近のみ": "#22c55e",  // green
+  "52週高値以外": "#ef4444",      // red
+};
+
+function Cwh52wComparisonTable({ modes }: { modes: Cwh52wMode[] }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[800px] text-sm">
+        <thead>
+          <tr className="border-b border-gray-200 dark:border-slate-700">
+            <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-slate-400">モード</th>
+            <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-slate-400">グループ</th>
+            <th className="px-2 py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-slate-400">件数</th>
+            <th className="px-2 py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-slate-400">勝率</th>
+            <th className="px-2 py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-slate-400">平均リターン</th>
+            <th className="px-2 py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-slate-400">平均勝ち</th>
+            <th className="px-2 py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-slate-400">平均負け</th>
+            <th className="px-2 py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-slate-400">PF</th>
+          </tr>
+        </thead>
+        <tbody>
+          {modes.map((mode) =>
+            mode.groups.map((g, gi) => {
+              const is52w = g.label === "52週高値付近のみ";
+              const isNon52w = g.label === "52週高値以外";
+              return (
+                <tr
+                  key={`${mode.modeShort}-${gi}`}
+                  className={`border-b border-gray-100 dark:border-slate-700/50 ${is52w ? "bg-green-50/50 dark:bg-green-900/10" : ""} ${isNon52w && g.pf < 1 ? "opacity-60" : ""}`}
+                >
+                  {gi === 0 && (
+                    <td className="px-2 py-2 font-medium text-gray-900 dark:text-white whitespace-nowrap" rowSpan={3}>
+                      <div>{mode.modeShort}</div>
+                      <div className="text-[10px] text-gray-400 dark:text-slate-500">{mode.description}</div>
+                    </td>
+                  )}
+                  <td className={`px-2 py-2 whitespace-nowrap ${is52w ? "font-semibold text-green-700 dark:text-green-400" : "text-gray-700 dark:text-slate-300"}`}>
+                    {g.label}
+                  </td>
+                  <td className="px-2 py-2 text-right font-mono text-xs text-gray-600 dark:text-slate-400">
+                    {g.trades.toLocaleString()}
+                  </td>
+                  <td className={`px-2 py-2 text-right font-mono text-sm ${is52w ? "font-semibold text-green-600 dark:text-green-400" : "text-gray-700 dark:text-slate-300"}`}>
+                    {g.winRate.toFixed(1)}%
+                  </td>
+                  <td className={`px-2 py-2 text-right font-mono text-sm font-semibold ${g.avgReturn > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                    {fmtPct(g.avgReturn)}
+                  </td>
+                  <td className="px-2 py-2 text-right font-mono text-xs text-green-600 dark:text-green-400">
+                    +{g.avgWin.toFixed(1)}%
+                  </td>
+                  <td className="px-2 py-2 text-right font-mono text-xs text-red-600 dark:text-red-400">
+                    {g.avgLoss.toFixed(1)}%
+                  </td>
+                  <td className={`px-2 py-2 text-right font-mono text-sm ${is52w ? "font-bold" : "font-semibold"} ${g.pf >= 1.5 ? "text-green-600 dark:text-green-400" : g.pf >= 1.0 ? "text-gray-700 dark:text-slate-300" : "text-red-600 dark:text-red-400"}`}>
+                    {g.pf.toFixed(2)}
+                  </td>
+                </tr>
+              );
+            }),
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function Cwh52wPfChart({ modes }: { modes: Cwh52wMode[] }) {
+  const data = modes.map((m) => ({
+    name: m.modeShort,
+    全CWH: m.groups[0].pf,
+    "52w高値付近": m.groups[1].pf,
+    "52w以外": m.groups[2].pf,
+  }));
+
+  return (
+    <ResponsiveContainer width="100%" height={280}>
+      <BarChart data={data} margin={{ left: 10, right: 10, top: 5, bottom: 5 }}>
+        <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#9ca3af" }} />
+        <YAxis domain={[0, 2.2]} tickCount={6} tick={{ fontSize: 10, fill: "#9ca3af" }} />
+        <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => [typeof v === "number" ? v.toFixed(2) : v, "PF"]} />
+        <Legend wrapperStyle={{ fontSize: 11 }} />
+        <Bar dataKey="全CWH" fill="#94a3b8" radius={[2, 2, 0, 0]} />
+        <Bar dataKey="52w高値付近" fill="#22c55e" radius={[2, 2, 0, 0]} />
+        <Bar dataKey="52w以外" fill="#ef4444" radius={[2, 2, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+function Cwh52wPortfolioCards({ modes }: { modes: Cwh52wMode[] }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-3">
+      {modes.map((m) => {
+        const p = m.portfolio;
+        const isPositive = p.annualReturn > 0;
+        return (
+          <div key={m.modeShort} className="rounded-lg border border-gray-200 dark:border-slate-700">
+            <div className="border-b border-gray-100 px-4 py-2.5 dark:border-slate-700">
+              <h3 className="font-semibold text-gray-900 dark:text-white">{m.modeShort}</h3>
+              <p className="text-[10px] text-gray-400 dark:text-slate-500">
+                初期{p.initialCapital}万 → {p.finalCapital}万 ({p.multiplier}倍)
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 px-4 py-3">
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500">年率リターン</div>
+                <div className={`mt-0.5 text-lg font-mono font-bold ${isPositive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                  {fmtPct(p.annualReturn)}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500">最大DD</div>
+                <div className="mt-0.5 text-lg font-mono font-bold text-red-600 dark:text-red-400">
+                  {p.maxDD.toFixed(1)}%
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500">勝率</div>
+                <div className="mt-0.5 font-mono text-sm font-semibold text-gray-700 dark:text-slate-300">
+                  {p.winRate.toFixed(1)}%
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500">実行/見送り</div>
+                <div className="mt-0.5 font-mono text-sm text-gray-600 dark:text-slate-400">
+                  {p.executedTrades}/{p.skippedSignals}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ============================================================
 // Main Page
 // ============================================================
 
@@ -1294,6 +1438,55 @@ export default function ReportsPage() {
       {/* Slack Notification Config */}
       <Section title="通知対象の4戦略" subtitle="日足シグナル × お気に入り銘柄 | エントリー・利確・損切ロジック">
         <SlackNotificationConfig />
+      </Section>
+
+      {/* ======== CWH × 52週高値フィルタ Section ======== */}
+      <div className="rounded-lg border-2 border-teal-200 bg-teal-50/50 px-4 py-3 dark:border-teal-800 dark:bg-teal-900/20">
+        <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+          CWH × 52週高値フィルタ分析
+        </h2>
+        <p className="text-sm text-gray-500 dark:text-slate-400">
+          CWHブレイクアウト時に52週高値付近かどうかでフィルタリングした成績比較 | 全3,775銘柄 × 3年間
+        </p>
+      </div>
+
+      {/* CWH 52w Insights */}
+      <Section title="フィルタ効果サマリー">
+        <div className="space-y-2">
+          <div className="rounded-r-lg border-l-4 border-l-green-500 bg-green-50 p-3 text-sm text-gray-800 dark:bg-green-900/20 dark:text-gray-200">
+            52週高値付近のCWHは全モードで勝率+7〜13pt、PF 1.75〜1.91に改善。1トレード平均リターンは+2.4〜4.8%（全CWH比 2〜3倍）
+          </div>
+          <div className="rounded-r-lg border-l-4 border-l-blue-500 bg-blue-50 p-3 text-sm text-gray-800 dark:bg-blue-900/20 dark:text-gray-200">
+            建値撤退モードでは52週高値以外がPF 0.96（負け越し）に対し、52週高値付近のみPF 1.91。フィルタなしでは使えない戦略がフィルタで有効に
+          </div>
+          <div className="rounded-r-lg border-l-4 border-l-amber-500 bg-amber-50 p-3 text-sm text-gray-800 dark:bg-amber-900/20 dark:text-gray-200">
+            ポートフォリオシム（5ポジション制限・100万/ポジション）ではTP20/SL8が年率19.8%で最も安定。トレーリング8%は年率8.2%
+          </div>
+        </div>
+      </Section>
+
+      {/* CWH 52w Comparison Table */}
+      <Section title="52週高値フィルタ比較" subtitle="3つのイグジットモード × 全CWH / 52w付近 / 52w以外">
+        <Cwh52wComparisonTable modes={cwh52wComparison} />
+      </Section>
+
+      {/* CWH 52w PF Chart */}
+      <Section title="プロフィットファクター比較" subtitle="52週高値フィルタの有無によるPFの差">
+        <Cwh52wPfChart modes={cwh52wComparison} />
+      </Section>
+
+      {/* CWH 52w Portfolio Sim */}
+      <Section title="ポートフォリオシミュレーション" subtitle="初期500万・1ポジション100万・最大5同時保有 | 52週高値フィルタ適用">
+        <Cwh52wPortfolioCards modes={cwh52wComparison} />
+        <div className="mt-3 rounded-lg bg-gray-50 p-3 dark:bg-slate-700/30">
+          <h3 className="text-xs font-semibold text-gray-900 dark:text-white">シミュレーション条件</h3>
+          <div className="mt-1.5 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+            <div><span className="font-medium text-gray-700 dark:text-slate-300">初期資金:</span> <span className="text-gray-600 dark:text-slate-400">500万円</span></div>
+            <div><span className="font-medium text-gray-700 dark:text-slate-300">1ポジション:</span> <span className="text-gray-600 dark:text-slate-400">100万円</span></div>
+            <div><span className="font-medium text-gray-700 dark:text-slate-300">最大同時保有:</span> <span className="text-gray-600 dark:text-slate-400">5</span></div>
+            <div><span className="font-medium text-gray-700 dark:text-slate-300">52w高値判定:</span> <span className="text-gray-600 dark:text-slate-400">0.5%許容</span></div>
+          </div>
+        </div>
       </Section>
 
       {/* ======== Walk-Forward Section ======== */}
