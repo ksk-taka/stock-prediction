@@ -129,6 +129,12 @@ export default function WatchList() {
   const [signalScanProgress, setSignalScanProgress] = useState<{ scanned: number; total: number } | null>(null);
   const signalScanAbortRef = useRef<AbortController | null>(null);
 
+  // バッチアクション
+  const [batchAnalysis, setBatchAnalysis] = useState(true);
+  const [batchSlack, setBatchSlack] = useState(false);
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number; currentName: string } | null>(null);
+
   // Pull-to-refresh
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -638,6 +644,122 @@ export default function WatchList() {
     return true;
   });
 
+  // フィルタ中銘柄のアクティブシグナル数を計算
+  const filteredActiveSignalCount = filteredStocks.reduce((count, stock) => {
+    const sig = signals[stock.symbol];
+    return count + (sig?.activeSignals?.daily?.length ?? 0) + (sig?.activeSignals?.weekly?.length ?? 0);
+  }, 0);
+
+  // ── バッチアクション実行 ──
+  const handleBatchExecute = useCallback(async () => {
+    if (!batchAnalysis && !batchSlack) return;
+    if (batchRunning) return;
+
+    // フィルタ中の銘柄からアクティブシグナルを収集
+    type SignalTarget = {
+      symbol: string;
+      stockName: string;
+      sectors?: string[];
+      signal: ActiveSignalInfo;
+      timeframe: "daily" | "weekly";
+    };
+    const targets: SignalTarget[] = [];
+    for (const stock of filteredStocks) {
+      const sig = signals[stock.symbol];
+      if (!sig?.activeSignals) continue;
+      for (const a of sig.activeSignals.daily ?? []) {
+        targets.push({ symbol: stock.symbol, stockName: stock.name, sectors: stock.sectors, signal: a, timeframe: "daily" });
+      }
+      for (const a of sig.activeSignals.weekly ?? []) {
+        targets.push({ symbol: stock.symbol, stockName: stock.name, sectors: stock.sectors, signal: a, timeframe: "weekly" });
+      }
+    }
+
+    if (targets.length === 0) return;
+
+    setBatchRunning(true);
+    setBatchProgress(null);
+    let errors = 0;
+
+    for (let i = 0; i < targets.length; i++) {
+      const t = targets[i];
+      const tfLabel = t.timeframe === "daily" ? "日足" : "週足";
+      setBatchProgress({ current: i + 1, total: targets.length, currentName: `${t.stockName} (${t.signal.strategyName} ${tfLabel})` });
+
+      // 分析（Go/NoGo判断）
+      let validationResult: { decision: string; summary: string; signalEvaluation: string; riskFactor: string; catalyst: string } | undefined;
+      if (batchAnalysis) {
+        try {
+          const pnlPct = t.signal.pnlPct.toFixed(1);
+          const signalDesc = `${t.signal.strategyName} (${tfLabel}): ${t.signal.buyDate}にエントリー (買値:${t.signal.buyPrice}円, 現在値:${t.signal.currentPrice}円, 損益:${Number(pnlPct) > 0 ? "+" : ""}${pnlPct}%)`;
+          const strategyId = `${t.signal.strategyId}_${t.timeframe}_${t.signal.buyDate}`;
+
+          const params = new URLSearchParams({
+            symbol: t.symbol,
+            signalDesc,
+            signalStrategy: t.signal.strategyName,
+            signalStrategyId: strategyId,
+            step: "validation",
+          });
+
+          const res = await fetch(`/api/fundamental?${params}`);
+          if (res.ok) {
+            const data = await res.json();
+            validationResult = data.validation;
+            // UIのvalidationsを更新
+            setSignals((prev) => ({
+              ...prev,
+              [t.symbol]: {
+                ...prev[t.symbol],
+                validations: {
+                  ...prev[t.symbol]?.validations,
+                  [strategyId]: data.validation,
+                },
+              },
+            }));
+          } else {
+            errors++;
+          }
+        } catch {
+          errors++;
+        }
+      }
+
+      // Slack通知
+      if (batchSlack) {
+        try {
+          await fetch("/api/slack/notify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              symbol: t.symbol,
+              symbolName: t.stockName,
+              sectors: t.sectors,
+              strategyId: t.signal.strategyId,
+              strategyName: t.signal.strategyName,
+              timeframe: t.timeframe,
+              signalDate: t.signal.buyDate,
+              currentPrice: t.signal.currentPrice,
+              takeProfitPrice: t.signal.takeProfitPrice,
+              takeProfitLabel: t.signal.takeProfitLabel,
+              stopLossPrice: t.signal.stopLossPrice,
+              stopLossLabel: t.signal.stopLossLabel,
+              validation: validationResult,
+            }),
+          });
+        } catch {
+          errors++;
+        }
+      }
+    }
+
+    setBatchRunning(false);
+    setBatchProgress(null);
+    if (errors > 0) {
+      console.error(`Batch: ${errors}件のエラーが発生`);
+    }
+  }, [batchAnalysis, batchSlack, batchRunning, filteredStocks, signals]);
+
   // お気に入りを先頭にソート
   const sortedStocks = [...filteredStocks].sort((a, b) => (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0));
 
@@ -1108,6 +1230,68 @@ export default function WatchList() {
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* ── バッチアクションバー ── */}
+      {filteredActiveSignalCount > 0 && (
+        <div className="mb-4 rounded-lg border border-indigo-200 bg-indigo-50 p-3 dark:border-indigo-700 dark:bg-indigo-900/20">
+          <div className="flex flex-wrap items-center gap-4">
+            <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">
+              フィルタ中の{filteredStocks.length}銘柄（{filteredActiveSignalCount}シグナル）に対して実行:
+            </span>
+
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-1.5 text-xs text-gray-700 dark:text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={batchAnalysis}
+                  onChange={(e) => setBatchAnalysis(e.target.checked)}
+                  className="rounded border-gray-300 dark:border-slate-600"
+                  disabled={batchRunning}
+                />
+                分析（Go/NoGo判断）
+              </label>
+              <label className="flex items-center gap-1.5 text-xs text-gray-700 dark:text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={batchSlack}
+                  onChange={(e) => setBatchSlack(e.target.checked)}
+                  className="rounded border-gray-300 dark:border-slate-600"
+                  disabled={batchRunning}
+                />
+                Slack通知
+              </label>
+            </div>
+
+            <button
+              onClick={handleBatchExecute}
+              disabled={batchRunning || (!batchAnalysis && !batchSlack)}
+              className="rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50 dark:bg-indigo-500 dark:hover:bg-indigo-600"
+            >
+              {batchRunning ? "実行中..." : "実行"}
+            </button>
+          </div>
+
+          {/* バッチ進捗 */}
+          {batchProgress && (
+            <div className="mt-2">
+              <div className="mb-1 flex items-center justify-between text-[11px]">
+                <span className="text-indigo-600 dark:text-indigo-300">{batchProgress.currentName}</span>
+                <span className="text-indigo-500 dark:text-indigo-400">
+                  {batchProgress.current}/{batchProgress.total}
+                </span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-indigo-100 dark:bg-indigo-800">
+                <div
+                  className="h-full rounded-full bg-indigo-500 transition-all duration-300"
+                  style={{
+                    width: `${(batchProgress.current / batchProgress.total) * 100}%`,
+                  }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
 

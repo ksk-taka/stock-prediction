@@ -1,86 +1,174 @@
-import { getWatchList } from "@/lib/data/watchlist";
-import { getAuthUserId } from "@/lib/supabase/auth";
-import { getCachedSignals } from "@/lib/cache/signalsCache";
-import { computeAndCacheSignals } from "@/lib/signals/computeSignals";
+import { NextResponse } from "next/server";
+import { spawn, type ChildProcess } from "child_process";
+import { join } from "path";
+import { createClient } from "@supabase/supabase-js";
 
-// 7817.T は YF データエラーのため除外
-const EXCLUDE_SYMBOLS = new Set(["7817.T"]);
+export const dynamic = "force-dynamic";
 
-const CONCURRENCY = 5;
+const isVercel = !!process.env.VERCEL;
 
 export async function POST() {
-  const userId = await getAuthUserId();
-  const list = await getWatchList(userId);
-  const allSymbols = list.stocks
-    .map((s) => s.symbol)
-    .filter((s) => !EXCLUDE_SYMBOLS.has(s));
+  if (isVercel) {
+    return await triggerGitHubAction();
+  }
+  return await spawnLocalScan();
+}
 
-  const total = allSymbols.length;
-  let scanned = 0;
-  let errors = 0;
-  let skipped = 0;
+// ── Vercel: GitHub Actions トリガー ─────────────────────────
 
-  const encoder = new TextEncoder();
+async function triggerGitHubAction() {
+  const ghToken = process.env.GITHUB_PAT;
+  const repo = process.env.GITHUB_REPO ?? "ksk-taka/stock-prediction";
 
-  const stream = new ReadableStream({
-    async start(controller) {
-      const send = (data: Record<string, unknown>) => {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
-      };
+  if (!ghToken) {
+    return NextResponse.json(
+      { error: "GITHUB_PAT が設定されていません" },
+      { status: 500 },
+    );
+  }
 
-      send({ type: "start", total });
+  // Supabase に "running" レコード作成
+  let scanId: number | undefined;
+  try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
 
-      // 5並列で処理
-      let idx = 0;
-      const processNext = async () => {
-        while (idx < allSymbols.length) {
-          const symbol = allSymbols[idx++];
+    const { data, error } = await supabase
+      .from("signal_scans")
+      .insert({
+        status: "running",
+        scan_date: new Date().toISOString().split("T")[0],
+      })
+      .select("id")
+      .single();
 
-          // 有効なキャッシュがあればスキップ
-          const cached = getCachedSignals(symbol);
-          if (cached) {
-            skipped++;
-            scanned++;
-            if (scanned % 50 === 0 || scanned === total) {
-              send({ type: "progress", scanned, total, skipped, errors });
-            }
-            continue;
-          }
+    if (error) throw error;
+    scanId = data.id;
+  } catch (err) {
+    return NextResponse.json(
+      { error: `スキャン記録の作成に失敗しました: ${err}` },
+      { status: 500 },
+    );
+  }
 
-          try {
-            await computeAndCacheSignals(symbol);
-          } catch (e) {
-            errors++;
-            console.error(`Signal scan error for ${symbol}:`, e instanceof Error ? e.message : e);
-          }
-          scanned++;
-          // 50件ごと or 最後にprogress送信（SSEの頻度を抑える）
-          if (scanned % 50 === 0 || scanned === total) {
-            send({ type: "progress", scanned, total, skipped, errors });
-          }
-        }
-      };
+  // GitHub Actions トリガー
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${repo}/dispatches`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/vnd.github+json",
+          Authorization: `Bearer ${ghToken}`,
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+        body: JSON.stringify({
+          event_type: "daily-signal-scan",
+          client_payload: { scan_id: scanId },
+        }),
+      },
+    );
 
-      const workers = Array.from({ length: CONCURRENCY }, () => processNext());
-      await Promise.all(workers);
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`GitHub API ${res.status}: ${text}`);
+    }
 
-      send({
-        type: "done",
-        scanned,
-        total,
-        skipped,
-        errors,
-        completedAt: new Date().toISOString(),
+    return NextResponse.json({
+      ok: true,
+      scanId,
+      message: "シグナルスキャンを開始しました。結果は数十分後に反映されます。",
+    });
+  } catch (err) {
+    // 失敗時はレコードを failed に
+    try {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      );
+      await supabase
+        .from("signal_scans")
+        .update({
+          status: "failed",
+          error_message: String(err),
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", scanId);
+    } catch { /* best effort */ }
+
+    return NextResponse.json(
+      { error: `GitHub Actions の起動に失敗しました: ${err}` },
+      { status: 500 },
+    );
+  }
+}
+
+// ── ローカル: spawn で直接実行 ──────────────────────────────
+
+const g = globalThis as unknown as {
+  __signalScanChild?: ChildProcess;
+  __signalScanRunning?: boolean;
+};
+
+async function spawnLocalScan() {
+  if (g.__signalScanRunning && g.__signalScanChild && !g.__signalScanChild.killed) {
+    return NextResponse.json(
+      { error: "スキャンは既に実行中です" },
+      { status: 409 },
+    );
+  }
+
+  g.__signalScanRunning = true;
+
+  try {
+    const result = await new Promise<{ exitCode: number; stderr: string }>((resolve, reject) => {
+      const cwd = process.cwd();
+      const tsxBin = join(cwd, "node_modules", ".bin", "tsx");
+      const child = spawn(tsxBin, ["scripts/daily-signal-scan.ts", "--supabase"], {
+        cwd,
+        stdio: ["ignore", "ignore", "pipe"],
+        shell: true,
       });
-      controller.close();
-    },
-  });
+      g.__signalScanChild = child;
 
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    },
-  });
+      let stderr = "";
+      child.stderr?.on("data", (chunk: Buffer) => {
+        stderr += chunk.toString();
+      });
+
+      const timeout = setTimeout(() => {
+        child.kill();
+        reject(new Error("スキャンがタイムアウトしました（60分）"));
+      }, 60 * 60 * 1000);
+
+      child.on("close", (code) => {
+        clearTimeout(timeout);
+        resolve({ exitCode: code ?? 1, stderr });
+      });
+      child.on("error", (err) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
+    });
+
+    if (result.exitCode !== 0) {
+      const detail = result.stderr ? `\n${result.stderr.slice(0, 500)}` : "";
+      return NextResponse.json(
+        { error: `スキャンが異常終了しました (exit code: ${result.exitCode})${detail}` },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json({ ok: true, message: "シグナルスキャン完了" });
+  } catch (err) {
+    return NextResponse.json(
+      { error: String(err) },
+      { status: 500 },
+    );
+  } finally {
+    g.__signalScanRunning = false;
+    g.__signalScanChild = undefined;
+  }
 }

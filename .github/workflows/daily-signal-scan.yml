@@ -1,0 +1,35 @@
+name: Daily Signal Scan
+
+on:
+  repository_dispatch:
+    types: [daily-signal-scan]
+  # 毎営業日 16:30 JST (07:30 UTC) = 東証クローズ後
+  schedule:
+    - cron: '30 7 * * 1-5'
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run daily signal scan
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          SCAN_ID="${{ github.event.client_payload.scan_id }}"
+          if [ -n "$SCAN_ID" ]; then
+            npx tsx scripts/daily-signal-scan.ts --supabase --scan-id "$SCAN_ID"
+          else
+            npx tsx scripts/daily-signal-scan.ts --supabase
+          fi

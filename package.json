@@ -31,7 +31,11 @@
     "jquants:bars:all": "npx tsx scripts/fetch-jquants-bars.ts --all",
     "migrate:supabase": "npx tsx scripts/migrate-watchlist-to-supabase.ts",
     "sync:pull": "npx tsx scripts/sync-watchlist.ts --pull",
-    "sync:push": "npx tsx scripts/sync-watchlist.ts --push"
+    "sync:push": "npx tsx scripts/sync-watchlist.ts --push",
+    "scan:daily": "npx tsx scripts/daily-signal-scan.ts",
+    "scan:daily:supabase": "npx tsx scripts/daily-signal-scan.ts --supabase",
+    "scan:daily:favorites": "npx tsx scripts/daily-signal-scan.ts --favorites-only --supabase",
+    "scan:daily:dry": "npx tsx scripts/daily-signal-scan.ts --dry-run"
   },
   "dependencies": {
     "@slack/bolt": "^4.6.0",
