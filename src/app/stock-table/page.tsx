@@ -1,0 +1,575 @@
+"use client";
+
+import { useEffect, useState, useMemo, useCallback } from "react";
+import Link from "next/link";
+
+// ── 型定義 ──
+
+interface Stock {
+  symbol: string;
+  name: string;
+  market: "JP" | "US";
+  marketSegment?: string;
+  favorite?: boolean;
+}
+
+interface StockTableRow {
+  symbol: string;
+  name: string;
+  price: number;
+  changePercent: number;
+  volume: number;
+  per: number | null;
+  eps: number | null;
+  pbr: number | null;
+  dayHigh: number | null;
+  dayLow: number | null;
+  weekHigh: number | null;
+  weekLow: number | null;
+  monthHigh: number | null;
+  monthLow: number | null;
+  yearHigh: number | null;
+  yearLow: number | null;
+  lastYearHigh: number | null;
+  lastYearLow: number | null;
+  earningsDate: string | null;
+}
+
+interface MergedRow extends StockTableRow {
+  code: string;
+  market: string;
+  marketSegment?: string;
+  favorite?: boolean;
+}
+
+type SortKey = keyof MergedRow;
+type SortDir = "asc" | "desc";
+
+// ── カラム定義 ──
+
+interface ColumnDef {
+  key: SortKey;
+  label: string;
+  group: string;
+  align: "left" | "right";
+  defaultVisible: boolean;
+}
+
+const COLUMNS: ColumnDef[] = [
+  { key: "code", label: "コード", group: "基本", align: "left", defaultVisible: true },
+  { key: "name", label: "銘柄名", group: "基本", align: "left", defaultVisible: true },
+  { key: "market", label: "市場", group: "基本", align: "left", defaultVisible: true },
+  { key: "price", label: "現在値", group: "基本", align: "right", defaultVisible: true },
+  { key: "changePercent", label: "前日比%", group: "基本", align: "right", defaultVisible: true },
+  { key: "volume", label: "出来高", group: "基本", align: "right", defaultVisible: true },
+  { key: "per", label: "PER", group: "指標", align: "right", defaultVisible: true },
+  { key: "eps", label: "EPS", group: "指標", align: "right", defaultVisible: true },
+  { key: "pbr", label: "PBR", group: "指標", align: "right", defaultVisible: true },
+  { key: "earningsDate", label: "決算日", group: "指標", align: "right", defaultVisible: true },
+  { key: "dayHigh", label: "日高値", group: "日", align: "right", defaultVisible: true },
+  { key: "dayLow", label: "日安値", group: "日", align: "right", defaultVisible: true },
+  { key: "weekHigh", label: "週高値", group: "週", align: "right", defaultVisible: true },
+  { key: "weekLow", label: "週安値", group: "週", align: "right", defaultVisible: true },
+  { key: "monthHigh", label: "月高値", group: "月", align: "right", defaultVisible: false },
+  { key: "monthLow", label: "月安値", group: "月", align: "right", defaultVisible: false },
+  { key: "yearHigh", label: "年高値", group: "年", align: "right", defaultVisible: true },
+  { key: "yearLow", label: "年安値", group: "年", align: "right", defaultVisible: true },
+  { key: "lastYearHigh", label: "昨年高値", group: "昨年", align: "right", defaultVisible: false },
+  { key: "lastYearLow", label: "昨年安値", group: "昨年", align: "right", defaultVisible: false },
+];
+
+const MARKET_FILTERS = [
+  { label: "全て", value: "" },
+  { label: "プライム", value: "プライム" },
+  { label: "スタンダード", value: "スタンダード" },
+  { label: "グロース", value: "グロース" },
+];
+
+const BATCH_SIZE = 50;
+
+// ── ヘルパー ──
+
+function formatNum(v: number | null, digits = 1): string {
+  if (v === null || v === undefined) return "－";
+  return v.toLocaleString("ja-JP", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+}
+
+function formatPrice(v: number | null): string {
+  if (v === null || v === undefined || v === 0) return "－";
+  if (v >= 10000) return v.toLocaleString("ja-JP", { maximumFractionDigits: 0 });
+  return v.toLocaleString("ja-JP", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+
+function formatVolume(v: number): string {
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+  if (v >= 1_000) return `${(v / 1_000).toFixed(0)}K`;
+  return String(v);
+}
+
+function changePctColor(v: number): string {
+  if (v > 0) return "text-red-600 dark:text-red-400";
+  if (v < 0) return "text-blue-600 dark:text-blue-400";
+  return "";
+}
+
+// ── メインコンポーネント ──
+
+export default function StockTablePage() {
+  // 銘柄リスト (ウォッチリストから)
+  const [stocks, setStocks] = useState<Stock[]>([]);
+  const [loadingStocks, setLoadingStocks] = useState(true);
+
+  // テーブルデータ
+  const [tableData, setTableData] = useState<Map<string, StockTableRow>>(new Map());
+  const [loadingData, setLoadingData] = useState(false);
+  const [loadedCount, setLoadedCount] = useState(0);
+
+  // フィルタ・ソート
+  const [favoritesOnly, setFavoritesOnly] = useState(true);
+  const [marketFilter, setMarketFilter] = useState("");
+  const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("code");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  // カラム表示
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
+    const s = new Set<string>();
+    COLUMNS.forEach((c) => { if (c.defaultVisible) s.add(c.key); });
+    return s;
+  });
+  const [showColumnPicker, setShowColumnPicker] = useState(false);
+
+  // ── ウォッチリスト読み込み ──
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/watchlist");
+        const data = await res.json();
+        setStocks(data.stocks ?? []);
+      } catch {
+        // ignore
+      } finally {
+        setLoadingStocks(false);
+      }
+    })();
+  }, []);
+
+  // ── フィルタ適用済みリスト ──
+  const filteredStocks = useMemo(() => {
+    let list = stocks;
+    if (favoritesOnly) list = list.filter((s) => s.favorite);
+    if (marketFilter) {
+      list = list.filter((s) => s.marketSegment?.includes(marketFilter));
+    }
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter(
+        (s) =>
+          s.symbol.toLowerCase().includes(q) ||
+          s.name.toLowerCase().includes(q),
+      );
+    }
+    return list;
+  }, [stocks, favoritesOnly, marketFilter, search]);
+
+  // ── データ取得 ──
+  const fetchTableData = useCallback(
+    async (symbolList: string[]) => {
+      if (symbolList.length === 0) return;
+      setLoadingData(true);
+      setLoadedCount(0);
+
+      const newData = new Map<string, StockTableRow>();
+
+      for (let i = 0; i < symbolList.length; i += BATCH_SIZE) {
+        const batch = symbolList.slice(i, i + BATCH_SIZE);
+        try {
+          const res = await fetch(
+            `/api/stock-table?symbols=${batch.join(",")}`,
+          );
+          const data = await res.json();
+          if (data.rows) {
+            for (const row of data.rows) {
+              newData.set(row.symbol, row);
+            }
+          }
+        } catch {
+          // continue with next batch
+        }
+        setLoadedCount(Math.min(i + BATCH_SIZE, symbolList.length));
+        setTableData(new Map(newData));
+      }
+
+      setLoadingData(false);
+    },
+    [],
+  );
+
+  // フィルタが変わったらデータ取得
+  useEffect(() => {
+    if (loadingStocks) return;
+    const syms = filteredStocks.map((s) => s.symbol);
+    fetchTableData(syms);
+  }, [filteredStocks, loadingStocks, fetchTableData]);
+
+  // ── マージ＆ソート ──
+  const mergedRows = useMemo(() => {
+    const rows: MergedRow[] = filteredStocks.map((s) => {
+      const td = tableData.get(s.symbol);
+      return {
+        symbol: s.symbol,
+        code: s.symbol.replace(".T", ""),
+        name: td?.name ?? s.name,
+        market: s.marketSegment ?? "",
+        marketSegment: s.marketSegment,
+        favorite: s.favorite,
+        price: td?.price ?? 0,
+        changePercent: td?.changePercent ?? 0,
+        volume: td?.volume ?? 0,
+        per: td?.per ?? null,
+        eps: td?.eps ?? null,
+        pbr: td?.pbr ?? null,
+        dayHigh: td?.dayHigh ?? null,
+        dayLow: td?.dayLow ?? null,
+        weekHigh: td?.weekHigh ?? null,
+        weekLow: td?.weekLow ?? null,
+        monthHigh: td?.monthHigh ?? null,
+        monthLow: td?.monthLow ?? null,
+        yearHigh: td?.yearHigh ?? null,
+        yearLow: td?.yearLow ?? null,
+        lastYearHigh: td?.lastYearHigh ?? null,
+        lastYearLow: td?.lastYearLow ?? null,
+        earningsDate: td?.earningsDate ?? null,
+      };
+    });
+
+    // ソート
+    rows.sort((a, b) => {
+      const av = a[sortKey];
+      const bv = b[sortKey];
+      if (av === null && bv === null) return 0;
+      if (av === null) return 1;
+      if (bv === null) return -1;
+      if (typeof av === "string" && typeof bv === "string") {
+        return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      }
+      if (typeof av === "number" && typeof bv === "number") {
+        return sortDir === "asc" ? av - bv : bv - av;
+      }
+      if (typeof av === "boolean" && typeof bv === "boolean") {
+        return sortDir === "asc"
+          ? Number(av) - Number(bv)
+          : Number(bv) - Number(av);
+      }
+      return 0;
+    });
+
+    return rows;
+  }, [filteredStocks, tableData, sortKey, sortDir]);
+
+  // ── ソート切り替え ──
+  function handleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(key === "name" || key === "code" || key === "market" ? "asc" : "desc");
+    }
+  }
+
+  // ── カラムグループ一括切替 ──
+  const columnGroups = useMemo(() => {
+    const groups = new Map<string, ColumnDef[]>();
+    COLUMNS.forEach((c) => {
+      const list = groups.get(c.group) ?? [];
+      list.push(c);
+      groups.set(c.group, list);
+    });
+    return groups;
+  }, []);
+
+  function toggleColumnGroup(group: string) {
+    setVisibleColumns((prev) => {
+      const cols = columnGroups.get(group) ?? [];
+      const allVisible = cols.every((c) => prev.has(c.key));
+      const next = new Set(prev);
+      cols.forEach((c) => {
+        if (allVisible) next.delete(c.key);
+        else next.add(c.key);
+      });
+      return next;
+    });
+  }
+
+  // ── セル描画 ──
+  function renderCell(row: MergedRow, col: ColumnDef): React.ReactNode {
+    const v = row[col.key];
+    switch (col.key) {
+      case "code":
+        return (
+          <Link
+            href={`/stock/${row.symbol}`}
+            className="font-mono text-blue-600 hover:underline dark:text-blue-400"
+          >
+            {row.code}
+          </Link>
+        );
+      case "name":
+        return (
+          <Link href={`/stock/${row.symbol}`} className="hover:underline">
+            {row.name}
+          </Link>
+        );
+      case "market":
+        return <span className="text-gray-500 dark:text-slate-400">{row.market}</span>;
+      case "price":
+        return formatPrice(row.price);
+      case "changePercent":
+        return (
+          <span className={changePctColor(row.changePercent)}>
+            {row.changePercent > 0 ? "+" : ""}
+            {row.changePercent.toFixed(2)}%
+          </span>
+        );
+      case "volume":
+        return (
+          <span className="text-gray-500 dark:text-slate-400">
+            {formatVolume(row.volume)}
+          </span>
+        );
+      case "per":
+        return formatNum(row.per);
+      case "eps":
+        return formatNum(row.eps);
+      case "pbr":
+        return formatNum(row.pbr, 2);
+      case "earningsDate":
+        return row.earningsDate ? (
+          <span className="text-xs">{row.earningsDate}</span>
+        ) : (
+          "－"
+        );
+      default:
+        // 高値/安値系はすべて price 形式
+        return formatPrice(v as number | null);
+    }
+  }
+
+  // ── 表示カラム ──
+  const displayColumns = useMemo(
+    () => COLUMNS.filter((c) => visibleColumns.has(c.key)),
+    [visibleColumns],
+  );
+
+  // ── レンダリング ──
+  if (loadingStocks) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="text-gray-500 dark:text-slate-400">読み込み中...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* ヘッダ */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          株式テーブル
+        </h1>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-600 dark:text-slate-300">
+            {mergedRows.length} 銘柄
+            {loadingData && ` (${loadedCount}/${filteredStocks.length} 取得中...)`}
+          </span>
+          {loadingData && (
+            <svg
+              className="h-4 w-4 animate-spin text-blue-500"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+              />
+            </svg>
+          )}
+        </div>
+      </div>
+
+      {/* フィルタ */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <input
+          type="text"
+          placeholder="コード / 銘柄名で検索..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white dark:focus:border-blue-400"
+        />
+        <button
+          onClick={() => setFavoritesOnly((v) => !v)}
+          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+            favoritesOnly
+              ? "bg-yellow-500 text-white"
+              : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+          }`}
+        >
+          お気に入りのみ
+        </button>
+        <div className="flex gap-1">
+          {MARKET_FILTERS.map((m) => (
+            <button
+              key={m.value}
+              onClick={() => setMarketFilter(m.value)}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                marketFilter === m.value
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+              }`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => setShowColumnPicker((v) => !v)}
+          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+            showColumnPicker
+              ? "bg-purple-600 text-white"
+              : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+          }`}
+        >
+          カラム設定
+        </button>
+      </div>
+
+      {/* カラムピッカー */}
+      {showColumnPicker && (
+        <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800">
+          <div className="flex flex-wrap gap-4">
+            {Array.from(columnGroups.entries()).map(([group, cols]) => {
+              const allVisible = cols.every((c) => visibleColumns.has(c.key));
+              return (
+                <div key={group} className="space-y-1">
+                  <button
+                    onClick={() => toggleColumnGroup(group)}
+                    className={`text-xs font-semibold ${
+                      allVisible
+                        ? "text-blue-600 dark:text-blue-400"
+                        : "text-gray-500 dark:text-slate-400"
+                    }`}
+                  >
+                    {group}
+                  </button>
+                  <div className="flex flex-col gap-0.5">
+                    {cols.map((c) => (
+                      <label
+                        key={c.key}
+                        className="flex items-center gap-1.5 text-xs text-gray-700 dark:text-slate-300"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={visibleColumns.has(c.key)}
+                          onChange={() =>
+                            setVisibleColumns((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(c.key)) next.delete(c.key);
+                              else next.add(c.key);
+                              return next;
+                            })
+                          }
+                          className="h-3.5 w-3.5 rounded"
+                        />
+                        {c.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* プログレスバー */}
+      {loadingData && filteredStocks.length > BATCH_SIZE && (
+        <div className="h-1 overflow-hidden rounded-full bg-gray-200 dark:bg-slate-700">
+          <div
+            className="h-full rounded-full bg-blue-500 transition-all duration-300"
+            style={{
+              width: `${Math.min(100, (loadedCount / filteredStocks.length) * 100)}%`,
+            }}
+          />
+        </div>
+      )}
+
+      {/* テーブル */}
+      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-200 bg-gray-50 dark:border-slate-700 dark:bg-slate-900/50">
+              {displayColumns.map((col) => (
+                <th
+                  key={col.key}
+                  onClick={() => handleSort(col.key)}
+                  className={`cursor-pointer select-none whitespace-nowrap px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-white ${
+                    col.align === "right" ? "text-right" : "text-left"
+                  }`}
+                >
+                  {col.label}
+                  {sortKey === col.key && (
+                    <span className="ml-1">
+                      {sortDir === "asc" ? "▲" : "▼"}
+                    </span>
+                  )}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 dark:divide-slate-700/50">
+            {mergedRows.map((row) => (
+              <tr
+                key={row.symbol}
+                className="transition-colors hover:bg-blue-50/50 dark:hover:bg-slate-700/30"
+              >
+                {displayColumns.map((col) => (
+                  <td
+                    key={col.key}
+                    className={`whitespace-nowrap px-3 py-2 font-mono tabular-nums ${
+                      col.align === "right" ? "text-right" : ""
+                    } ${
+                      col.key === "name"
+                        ? "font-sans font-medium text-gray-900 dark:text-white"
+                        : ""
+                    }`}
+                  >
+                    {renderCell(row, col)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {mergedRows.length === 0 && !loadingData && (
+          <div className="py-12 text-center text-gray-500 dark:text-slate-400">
+            {stocks.length === 0
+              ? "ウォッチリストに銘柄がありません"
+              : "条件に合う銘柄がありません"}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

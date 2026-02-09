@@ -158,6 +158,45 @@ export async function getFinancialData(symbol: string) {
 }
 
 /**
+ * 複数銘柄の株価情報をバッチ取得（テーブル表示用）
+ */
+export async function getQuoteBatch(symbols: string[]) {
+  if (symbols.length === 0) return [];
+
+  // yahoo-finance2のバッチquote（配列版）を使用
+  const results = await yfQueue.add(() => yf.quote(symbols));
+  const arr = Array.isArray(results) ? results : [results];
+
+  return arr.map((result) => {
+    const r = result as Record<string, unknown>;
+    const earningsTs = r.earningsTimestamp;
+    return {
+      symbol: result.symbol,
+      name:
+        (r.shortName as string | null) ??
+        (r.longName as string | null) ??
+        result.symbol,
+      price: result.regularMarketPrice ?? 0,
+      previousClose: (r.regularMarketPreviousClose as number) ?? 0,
+      change: result.regularMarketChange ?? 0,
+      changePercent: result.regularMarketChangePercent ?? 0,
+      volume: result.regularMarketVolume ?? 0,
+      per: (r.trailingPE as number) ?? null,
+      pbr: (r.priceToBook as number) ?? null,
+      eps: (r.epsTrailingTwelveMonths as number) ?? null,
+      dayHigh: (r.regularMarketDayHigh as number) ?? null,
+      dayLow: (r.regularMarketDayLow as number) ?? null,
+      yearHigh: (r.fiftyTwoWeekHigh as number) ?? null,
+      yearLow: (r.fiftyTwoWeekLow as number) ?? null,
+      earningsDate:
+        earningsTs instanceof Date
+          ? earningsTs.toISOString().split("T")[0]
+          : null,
+    };
+  });
+}
+
+/**
  * 銘柄を検索
  */
 export async function searchSymbol(query: string) {
