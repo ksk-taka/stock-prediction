@@ -25,6 +25,21 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
+  // OAuth code が URL にある場合、ここで exchange する
+  const code = request.nextUrl.searchParams.get("code");
+  if (code) {
+    await supabase.auth.exchangeCodeForSession(code);
+    // code パラメータを除去してリダイレクト
+    const url = request.nextUrl.clone();
+    url.searchParams.delete("code");
+    const redirectResponse = NextResponse.redirect(url);
+    // exchange で設定された cookie をリダイレクトレスポンスにコピー
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie.name, cookie.value);
+    });
+    return redirectResponse;
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
