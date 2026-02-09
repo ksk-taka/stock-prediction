@@ -6,7 +6,14 @@
 
 import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
-import { getWatchList } from "@/lib/data/watchlist";
+import { readFileSync } from "fs";
+import { join } from "path";
+import type { WatchList } from "../src/types";
+
+function getWatchList(): WatchList {
+  const raw = readFileSync(join(process.cwd(), "data", "watchlist.json"), "utf-8");
+  return JSON.parse(raw) as WatchList;
+}
 import { getHistoricalPrices, getQuote, getFinancialData } from "@/lib/api/yahooFinance";
 import { strategies, getStrategyParams } from "@/lib/backtest/strategies";
 import { getExitLevels } from "@/lib/utils/exitLevels";

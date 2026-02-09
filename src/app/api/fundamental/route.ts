@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchFundamentalResearch } from "@/lib/api/webResearch";
 import { runFundamentalAnalysis, validateSignal } from "@/lib/api/llm";
 import { getQuote, getFinancialData } from "@/lib/api/yahooFinance";
+import { getAuthUserId } from "@/lib/supabase/auth";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   getCachedResearch,
   setCachedResearch,
@@ -109,9 +111,30 @@ export async function GET(request: NextRequest) {
         research.rawText
       );
 
-      // キャッシュ保存
+      // キャッシュ保存（ファイル + Supabase）
       if (signalStrategyId && validation.summary) {
         setCachedValidation(symbol, signalStrategyId, validation);
+        // Supabase にも保存
+        try {
+          const userId = await getAuthUserId();
+          const supabase = await createServerSupabaseClient();
+          await supabase.from("signal_validations").upsert(
+            {
+              user_id: userId,
+              symbol,
+              strategy_id: signalStrategyId,
+              decision: validation.decision,
+              signal_evaluation: validation.signalEvaluation,
+              risk_factor: validation.riskFactor,
+              catalyst: validation.catalyst,
+              summary: validation.summary,
+              validated_at: validation.validatedAt ?? new Date().toISOString(),
+            },
+            { onConflict: "user_id,symbol,strategy_id" }
+          );
+        } catch (e) {
+          console.error("Supabase validation save error:", e);
+        }
       }
 
       return NextResponse.json({

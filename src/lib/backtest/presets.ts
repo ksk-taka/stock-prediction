@@ -31,11 +31,11 @@ export interface StrategyPresets {
 export const optimizedPresets: Record<string, StrategyPresets> = {
   ma_cross: {
     daily: {
-      // WF安定性スコア: 0.784, 検証中央値: +6.9%
-      params: { shortPeriod: 2, longPeriod: 5 },
-      winRate: 0,
-      totalReturnPct: 6.9,
-      trades: 0,
+      // 王道パラメータ: お気に入り24銘柄 平均+61.1%, WR57%, 109取引
+      params: { shortPeriod: 5, longPeriod: 25 },
+      winRate: 57,
+      totalReturnPct: 61.1,
+      trades: 109,
     },
     weekly: {
       params: { shortPeriod: 10, longPeriod: 20 },

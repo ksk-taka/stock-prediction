@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getWatchList, addStock, removeStock, updateStockFundamental, toggleFavorite } from "@/lib/data/watchlist";
+import {
+  getWatchList,
+  addStock,
+  removeStock,
+  updateStockFundamental,
+  toggleFavorite,
+} from "@/lib/data/watchlist";
+import { getAuthUserId } from "@/lib/supabase/auth";
 import type { Stock } from "@/types";
 
 export async function GET() {
   try {
-    const list = getWatchList();
+    const userId = await getAuthUserId();
+    const list = await getWatchList(userId);
     return NextResponse.json(list);
   } catch (error) {
     console.error("Watchlist GET error:", error);
@@ -17,6 +25,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const userId = await getAuthUserId();
     const stock: Stock = await request.json();
     if (!stock.symbol || !stock.name || !stock.market) {
       return NextResponse.json(
@@ -24,7 +33,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const list = addStock(stock);
+    const list = await addStock(userId, stock);
     return NextResponse.json(list);
   } catch (error) {
     console.error("Watchlist POST error:", error);
@@ -37,21 +46,29 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    const userId = await getAuthUserId();
     const { symbol } = await request.json();
     if (!symbol) {
-      return NextResponse.json({ error: "symbol is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "symbol is required" },
+        { status: 400 }
+      );
     }
-    const list = toggleFavorite(symbol);
+    const list = await toggleFavorite(userId, symbol);
     const stock = list.stocks.find((s) => s.symbol === symbol);
     return NextResponse.json({ favorite: stock?.favorite ?? false });
   } catch (error) {
     console.error("Watchlist PUT error:", error);
-    return NextResponse.json({ error: "Failed to toggle favorite" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to toggle favorite" },
+      { status: 500 }
+    );
   }
 }
 
 export async function PATCH(request: NextRequest) {
   try {
+    const userId = await getAuthUserId();
     const { symbol, fundamental } = await request.json();
     if (!symbol || !fundamental) {
       return NextResponse.json(
@@ -59,7 +76,7 @@ export async function PATCH(request: NextRequest) {
         { status: 400 }
       );
     }
-    const list = updateStockFundamental(symbol, fundamental);
+    const list = await updateStockFundamental(userId, symbol, fundamental);
     return NextResponse.json(list);
   } catch (error) {
     console.error("Watchlist PATCH error:", error);
@@ -72,6 +89,7 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const userId = await getAuthUserId();
     const { symbol } = await request.json();
     if (!symbol) {
       return NextResponse.json(
@@ -79,7 +97,7 @@ export async function DELETE(request: NextRequest) {
         { status: 400 }
       );
     }
-    const list = removeStock(symbol);
+    const list = await removeStock(userId, symbol);
     return NextResponse.json(list);
   } catch (error) {
     console.error("Watchlist DELETE error:", error);

@@ -28,10 +28,15 @@
     "jquants:master": "npx tsx scripts/fetch-jquants-master.ts",
     "jquants:master:dump": "npx tsx scripts/fetch-jquants-master.ts --dump",
     "jquants:bars": "npx tsx scripts/fetch-jquants-bars.ts",
-    "jquants:bars:all": "npx tsx scripts/fetch-jquants-bars.ts --all"
+    "jquants:bars:all": "npx tsx scripts/fetch-jquants-bars.ts --all",
+    "migrate:supabase": "npx tsx scripts/migrate-watchlist-to-supabase.ts",
+    "sync:pull": "npx tsx scripts/sync-watchlist.ts --pull",
+    "sync:push": "npx tsx scripts/sync-watchlist.ts --push"
   },
   "dependencies": {
     "@slack/bolt": "^4.6.0",
+    "@supabase/ssr": "^0.8.0",
+    "@supabase/supabase-js": "^2.95.3",
     "cheerio": "^1.2.0",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.4",

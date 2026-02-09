@@ -1,4 +1,5 @@
 import { getWatchList } from "@/lib/data/watchlist";
+import { getAuthUserId } from "@/lib/supabase/auth";
 import { getCachedSignals } from "@/lib/cache/signalsCache";
 import { computeAndCacheSignals } from "@/lib/signals/computeSignals";
 
@@ -8,7 +9,8 @@ const EXCLUDE_SYMBOLS = new Set(["7817.T"]);
 const CONCURRENCY = 5;
 
 export async function POST() {
-  const list = getWatchList();
+  const userId = await getAuthUserId();
+  const list = await getWatchList(userId);
   const allSymbols = list.stocks
     .map((s) => s.symbol)
     .filter((s) => !EXCLUDE_SYMBOLS.has(s));
