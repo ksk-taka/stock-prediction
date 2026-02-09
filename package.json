@@ -35,7 +35,12 @@
     "scan:daily": "npx tsx scripts/daily-signal-scan.ts",
     "scan:daily:supabase": "npx tsx scripts/daily-signal-scan.ts --supabase",
     "scan:daily:favorites": "npx tsx scripts/daily-signal-scan.ts --favorites-only --supabase",
-    "scan:daily:dry": "npx tsx scripts/daily-signal-scan.ts --dry-run"
+    "scan:daily:dry": "npx tsx scripts/daily-signal-scan.ts --dry-run",
+    "fetch:earnings": "npx tsx scripts/fetch-earnings.ts",
+    "fetch:earnings:dry": "npx tsx scripts/fetch-earnings.ts --dry-run",
+    "fetch:earnings:kabutan": "npx tsx scripts/fetch-earnings.ts --kabutan-only",
+    "fetch:earnings:tdnet": "npx tsx scripts/fetch-earnings.ts --tdnet-only",
+    "fetch:earnings:edinet": "npx tsx scripts/fetch-earnings.ts --edinet-only"
   },
   "dependencies": {
     "@slack/bolt": "^4.6.0",
