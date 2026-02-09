@@ -15,9 +15,10 @@ export async function GET() {
     const list = await getWatchList(userId);
     return NextResponse.json(list);
   } catch (error) {
-    console.error("Watchlist GET error:", error);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("Watchlist GET error:", message);
     return NextResponse.json(
-      { error: "Failed to read watchlist" },
+      { error: "Failed to read watchlist", detail: message },
       { status: 500 }
     );
   }
