@@ -254,17 +254,81 @@ export default function WatchList() {
         ]);
 
         const merged: Record<string, SignalSummary> = {};
+        let signalsLoaded = false;
 
-        // シグナルインデックス
+        // シグナルインデックス（ローカルファイルキャッシュ）
         if (sigRes.ok) {
           const sigData = await sigRes.json();
-          if (sigData.signals) {
+          if (sigData.signals && sigData.scannedCount > 0) {
             for (const [symbol, value] of Object.entries(sigData.signals)) {
               merged[symbol] = value as SignalSummary;
               signalsFetchedRef.current.add(symbol);
             }
             setSignalScannedCount(sigData.scannedCount ?? 0);
             setSignalLastScannedAt(sigData.lastScannedAt ?? null);
+            signalsLoaded = true;
+          }
+        }
+
+        // Vercelフォールバック: ファイルキャッシュが空ならSupabaseから読む
+        if (!signalsLoaded) {
+          try {
+            const detRes = await fetch("/api/signals/detected");
+            if (detRes.ok) {
+              const detData = await detRes.json();
+              const detSignals = detData.signals ?? [];
+              if (detSignals.length > 0) {
+                for (const sig of detSignals as Array<{
+                  symbol: string;
+                  strategy_id: string;
+                  strategy_name: string;
+                  timeframe: string;
+                  signal_date: string;
+                  buy_price: number;
+                  current_price: number;
+                  exit_levels?: {
+                    takeProfitPrice?: number;
+                    takeProfitLabel?: string;
+                    stopLossPrice?: number;
+                    stopLossLabel?: string;
+                  };
+                }>) {
+                  if (!merged[sig.symbol]) {
+                    merged[sig.symbol] = {
+                      activeSignals: { daily: [], weekly: [] },
+                      recentSignals: { daily: [], weekly: [] },
+                    };
+                  }
+                  const tf = sig.timeframe as "daily" | "weekly";
+                  const pnl = sig.buy_price > 0
+                    ? ((sig.current_price - sig.buy_price) / sig.buy_price) * 100
+                    : 0;
+                  merged[sig.symbol].activeSignals![tf].push({
+                    strategyId: sig.strategy_id,
+                    strategyName: sig.strategy_name,
+                    buyDate: sig.signal_date,
+                    buyPrice: sig.buy_price,
+                    currentPrice: sig.current_price,
+                    pnlPct: pnl,
+                    takeProfitPrice: sig.exit_levels?.takeProfitPrice,
+                    takeProfitLabel: sig.exit_levels?.takeProfitLabel,
+                    stopLossPrice: sig.exit_levels?.stopLossPrice,
+                    stopLossLabel: sig.exit_levels?.stopLossLabel,
+                  });
+                  merged[sig.symbol].recentSignals![tf].push({
+                    strategyId: sig.strategy_id,
+                    strategyName: sig.strategy_name,
+                    date: sig.signal_date,
+                    price: sig.buy_price,
+                  });
+                  signalsFetchedRef.current.add(sig.symbol);
+                }
+                setSignalScannedCount(detData.scan?.total_stocks ?? Object.keys(merged).length);
+                setSignalLastScannedAt(detData.scan?.completed_at ?? null);
+              }
+            }
+          } catch {
+            // ignore Supabase fallback errors
           }
         }
 
@@ -304,40 +368,126 @@ export default function WatchList() {
         method: "POST",
         signal: abort.signal,
       });
-      if (!res.ok || !res.body) throw new Error("Scan request failed");
+      if (!res.ok) throw new Error("Scan request failed");
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
+      const data = await res.json();
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
+      if (data.scanId) {
+        // Vercel: GHA triggered → poll scan status until completion
+        const POLL_INTERVAL = 10_000;
+        const POLL_TIMEOUT = 70 * 60 * 1000;
 
-        const lines = buf.split("\n\n");
-        buf = lines.pop() ?? "";
+        await new Promise<void>((resolve, reject) => {
+          let intervalId: ReturnType<typeof setInterval>;
 
-        for (const line of lines) {
-          const match = line.match(/^data:\s*(.+)$/m);
-          if (!match) continue;
-          try {
-            const evt = JSON.parse(match[1]);
-            if (evt.type === "progress" || evt.type === "done") {
-              setSignalScanProgress({ scanned: evt.scanned, total: evt.total });
+          const timeoutId = setTimeout(() => {
+            clearInterval(intervalId);
+            reject(new Error("スキャンがタイムアウトしました"));
+          }, POLL_TIMEOUT);
+
+          const cleanup = () => {
+            clearInterval(intervalId);
+            clearTimeout(timeoutId);
+          };
+
+          const onAbort = () => {
+            cleanup();
+            reject(new DOMException("Aborted", "AbortError"));
+          };
+          abort.signal.addEventListener("abort", onAbort, { once: true });
+
+          intervalId = setInterval(async () => {
+            try {
+              const statusRes = await fetch(
+                `/api/signals/scan/status?scanId=${data.scanId}`,
+              );
+              if (!statusRes.ok) return;
+              const scan = await statusRes.json();
+
+              const current = scan.progress?.current ?? scan.processed_stocks ?? 0;
+              const total = scan.progress?.total ?? scan.total_stocks ?? 0;
+              if (total > 0) {
+                setSignalScanProgress({ scanned: current, total });
+              }
+
+              if (scan.status === "completed") {
+                cleanup();
+                abort.signal.removeEventListener("abort", onAbort);
+                setSignalLastScannedAt(scan.completed_at ?? new Date().toISOString());
+                resolve();
+              } else if (scan.status === "failed") {
+                cleanup();
+                abort.signal.removeEventListener("abort", onAbort);
+                reject(new Error(scan.error_message ?? "スキャンが失敗しました"));
+              }
+            } catch {
+              // network error, keep polling
             }
-            if (evt.type === "done") {
-              setSignalLastScannedAt(evt.completedAt);
-            }
-          } catch { /* skip parse error */ }
-        }
+          }, POLL_INTERVAL);
+        });
       }
 
-      // 完了後にシグナルインデックスを再読み込み
-      const sigRes = await fetch("/api/signals/index");
+      // 完了後にシグナルデータを再読み込み
+      const sigUrl = data?.scanId
+        ? `/api/signals/detected?scanId=${data.scanId}`
+        : "/api/signals/index";
+      const sigRes = await fetch(sigUrl);
       if (sigRes.ok) {
         const sigData = await sigRes.json();
-        if (sigData.signals) {
+
+        if (sigData.signals && Array.isArray(sigData.signals)) {
+          // Supabase detected_signals → SignalSummary 変換
+          const merged: Record<string, SignalSummary> = {};
+          for (const sig of sigData.signals as Array<{
+            symbol: string;
+            strategy_id: string;
+            strategy_name: string;
+            timeframe: string;
+            signal_date: string;
+            buy_price: number;
+            current_price: number;
+            exit_levels?: {
+              takeProfitPrice?: number;
+              takeProfitLabel?: string;
+              stopLossPrice?: number;
+              stopLossLabel?: string;
+            };
+          }>) {
+            if (!merged[sig.symbol]) {
+              merged[sig.symbol] = {
+                activeSignals: { daily: [], weekly: [] },
+                recentSignals: { daily: [], weekly: [] },
+              };
+            }
+            const tf = sig.timeframe as "daily" | "weekly";
+            const pnl = sig.buy_price > 0
+              ? ((sig.current_price - sig.buy_price) / sig.buy_price) * 100
+              : 0;
+            merged[sig.symbol].activeSignals![tf].push({
+              strategyId: sig.strategy_id,
+              strategyName: sig.strategy_name,
+              buyDate: sig.signal_date,
+              buyPrice: sig.buy_price,
+              currentPrice: sig.current_price,
+              pnlPct: pnl,
+              takeProfitPrice: sig.exit_levels?.takeProfitPrice,
+              takeProfitLabel: sig.exit_levels?.takeProfitLabel,
+              stopLossPrice: sig.exit_levels?.stopLossPrice,
+              stopLossLabel: sig.exit_levels?.stopLossLabel,
+            });
+            merged[sig.symbol].recentSignals![tf].push({
+              strategyId: sig.strategy_id,
+              strategyName: sig.strategy_name,
+              date: sig.signal_date,
+              price: sig.buy_price,
+            });
+            signalsFetchedRef.current.add(sig.symbol);
+          }
+          setSignals((prev) => ({ ...prev, ...merged }));
+          setSignalScannedCount(sigData.scan?.total_stocks ?? Object.keys(merged).length);
+          setSignalLastScannedAt(sigData.scan?.completed_at ?? new Date().toISOString());
+        } else if (sigData.signals && !Array.isArray(sigData.signals)) {
+          // ローカルファイルキャッシュ形式 (signals/index)
           const merged: Record<string, SignalSummary> = {};
           for (const [symbol, value] of Object.entries(sigData.signals)) {
             merged[symbol] = value as SignalSummary;
