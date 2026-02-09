@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await supabase
     .from("new_highs_scans")
-    .select("id, status, stock_count, breakout_count, error_message, started_at, completed_at")
+    .select("id, status, stock_count, breakout_count, error_message, started_at, completed_at, progress")
     .eq("id", parseInt(scanId, 10))
     .single();
 

@@ -189,10 +189,11 @@ function parseKabutanHtml(
   return { stocks, hasNextPage, totalStocks };
 }
 
-async function fetchAllKabutanPages(maxPages?: number, debug = false): Promise<KabutanStock[]> {
+async function fetchAllKabutanPages(maxPages?: number, debug = false, scanId?: number): Promise<KabutanStock[]> {
   const allStocks: KabutanStock[] = [];
   let page = 1;
   let hasNext = true;
+  let estimatedTotalPages = maxPages ?? 130; // 推定値
 
   console.log("Kabutan 年初来高値ページをスクレイピング中...");
 
@@ -205,8 +206,8 @@ async function fetchAllKabutanPages(maxPages?: number, debug = false): Promise<K
       hasNext = result.hasNextPage;
 
       if (page === 1 && result.totalStocks) {
-        const totalPages = Math.ceil(result.totalStocks / 50);
-        console.log(`  合計: ${result.totalStocks}銘柄 (推定${totalPages}ページ)`);
+        estimatedTotalPages = Math.ceil(result.totalStocks / 50);
+        console.log(`  合計: ${result.totalStocks}銘柄 (推定${estimatedTotalPages}ページ)`);
       }
 
       if (page === 1 && result.stocks.length === 0) {
@@ -220,6 +221,17 @@ async function fetchAllKabutanPages(maxPages?: number, debug = false): Promise<K
       }
 
       process.stdout.write(`\r  ページ ${page} 取得完了 (累計 ${allStocks.length} 銘柄)`);
+
+      // 10ページごとに進捗報告
+      if (scanId && page % 10 === 0) {
+        const total = maxPages ? Math.min(maxPages, estimatedTotalPages) : estimatedTotalPages;
+        await updateProgress(scanId, {
+          stage: "kabutan",
+          current: page,
+          total,
+          message: `Kabutan: ${page}/${total}ページ取得中`,
+        });
+      }
 
       if (hasNext && !(maxPages && page >= maxPages)) {
         await sleep(KABUTAN_DELAY_MS);
@@ -300,7 +312,7 @@ function detectConsolidation(
   return { days, rangePct };
 }
 
-async function addConsolidationData(stocks: BreakoutStock[]): Promise<void> {
+async function addConsolidationData(stocks: BreakoutStock[], scanId?: number): Promise<void> {
   const targets = stocks.filter((s) => s.isTrue52wBreakout);
   if (targets.length === 0) return;
 
@@ -311,6 +323,15 @@ async function addConsolidationData(stocks: BreakoutStock[]): Promise<void> {
 
   const period1 = new Date();
   period1.setDate(period1.getDate() - 120);
+
+  if (scanId) {
+    await updateProgress(scanId, {
+      stage: "consolidation",
+      current: 0,
+      total: targets.length,
+      message: `もみ合い分析: 0/${targets.length}銘柄`,
+    });
+  }
 
   for (let i = 0; i < targets.length; i += BATCH_SIZE) {
     const batch = targets.slice(i, i + BATCH_SIZE);
@@ -341,13 +362,22 @@ async function addConsolidationData(stocks: BreakoutStock[]): Promise<void> {
 
     completed += batch.length;
     process.stdout.write(`\r  [${completed}/${targets.length}] 分析完了`);
+
+    if (scanId) {
+      await updateProgress(scanId, {
+        stage: "consolidation",
+        current: Math.min(completed, targets.length),
+        total: targets.length,
+        message: `もみ合い分析: ${Math.min(completed, targets.length)}/${targets.length}銘柄`,
+      });
+    }
   }
   console.log("");
 }
 
 // ── 52-Week High Check ─────────────────────────────────────
 
-async function checkFiftyTwoWeekBreakouts(stocks: KabutanStock[]): Promise<BreakoutStock[]> {
+async function checkFiftyTwoWeekBreakouts(stocks: KabutanStock[], scanId?: number): Promise<BreakoutStock[]> {
   const results: BreakoutStock[] = [];
   let completed = 0;
   let errors = 0;
@@ -406,6 +436,16 @@ async function checkFiftyTwoWeekBreakouts(stocks: KabutanStock[]): Promise<Break
     process.stdout.write(
       `\r  [${completed}/${stocks.length}] チェック完了${errors > 0 ? ` (エラー: ${errors}件)` : ""}`,
     );
+
+    // 3バッチ(90銘柄)ごとに進捗報告
+    if (scanId && Math.floor(i / BATCH_SIZE) % 3 === 0) {
+      await updateProgress(scanId, {
+        stage: "yf_check",
+        current: completed,
+        total: stocks.length,
+        message: `52週高値チェック: ${completed}/${stocks.length}銘柄`,
+      });
+    }
   }
 
   console.log("");
@@ -541,6 +581,26 @@ function writeCsv(stocks: BreakoutStock[]): string {
   return csvPath;
 }
 
+// ── Supabase Progress ─────────────────────────────────────
+
+interface ScanProgress {
+  stage: "kabutan" | "yf_check" | "consolidation" | "uploading";
+  current: number;
+  total: number;
+  message: string;
+}
+
+async function updateProgress(scanId: number | undefined, progress: ScanProgress): Promise<void> {
+  if (!scanId) return;
+  try {
+    const supabase = createServiceClient();
+    await supabase
+      .from("new_highs_scans")
+      .update({ progress })
+      .eq("id", scanId);
+  } catch { /* best effort */ }
+}
+
 // ── Supabase Upload ──────────────────────────────────────
 
 async function uploadScanResults(
@@ -606,8 +666,18 @@ async function main() {
   console.log(`  出力: ${breakoutOnly ? "52週高値ブレイクアウトのみ" : "年初来高値全件"}`);
   console.log("=".repeat(60));
 
+  // 初期進捗 (GitHub Actions 用)
+  if (doSupabase && scanId) {
+    await updateProgress(scanId, {
+      stage: "kabutan",
+      current: 0,
+      total: maxPages ?? 130,
+      message: "Kabutan スクレイピング開始...",
+    });
+  }
+
   // Step 1: Scrape Kabutan
-  const allStocks = await fetchAllKabutanPages(maxPages, debug);
+  const allStocks = await fetchAllKabutanPages(maxPages, debug, doSupabase ? scanId : undefined);
   if (allStocks.length === 0) {
     console.error("Kabutan からデータを取得できませんでした。");
     process.exit(1);
@@ -627,13 +697,13 @@ async function main() {
   }
 
   // Step 4: 52-week high check
-  const breakouts = await checkFiftyTwoWeekBreakouts(perFiltered);
+  const breakouts = await checkFiftyTwoWeekBreakouts(perFiltered, doSupabase ? scanId : undefined);
   const true52wBreakouts = breakouts.filter((s) => s.isTrue52wBreakout);
 
   console.log(`\n52週高値ブレイクアウト: ${true52wBreakouts.length} / ${breakouts.length} 銘柄`);
 
   // Step 5: Consolidation analysis
-  await addConsolidationData(breakouts);
+  await addConsolidationData(breakouts, doSupabase ? scanId : undefined);
   const withConsolidation = true52wBreakouts.filter((s) => s.consolidationDays >= 10);
   console.log(`もみ合い (≥10日) 付きブレイクアウト: ${withConsolidation.length} 銘柄`);
 
@@ -651,6 +721,14 @@ async function main() {
 
   // Step 8: Supabase upload
   if (doSupabase) {
+    if (scanId) {
+      await updateProgress(scanId, {
+        stage: "uploading",
+        current: 0,
+        total: 0,
+        message: "結果アップロード中...",
+      });
+    }
     await uploadScanResults(displayStocks, scanId);
   }
 

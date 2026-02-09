@@ -72,6 +72,7 @@ export default function NewHighsPage() {
   const [consolidationOnly, setConsolidationOnly] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState<string | null>(null);
+  const [scanProgress, setScanProgress] = useState<{ stage: string; current: number; total: number; message: string } | null>(null);
   const pollingRef = useRef<{ interval: ReturnType<typeof setInterval>; timeout: ReturnType<typeof setTimeout> } | null>(null);
 
   const loadData = useCallback(async () => {
@@ -122,6 +123,7 @@ export default function NewHighsPage() {
             pollingRef.current = null;
           }
           setScanStatus(null);
+          setScanProgress(null);
           setScanning(false);
           await loadData();
         } else if (data.status === "failed") {
@@ -131,8 +133,11 @@ export default function NewHighsPage() {
             pollingRef.current = null;
           }
           setScanStatus(null);
+          setScanProgress(null);
           setScanning(false);
           setError(data.error_message ?? "スキャンが失敗しました");
+        } else if (data.progress) {
+          setScanProgress(data.progress);
         }
       } catch {
         // ネットワークエラー → 継続
@@ -143,6 +148,7 @@ export default function NewHighsPage() {
       clearInterval(interval);
       pollingRef.current = null;
       setScanStatus(null);
+      setScanProgress(null);
       setScanning(false);
       setError("スキャンがタイムアウトしました。ページを再読み込みしてください。");
     }, 5 * 60 * 1000);
@@ -161,6 +167,7 @@ export default function NewHighsPage() {
         setError(data.error ?? "スキャンに失敗しました");
         setScanning(false);
         setScanStatus(null);
+        setScanProgress(null);
         return;
       }
 
@@ -173,11 +180,13 @@ export default function NewHighsPage() {
         await loadData();
         setScanning(false);
         setScanStatus(null);
+        setScanProgress(null);
       }
     } catch {
       setError("スキャンの実行に失敗しました");
       setScanning(false);
       setScanStatus(null);
+      setScanProgress(null);
     }
   };
 
@@ -272,7 +281,13 @@ export default function NewHighsPage() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                {scanStatus === "running" ? "スキャン実行中..." : "スキャン中..."}
+                {scanProgress
+                  ? scanProgress.stage === "kabutan" ? "取得中..."
+                    : scanProgress.stage === "yf_check" ? "チェック中..."
+                    : scanProgress.stage === "consolidation" ? "分析中..."
+                    : "完了処理中..."
+                  : scanStatus === "running" ? "スキャン実行中..."
+                  : "スキャン中..."}
               </>
             ) : (
               <>
@@ -285,6 +300,38 @@ export default function NewHighsPage() {
           </button>
         </div>
       </div>
+
+      {/* Progress Bar */}
+      {scanning && scanProgress && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-900/20">
+          <div className="mb-1.5 flex items-center justify-between text-xs">
+            <span className="font-medium text-blue-700 dark:text-blue-300">
+              {scanProgress.message}
+            </span>
+            {scanProgress.total > 0 && (
+              <span className="text-blue-500 dark:text-blue-400">
+                {Math.round((scanProgress.current / scanProgress.total) * 100)}%
+              </span>
+            )}
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-blue-100 dark:bg-blue-900/50">
+            <div
+              className="h-full rounded-full bg-blue-500 transition-all duration-500 ease-out dark:bg-blue-400"
+              style={{
+                width: scanProgress.total > 0
+                  ? `${Math.min(100, (scanProgress.current / scanProgress.total) * 100)}%`
+                  : "100%",
+              }}
+            />
+          </div>
+          <div className="mt-1 text-[10px] text-blue-400 dark:text-blue-500">
+            {scanProgress.stage === "kabutan" && "Kabutan年初来高値ページ取得中"}
+            {scanProgress.stage === "yf_check" && "Yahoo Finance 52週高値データ取得中"}
+            {scanProgress.stage === "consolidation" && "もみ合いパターン分析中"}
+            {scanProgress.stage === "uploading" && "結果をアップロード中"}
+          </div>
+        </div>
+      )}
 
       {error && stocks.length === 0 && (
         <div className="rounded-lg bg-yellow-50 p-4 text-sm text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200">
