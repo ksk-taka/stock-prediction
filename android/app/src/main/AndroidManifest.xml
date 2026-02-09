@@ -7,38 +7,21 @@
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="${launcherName}"
-        android:theme="@style/Theme.AIStock"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:supportsRtl="true">
 
         <meta-data
             android:name="asset_statements"
             android:value="${assetStatements}" />
 
-        <!-- TWA Launcher (from android-browser-helper) -->
+        <!-- TWA Launcher (minimal config) -->
         <activity
             android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
-            android:exported="true"
-            android:theme="@style/Theme.AIStock.Splash">
+            android:exported="true">
 
             <meta-data
                 android:name="android.support.customtabs.trusted.DEFAULT_URL"
                 android:value="${defaultUrl}" />
-
-            <meta-data
-                android:name="android.support.customtabs.trusted.STATUS_BAR_COLOR"
-                android:value="${themeColor}" />
-
-            <meta-data
-                android:name="android.support.customtabs.trusted.NAVIGATION_BAR_COLOR"
-                android:value="${themeColor}" />
-
-            <meta-data
-                android:name="android.support.customtabs.trusted.SPLASH_IMAGE_DRAWABLE"
-                android:resource="@drawable/splash" />
-
-            <meta-data
-                android:name="android.support.customtabs.trusted.SPLASH_SCREEN_BACKGROUND_COLOR"
-                android:value="${backgroundColor}" />
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -54,5 +37,8 @@
                     android:host="${hostName}" />
             </intent-filter>
         </activity>
+
+        <!-- Fallback: open in browser if TWA not supported -->
+        <activity android:name="com.google.androidbrowserhelper.trusted.FocusActivity" />
     </application>
 </manifest>
