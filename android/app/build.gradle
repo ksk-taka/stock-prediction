@@ -10,39 +10,13 @@ android {
         applicationId "com.aistock.twa"
         minSdk 23
         targetSdk 34
-        versionCode 1
-        versionName "1.0.0"
-
-        manifestPlaceholders = [
-            hostName: "stock-prediction-3dj0nf2re-ksk-takas-projects.vercel.app",
-            defaultUrl: "https://stock-prediction-3dj0nf2re-ksk-takas-projects.vercel.app",
-            launcherName: "AI Stock",
-            themeColor: "#3b82f6",
-            backgroundColor: "#f9fafb",
-            assetStatements: '[{ "relation": ["delegate_permission/common.handle_all_urls"], ' +
-                '"target": { "namespace": "web", ' +
-                '"site": "https://stock-prediction-3dj0nf2re-ksk-takas-projects.vercel.app" } }]'
-        ]
-    }
-
-    signingConfigs {
-        release {
-            if (System.getenv("KEYSTORE_FILE")) {
-                storeFile file(System.getenv("KEYSTORE_FILE"))
-                storePassword System.getenv("KEYSTORE_PASSWORD")
-                keyAlias System.getenv("KEY_ALIAS")
-                keyPassword System.getenv("KEY_PASSWORD")
-            }
-        }
+        versionCode 2
+        versionName "1.0.1"
     }
 
     buildTypes {
         release {
-            minifyEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
-            if (System.getenv("KEYSTORE_FILE")) {
-                signingConfig signingConfigs.release
-            }
+            minifyEnabled false
         }
     }
 
@@ -53,5 +27,5 @@ android {
 }
 
 dependencies {
-    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+    // WebView方式: 外部ライブラリ不要
 }
