@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, type TouchEvent as ReactTouchEvent } from "react";
 import StockCard from "./StockCard";
 import AddStockModal from "./AddStockModal";
 import { isJPMarketOpen, isUSMarketOpen } from "@/lib/utils/date";
@@ -130,6 +130,13 @@ export default function WatchList() {
   const [signalScanProgress, setSignalScanProgress] = useState<{ scanned: number; total: number } | null>(null);
   const signalScanAbortRef = useRef<AbortController | null>(null);
 
+  // Pull-to-refresh
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const touchStartY = useRef(0);
+  const isPulling = useRef(false);
+  const PULL_THRESHOLD = 60;
+
   useEffect(() => {
     setFilterPresets(loadPresets());
   }, []);
@@ -154,6 +161,42 @@ export default function WatchList() {
   useEffect(() => {
     fetchWatchlist();
   }, [fetchWatchlist]);
+
+  // Pull-to-refresh handlers (fetchWatchlist の後に定義)
+  const onTouchStart = useCallback((e: ReactTouchEvent) => {
+    if (window.scrollY === 0 && !isRefreshing) {
+      touchStartY.current = e.touches[0].clientY;
+      isPulling.current = true;
+    }
+  }, [isRefreshing]);
+
+  const onTouchMove = useCallback((e: ReactTouchEvent) => {
+    if (!isPulling.current) return;
+    const delta = e.touches[0].clientY - touchStartY.current;
+    if (delta > 0) {
+      setPullDistance(Math.min(delta * 0.4, 100));
+    } else {
+      isPulling.current = false;
+      setPullDistance(0);
+    }
+  }, []);
+
+  const onTouchEnd = useCallback(async () => {
+    if (!isPulling.current) return;
+    isPulling.current = false;
+    if (pullDistance >= PULL_THRESHOLD) {
+      setIsRefreshing(true);
+      setPullDistance(PULL_THRESHOLD);
+      try {
+        await fetchWatchlist();
+      } finally {
+        setIsRefreshing(false);
+        setPullDistance(0);
+      }
+    } else {
+      setPullDistance(0);
+    }
+  }, [pullDistance, fetchWatchlist]);
 
   // 新高値スキャンデータを読み込み（フィルタ用）
   const loadNewHighs = useCallback(async () => {
@@ -698,7 +741,34 @@ export default function WatchList() {
   }
 
   return (
-    <div>
+    <div onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+      {/* Pull-to-refresh indicator */}
+      {(pullDistance > 0 || isRefreshing) && (
+        <div
+          className="flex items-center justify-center overflow-hidden transition-[height] duration-200 ease-out"
+          style={{ height: isRefreshing ? PULL_THRESHOLD : pullDistance }}
+        >
+          <svg
+            className={`h-6 w-6 text-gray-400 dark:text-slate-500 ${isRefreshing ? "animate-spin" : ""}`}
+            style={{
+              transform: isRefreshing
+                ? undefined
+                : `rotate(${Math.min((pullDistance / PULL_THRESHOLD) * 180, 180)}deg)`,
+              opacity: Math.min(pullDistance / PULL_THRESHOLD, 1),
+            }}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            {isRefreshing ? (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            )}
+          </svg>
+        </div>
+      )}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">ウォッチリスト</h2>
