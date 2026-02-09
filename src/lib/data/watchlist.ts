@@ -34,7 +34,7 @@ export async function getWatchList(userId: string): Promise<WatchList> {
       .from("fundamental_judgments")
       .select("*")
       .eq("user_id", userId)
-      .range(from, from + PAGE_SIZE);
+      .range(from, from + PAGE_SIZE - 1);
     if (error) throw error;
     const rows = (data ?? []) as JudgmentRow[];
     allJudgments.push(...rows);
