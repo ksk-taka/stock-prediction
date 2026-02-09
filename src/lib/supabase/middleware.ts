@@ -28,14 +28,21 @@ export async function updateSession(request: NextRequest) {
   // OAuth code が URL にある場合、ここで exchange する
   const code = request.nextUrl.searchParams.get("code");
   if (code) {
-    await supabase.auth.exchangeCodeForSession(code);
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
     // code パラメータを除去してリダイレクト
     const url = request.nextUrl.clone();
     url.searchParams.delete("code");
+    if (error) {
+      // exchange 失敗 → ログインページに戻す
+      console.error("Code exchange error:", error.message);
+      url.pathname = "/login";
+      url.searchParams.set("error", "auth_failed");
+    }
     const redirectResponse = NextResponse.redirect(url);
-    // exchange で設定された cookie をリダイレクトレスポンスにコピー
+    // exchange で設定された cookie をリダイレクトレスポンスにコピー（全オプション付き）
     supabaseResponse.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie.name, cookie.value);
+      const { name, value, ...options } = cookie;
+      redirectResponse.cookies.set(name, value, options);
     });
     return redirectResponse;
   }
