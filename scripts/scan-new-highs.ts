@@ -10,10 +10,16 @@
 //   npx tsx scripts/scan-new-highs.ts --all-ytd       # 52w判定なし全件表示
 //   npx tsx scripts/scan-new-highs.ts --pages 2       # テスト用(2ページのみ)
 //   npx tsx scripts/scan-new-highs.ts --debug         # HTMLデバッグ出力
+//   npx tsx scripts/scan-new-highs.ts --supabase      # Supabaseにアップロード
+//   npx tsx scripts/scan-new-highs.ts --scan-id 42    # 既存レコードを更新 (GitHub Actions用)
 // ============================================================
+
+import dotenv from "dotenv";
+dotenv.config({ path: ".env.local" });
 
 import { writeFileSync } from "fs";
 import { join } from "path";
+import { createServiceClient } from "@/lib/supabase/service";
 import * as cheerio from "cheerio";
 import YahooFinance from "yahoo-finance2";
 import { yfQueue } from "@/lib/utils/requestQueue";
@@ -62,7 +68,10 @@ function parseArgs() {
   const breakoutOnly = !args.includes("--all-ytd");
   const debug = args.includes("--debug");
 
-  return { outputCsv, perMin, perMax, marketFilter, maxPages, breakoutOnly, debug };
+  const uploadToSupabase = args.includes("--supabase");
+  const scanId = get("--scan-id") ? parseInt(get("--scan-id")!, 10) : undefined;
+
+  return { outputCsv, perMin, perMax, marketFilter, maxPages, breakoutOnly, debug, uploadToSupabase, scanId };
 }
 
 // ── Kabutan Scraping ───────────────────────────────────────
@@ -532,10 +541,60 @@ function writeCsv(stocks: BreakoutStock[]): string {
   return csvPath;
 }
 
+// ── Supabase Upload ──────────────────────────────────────
+
+async function uploadScanResults(
+  stocks: BreakoutStock[],
+  scanId?: number,
+): Promise<void> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseKey) {
+    console.error("Supabase env vars not set, skipping upload");
+    return;
+  }
+
+  const supabase = createServiceClient();
+  const breakouts = stocks.filter((s) => s.isTrue52wBreakout);
+
+  const payload = {
+    status: "completed" as const,
+    stocks: JSON.stringify(stocks),
+    stock_count: stocks.length,
+    breakout_count: breakouts.length,
+    completed_at: new Date().toISOString(),
+  };
+
+  if (scanId) {
+    const { error } = await supabase
+      .from("new_highs_scans")
+      .update(payload)
+      .eq("id", scanId);
+    if (error) console.error("Supabase update error:", error);
+    else console.log(`Supabase scan #${scanId} updated`);
+  } else {
+    const { error } = await supabase
+      .from("new_highs_scans")
+      .insert(payload);
+    if (error) console.error("Supabase insert error:", error);
+    else console.log("Supabase scan result uploaded");
+  }
+}
+
+async function markScanFailed(scanId: number, errorMsg: string): Promise<void> {
+  try {
+    const supabase = createServiceClient();
+    await supabase
+      .from("new_highs_scans")
+      .update({ status: "failed", error_message: errorMsg, completed_at: new Date().toISOString() })
+      .eq("id", scanId);
+  } catch { /* best effort */ }
+}
+
 // ── Main ───────────────────────────────────────────────────
 
 async function main() {
-  const { outputCsv, perMin, perMax, marketFilter, maxPages, breakoutOnly, debug } = parseArgs();
+  const { outputCsv, perMin, perMax, marketFilter, maxPages, breakoutOnly, debug, uploadToSupabase: doSupabase, scanId } = parseArgs();
   const startTime = Date.now();
 
   console.log("=".repeat(60));
@@ -582,11 +641,17 @@ async function main() {
   printResults(breakouts, breakoutOnly);
 
   // Step 7: CSV
+  const displayStocks = breakoutOnly ? true52wBreakouts : breakouts;
+  displayStocks.sort((a, b) => b.pctAbove52wHigh - a.pctAbove52wHigh);
+
   if (outputCsv) {
-    const displayStocks = breakoutOnly ? true52wBreakouts : breakouts;
-    displayStocks.sort((a, b) => b.pctAbove52wHigh - a.pctAbove52wHigh);
     const csvPath = writeCsv(displayStocks);
     console.log(`\nCSV出力: ${csvPath}`);
+  }
+
+  // Step 8: Supabase upload
+  if (doSupabase) {
+    await uploadScanResults(displayStocks, scanId);
   }
 
   // Summary
@@ -599,7 +664,11 @@ async function main() {
   console.log("=".repeat(60));
 }
 
-main().catch((err) => {
+main().catch(async (err) => {
   console.error("Fatal error:", err);
+  const { scanId, uploadToSupabase: doSupabase } = parseArgs();
+  if (doSupabase && scanId) {
+    await markScanFailed(scanId, String(err));
+  }
   process.exit(1);
 });

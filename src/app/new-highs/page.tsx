@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
 
 interface Stock {
@@ -71,6 +71,8 @@ export default function NewHighsPage() {
   const [breakoutOnly, setBreakoutOnly] = useState(true);
   const [consolidationOnly, setConsolidationOnly] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [scanStatus, setScanStatus] = useState<string | null>(null);
+  const pollingRef = useRef<{ interval: ReturnType<typeof setInterval>; timeout: ReturnType<typeof setTimeout> } | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -91,21 +93,91 @@ export default function NewHighsPage() {
     loadData();
   }, [loadData]);
 
+  // ポーリングクリーンアップ
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current.interval);
+        clearTimeout(pollingRef.current.timeout);
+      }
+    };
+  }, []);
+
+  const startPolling = useCallback((scanId: number) => {
+    // 既存のポーリングをクリア
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current.interval);
+      clearTimeout(pollingRef.current.timeout);
+    }
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/new-highs/status?scanId=${scanId}`);
+        const data = await res.json();
+
+        if (data.status === "completed") {
+          if (pollingRef.current) {
+            clearInterval(pollingRef.current.interval);
+            clearTimeout(pollingRef.current.timeout);
+            pollingRef.current = null;
+          }
+          setScanStatus(null);
+          setScanning(false);
+          await loadData();
+        } else if (data.status === "failed") {
+          if (pollingRef.current) {
+            clearInterval(pollingRef.current.interval);
+            clearTimeout(pollingRef.current.timeout);
+            pollingRef.current = null;
+          }
+          setScanStatus(null);
+          setScanning(false);
+          setError(data.error_message ?? "スキャンが失敗しました");
+        }
+      } catch {
+        // ネットワークエラー → 継続
+      }
+    }, 10_000);
+
+    const timeout = setTimeout(() => {
+      clearInterval(interval);
+      pollingRef.current = null;
+      setScanStatus(null);
+      setScanning(false);
+      setError("スキャンがタイムアウトしました。ページを再読み込みしてください。");
+    }, 5 * 60 * 1000);
+
+    pollingRef.current = { interval, timeout };
+  }, [loadData]);
+
   const handleScan = async () => {
     setScanning(true);
     setError(null);
+    setScanStatus("starting");
     try {
       const res = await fetch("/api/new-highs/scan", { method: "POST" });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "スキャンに失敗しました");
+        setScanning(false);
+        setScanStatus(null);
         return;
       }
-      await loadData();
+
+      if (data.scanId) {
+        // Vercel: GitHub Actions で非同期実行 → ポーリング開始
+        setScanStatus("running");
+        startPolling(data.scanId);
+      } else {
+        // ローカル: 同期的に完了済み
+        await loadData();
+        setScanning(false);
+        setScanStatus(null);
+      }
     } catch {
       setError("スキャンの実行に失敗しました");
-    } finally {
       setScanning(false);
+      setScanStatus(null);
     }
   };
 
@@ -200,7 +272,7 @@ export default function NewHighsPage() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                スキャン中...
+                {scanStatus === "running" ? "スキャン実行中..." : "スキャン中..."}
               </>
             ) : (
               <>

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { readdirSync, readFileSync } from "fs";
-import { join } from "path";
+import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
@@ -23,8 +22,67 @@ interface NewHighStock {
   consolidationRangePct: number;
 }
 
+const isVercel = !!process.env.VERCEL;
+
+export async function GET() {
+  try {
+    // Supabase が設定されていれば Supabase から取得
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      const result = await getFromSupabase();
+      if (result) return result;
+    }
+
+    // Vercel 上で Supabase にデータなし
+    if (isVercel) {
+      return NextResponse.json({
+        stocks: [],
+        scannedAt: null,
+        error: "スキャンデータがありません。スキャンを実行してください。",
+      });
+    }
+
+    // ローカル: CSV フォールバック
+    return await getFromCsv();
+  } catch (err) {
+    return NextResponse.json(
+      { stocks: [], error: String(err) },
+      { status: 500 },
+    );
+  }
+}
+
+async function getFromSupabase(): Promise<NextResponse | null> {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+
+  const { data, error } = await supabase
+    .from("new_highs_scans")
+    .select("*")
+    .eq("status", "completed")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (error || !data) return null;
+
+  const stocks: NewHighStock[] = typeof data.stocks === "string"
+    ? JSON.parse(data.stocks)
+    : data.stocks;
+
+  return NextResponse.json({
+    stocks,
+    scannedAt: data.completed_at,
+    scanId: data.id,
+    stockCount: data.stock_count,
+    breakoutCount: data.breakout_count,
+  });
+}
+
+// ── CSV fallback (ローカル開発用) ──────────────────────────
+
 function parseRow(header: string[], row: string): NewHighStock | null {
-  // Handle quoted fields
   const fields: string[] = [];
   let current = "";
   let inQuote = false;
@@ -68,47 +126,42 @@ function parseRow(header: string[], row: string): NewHighStock | null {
   };
 }
 
-export async function GET() {
-  try {
-    const dataDir = join(process.cwd(), "data");
-    const files = readdirSync(dataDir)
-      .filter((f) => f.startsWith("new-highs-") && f.endsWith(".csv"))
-      .sort()
-      .reverse();
+async function getFromCsv(): Promise<NextResponse> {
+  const { readdirSync, readFileSync } = await import("fs");
+  const { join } = await import("path");
 
-    if (files.length === 0) {
-      return NextResponse.json({
-        stocks: [],
-        scannedAt: null,
-        error: "CSVデータがありません。npm run scan:highs:csv を実行してください。",
-      });
-    }
+  const dataDir = join(process.cwd(), "data");
+  const files = readdirSync(dataDir)
+    .filter((f) => f.startsWith("new-highs-") && f.endsWith(".csv"))
+    .sort()
+    .reverse();
 
-    const latestFile = files[0];
-    // Extract timestamp from filename: new-highs-2026-02-08T13-08-15.csv
-    const tsMatch = latestFile.match(/new-highs-(.+)\.csv/);
-    const scannedAt = tsMatch
-      ? tsMatch[1].replace(/T/, "T").replace(/-(\d{2})-(\d{2})$/, ":$1:$2")
-      : null;
-
-    const content = readFileSync(join(dataDir, latestFile), "utf-8");
-    const lines = content.trim().split("\n");
-    if (lines.length < 2) {
-      return NextResponse.json({ stocks: [], scannedAt, error: "CSVが空です" });
-    }
-
-    const header = lines[0].split(",");
-    const stocks: NewHighStock[] = [];
-    for (let i = 1; i < lines.length; i++) {
-      const row = parseRow(header, lines[i]);
-      if (row) stocks.push(row);
-    }
-
-    return NextResponse.json({ stocks, scannedAt, file: latestFile });
-  } catch (err) {
-    return NextResponse.json(
-      { stocks: [], error: String(err) },
-      { status: 500 },
-    );
+  if (files.length === 0) {
+    return NextResponse.json({
+      stocks: [],
+      scannedAt: null,
+      error: "CSVデータがありません。npm run scan:highs:csv を実行してください。",
+    });
   }
+
+  const latestFile = files[0];
+  const tsMatch = latestFile.match(/new-highs-(.+)\.csv/);
+  const scannedAt = tsMatch
+    ? tsMatch[1].replace(/T/, "T").replace(/-(\d{2})-(\d{2})$/, ":$1:$2")
+    : null;
+
+  const content = readFileSync(join(dataDir, latestFile), "utf-8");
+  const lines = content.trim().split("\n");
+  if (lines.length < 2) {
+    return NextResponse.json({ stocks: [], scannedAt, error: "CSVが空です" });
+  }
+
+  const header = lines[0].split(",");
+  const stocks: NewHighStock[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const row = parseRow(header, lines[i]);
+    if (row) stocks.push(row);
+  }
+
+  return NextResponse.json({ stocks, scannedAt, file: latestFile });
 }
