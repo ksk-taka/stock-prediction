@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
 
   // Supabaseからページネーションで全シグナル取得（必要カラムのみ）
   const allSignals: SignalRow[] = [];
-  const PAGE_SIZE = 5000;
+  const PAGE_SIZE = 1000; // PostgREST default max-rows
 
   for (let from = 0; ; from += PAGE_SIZE) {
     const { data, error } = await supabase
