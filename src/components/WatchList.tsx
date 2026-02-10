@@ -72,6 +72,16 @@ interface FilterPreset {
 const PRESETS_KEY = "watchlist-filter-presets";
 const PAGE_SIZE = 50;
 
+// ウォッチリストで非表示にする戦略（個別銘柄ページでは引き続き表示）
+const WL_EXCLUDE_STRATEGIES = new Set([
+  "choruko_bb",        // ちょる子式BB逆張り
+  "choruko_shitabanare", // ちょる子式下放れ二本黒
+  "cwh_trail",         // CWHトレーリング
+  "dip_kairi",         // 急落買い乖離率
+  "dip_rsi_volume",    // 急落買いRSI+出来高
+  "dip_bb3sigma",      // 急落買いBB-3σ
+]);
+
 function loadPresets(): FilterPreset[] {
   if (typeof window === "undefined") return [];
   try {
@@ -686,7 +696,7 @@ export default function WatchList() {
   // 市場区分一覧
   const allSegments: ("プライム" | "スタンダード" | "グロース")[] = ["プライム", "スタンダード", "グロース"];
 
-  // シグナル検出済み戦略一覧を抽出（保有中 + 直近シグナル）
+  // シグナル検出済み戦略一覧を抽出（保有中 + 直近シグナル、除外戦略は非表示）
   const allActiveStrategies = Array.from(
     new Map(
       Object.values(signals)
@@ -696,6 +706,7 @@ export default function WatchList() {
           ...(s.recentSignals?.daily ?? []),
           ...(s.recentSignals?.weekly ?? []),
         ])
+        .filter((a) => !WL_EXCLUDE_STRATEGIES.has(a.strategyId))
         .map((a) => [a.strategyId, a.strategyName] as const)
     )
   );
@@ -723,13 +734,13 @@ export default function WatchList() {
     // シグナル（戦略 × 期間）フィルタ - 保有中 + 直近シグナル
     if (selectedStrategies.size > 0 || signalPeriodFilter !== "all") {
       const sig = signals[stock.symbol];
-      // 保有中 + 直近シグナルを統合（date フィールドを buyDate に正規化）
+      // 保有中 + 直近シグナルを統合（date フィールドを buyDate に正規化、除外戦略は除く）
       const allSignals = [
         ...(sig?.activeSignals?.daily ?? []).map((a) => ({ strategyId: a.strategyId, date: a.buyDate })),
         ...(sig?.activeSignals?.weekly ?? []).map((a) => ({ strategyId: a.strategyId, date: a.buyDate })),
         ...(sig?.recentSignals?.daily ?? []).map((r) => ({ strategyId: r.strategyId, date: r.date })),
         ...(sig?.recentSignals?.weekly ?? []).map((r) => ({ strategyId: r.strategyId, date: r.date })),
-      ];
+      ].filter((a) => !WL_EXCLUDE_STRATEGIES.has(a.strategyId));
       if (allSignals.length === 0) return false;
       const periodDays: Record<string, number> = { "1w": 7, "1m": 31, "3m": 93, "6m": 183 };
       const cutoffStr = signalPeriodFilter !== "all"
@@ -806,6 +817,7 @@ export default function WatchList() {
 
     // 1. アクティブシグナル（保有中）を優先
     for (const a of sig.activeSignals?.daily ?? []) {
+      if (WL_EXCLUDE_STRATEGIES.has(a.strategyId)) continue;
       if (selectedStrategies.size > 0 && !selectedStrategies.has(a.strategyId)) continue;
       if (cutoffStr && a.buyDate < cutoffStr) continue;
       result.push({ signal: a, timeframe: "daily" });
@@ -814,6 +826,7 @@ export default function WatchList() {
 
     // 2. 直近シグナル（activeにない戦略のみ追加）
     for (const r of sig.recentSignals?.daily ?? []) {
+      if (WL_EXCLUDE_STRATEGIES.has(r.strategyId)) continue;
       if (seen.has(r.strategyId)) continue;
       if (selectedStrategies.size > 0 && !selectedStrategies.has(r.strategyId)) continue;
       if (cutoffStr && r.date < cutoffStr) continue;

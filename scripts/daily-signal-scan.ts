@@ -29,8 +29,17 @@ const BATCH_SIZE = 10; // Yahoo Finance 同時リクエスト数
 const EXCLUDE_SYMBOLS = new Set(["7817.T"]);
 const LOOKBACK_DAYS = 90; // シグナル検出対象の直近日数（computeSignals.tsと統一）
 
-// 全戦略 (DCA除外)
-const SCAN_STRATEGIES = strategies.filter((s) => s.id !== "dca");
+// スキャン対象外の戦略（DCA + ウォッチリストで不要な戦略）
+const EXCLUDE_STRATEGIES = new Set([
+  "dca",
+  "choruko_bb",        // ちょる子式BB逆張り
+  "choruko_shitabanare", // ちょる子式下放れ二本黒
+  "cwh_trail",         // CWHトレーリング
+  "dip_kairi",         // 急落買い乖離率
+  "dip_rsi_volume",    // 急落買いRSI+出来高
+  "dip_bb3sigma",      // 急落買いBB-3σ
+]);
+const SCAN_STRATEGIES = strategies.filter((s) => !EXCLUDE_STRATEGIES.has(s.id));
 
 // タイムフレーム → Yahoo Finance interval + 取得期間
 const TF_CONFIG: Record<PeriodType, { interval: "1d" | "1wk"; yearsBack: number }> = {
