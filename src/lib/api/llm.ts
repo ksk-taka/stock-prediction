@@ -17,14 +17,16 @@ class ProviderError extends Error {
 }
 
 function resolveProviderChain(): ProviderName[] {
-  const forced = process.env.LLM_PROVIDER as ProviderName | undefined;
-  if (forced && ["gemini", "groq", "ollama"].includes(forced)) {
-    return [forced];
-  }
+  const preferred = process.env.LLM_PROVIDER as ProviderName | undefined;
   const chain: ProviderName[] = [];
-  if (process.env.GEMINI_API_KEY) chain.push("gemini");
-  if (process.env.GROQ_API_KEY) chain.push("groq");
-  chain.push("ollama");
+
+  // LLM_PROVIDER が指定されていればそれを最優先にしつつ、他もフォールバックとして追加
+  if (preferred && ["gemini", "groq", "ollama"].includes(preferred)) {
+    chain.push(preferred);
+  }
+  if (!chain.includes("gemini") && process.env.GEMINI_API_KEY) chain.push("gemini");
+  if (!chain.includes("groq") && process.env.GROQ_API_KEY) chain.push("groq");
+  if (!chain.includes("ollama")) chain.push("ollama");
   return chain;
 }
 

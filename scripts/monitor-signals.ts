@@ -37,6 +37,7 @@ import { fetchNewsAndSentiment, fetchFundamentalResearch } from "@/lib/api/webRe
 import { analyzeSentiment, validateSignal } from "@/lib/api/llm";
 import { setCachedValidation, getCachedValidation } from "@/lib/cache/fundamentalCache";
 import { setCachedNews } from "@/lib/cache/newsCache";
+import { getEarningsText } from "@/lib/utils/earningsReader";
 import type { PriceData, NewsItem } from "@/types";
 import type { Signal } from "@/lib/backtest/types";
 import type { PeriodType } from "@/lib/backtest/presets";
@@ -99,6 +100,7 @@ async function analyzeSignal(
   buyDate: string,
   buyPrice: number,
   currentPrice: number,
+  withEarnings: boolean = false,
 ): Promise<AnalysisResult> {
   const result: AnalysisResult = {};
 
@@ -169,18 +171,37 @@ async function analyzeSignal(
       }
     }
 
-    // Step 5: Go/NoGo判定（LLM）
+    // Step 5: 決算資料テキスト取得（--with-earnings 時のみ）
+    let earningsContext = "";
+    if (withEarnings) {
+      console.log(`    [分析] 決算資料読み込み中...`);
+      try {
+        const earnings = await getEarningsText(symbol);
+        if (earnings) {
+          earningsContext = `\n\n### 決算資料 (${earnings.sources.join(", ")})\n${earnings.text}`;
+          console.log(`    [分析] 決算資料: ${earnings.sources.length}件 (${earnings.totalChars.toLocaleString()}文字)`);
+        } else {
+          console.log(`    [分析] 決算資料: なし`);
+        }
+      } catch (err) {
+        console.warn(`    [分析] 決算資料読み込み失敗: ${err instanceof Error ? err.message : err}`);
+      }
+    }
+
+    // Step 6: Go/NoGo判定（LLM）
     console.log(`    [分析] Go/NoGo判定中...`);
     try {
       const pnlPct = ((currentPrice - buyPrice) / buyPrice * 100).toFixed(1);
       const signalDesc = `${strategyName} (${timeframe === "daily" ? "日足" : "週足"}): ${buyDate}にエントリー (買値:${buyPrice}円, 現在価格:${currentPrice}円, 損益:${Number(pnlPct) > 0 ? "+" : ""}${pnlPct}%)`;
+
+      const enrichedFundamental = (fundamentalRawText || "ファンダ調査データなし") + earningsContext;
 
       const validationResult = await validateSignal(
         symbol,
         name,
         { description: signalDesc, strategyName },
         stats,
-        fundamentalRawText || "ファンダ調査データなし",
+        enrichedFundamental,
       );
 
       result.validation = {
@@ -210,12 +231,14 @@ async function analyzeSignal(
 async function main() {
   const isDryRun = process.argv.includes("--dry-run");
   const skipAnalysis = process.argv.includes("--skip-analysis");
+  const withEarnings = process.argv.includes("--with-earnings");
   const startTime = Date.now();
 
   console.log("=".repeat(60));
   console.log(`シグナルモニター開始 (${new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })})`);
   if (isDryRun) console.log("** DRY RUN モード - 通知は送信しません **");
   if (skipAnalysis) console.log("** SKIP ANALYSIS - 分析なし高速モード **");
+  if (withEarnings) console.log("** WITH EARNINGS - 決算資料込み分析 **");
   console.log("=".repeat(60));
 
   // Slack設定チェック
@@ -322,6 +345,7 @@ async function main() {
                 buy.date,
                 buy.price,
                 currentPrice,
+                withEarnings,
               );
               totalSkipped++;
               continue;
@@ -358,6 +382,7 @@ async function main() {
                 buy.date,
                 buy.price,
                 currentPrice,
+                withEarnings,
               );
             }
 

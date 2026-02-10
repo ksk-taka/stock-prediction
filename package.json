@@ -40,7 +40,11 @@
     "fetch:earnings:dry": "npx tsx scripts/fetch-earnings.ts --dry-run",
     "fetch:earnings:kabutan": "npx tsx scripts/fetch-earnings.ts --kabutan-only",
     "fetch:earnings:tdnet": "npx tsx scripts/fetch-earnings.ts --tdnet-only",
-    "fetch:earnings:edinet": "npx tsx scripts/fetch-earnings.ts --edinet-only"
+    "fetch:earnings:edinet": "npx tsx scripts/fetch-earnings.ts --edinet-only",
+    "analyze:earnings": "npx tsx scripts/analyze-earnings.ts",
+    "analyze:earnings:list": "npx tsx scripts/analyze-earnings.ts --list",
+    "analyze:earnings:all": "npx tsx scripts/analyze-earnings.ts --all",
+    "monitor:signals:earnings": "npx tsx scripts/monitor-signals.ts --with-earnings"
   },
   "dependencies": {
     "@slack/bolt": "^4.6.0",
@@ -53,6 +57,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "recharts": "^3.7.0",
+    "unpdf": "^1.4.0",
     "yahoo-finance2": "^3.13.0"
   },
   "devDependencies": {
