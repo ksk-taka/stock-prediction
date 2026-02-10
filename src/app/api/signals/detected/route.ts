@@ -26,7 +26,8 @@ export async function GET(request: NextRequest) {
     .from("detected_signals")
     .select("*")
     .order("signal_date", { ascending: false })
-    .order("symbol", { ascending: true });
+    .order("symbol", { ascending: true })
+    .limit(10000);
 
   if (scanId) {
     query = query.eq("scan_id", parseInt(scanId, 10));
