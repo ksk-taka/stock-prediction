@@ -116,7 +116,7 @@ export function detectSignalsFromData(
   const currentPrice = data[data.length - 1].close;
   const active: ActiveSignalInfo[] = [];
   const recent: RecentSignalInfo[] = [];
-  const lookbackDays = periodKey === "daily" ? 365 : 1095;
+  const lookbackDays = periodKey === "daily" ? 90 : 270;
 
   for (const stratId of SIGNAL_STRATEGY_IDS) {
     const strat = strategies.find((s) => s.id === stratId);

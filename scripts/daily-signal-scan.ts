@@ -27,7 +27,7 @@ import type { PeriodType } from "@/lib/backtest/presets";
 const yf = new YahooFinance();
 const BATCH_SIZE = 10; // Yahoo Finance 同時リクエスト数
 const EXCLUDE_SYMBOLS = new Set(["7817.T"]);
-const LOOKBACK_DAYS = 365; // シグナル検出対象の直近日数（computeSignals.tsと統一）
+const LOOKBACK_DAYS = 90; // シグナル検出対象の直近日数（computeSignals.tsと統一）
 
 // 全戦略 (DCA除外)
 const SCAN_STRATEGIES = strategies.filter((s) => s.id !== "dca");
