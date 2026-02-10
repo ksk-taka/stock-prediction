@@ -325,7 +325,6 @@ export default function WatchList() {
                     date: sig.signal_date,
                     price: sig.buy_price,
                   });
-                  signalsFetchedRef.current.add(sig.symbol);
                 }
                 // Supabase のスキャン情報がより包括的なら更新
                 const supabaseTotal = detData.scan?.total_stocks ?? 0;
