@@ -946,8 +946,10 @@ export default function WatchList() {
   const sortedStocks = [...filteredStocks].sort((a, b) => (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0));
 
   // 表示する銘柄（Load More制御）
-  const displayedStocks = sortedStocks.slice(0, displayCount);
-  const hasMore = displayCount < sortedStocks.length;
+  // フィルタが掛かっている場合は全件表示（Load More不要）
+  const hasActiveFilter = showFavoritesOnly || !!searchQuery || selectedSegments.size > 0 || selectedSectors.size > 0 || selectedStrategies.size > 0 || signalPeriodFilter !== "all" || selectedDecision !== null || selectedJudgment !== null || breakoutFilter || consolidationFilter;
+  const displayedStocks = hasActiveFilter ? sortedStocks : sortedStocks.slice(0, displayCount);
+  const hasMore = !hasActiveFilter && displayCount < sortedStocks.length;
 
   const toggleSector = (sector: string) => {
     setSelectedSectors((prev) => {
