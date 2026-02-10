@@ -156,6 +156,8 @@ async function analyzeWithEarnings(symbol: string): Promise<void> {
           signalDate: new Date().toISOString().split("T")[0],
           signalType: "buy",
           currentPrice: quote.price ?? 0,
+          suggestedQty: 0,
+          suggestedAmount: 0,
           validation: {
             decision: result.decision,
             summary: result.summary,
