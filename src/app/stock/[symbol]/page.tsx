@@ -646,6 +646,50 @@ export default function StockDetailPage() {
         );
       })()}
 
+      {/* 決算資料LLM分析結果 */}
+      {signalValidations["earnings_analysis"] && (() => {
+        const ea = signalValidations["earnings_analysis"];
+        return (
+          <div className="mb-4 rounded-lg bg-white dark:bg-slate-800 p-4 shadow dark:shadow-slate-900/50">
+            <div className="mb-2 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300">
+                決算資料分析
+              </h3>
+              <span className={`rounded px-2 py-0.5 text-xs font-bold ${
+                ea.decision === "entry"
+                  ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                  : ea.decision === "avoid"
+                    ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                    : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
+              }`}>
+                {ea.decision === "entry" ? "Go" : ea.decision === "avoid" ? "No Go" : "様子見"}
+              </span>
+              {ea.validatedAt && (
+                <span className="text-[10px] text-gray-400 dark:text-slate-500">
+                  {new Date(ea.validatedAt).toLocaleDateString("ja-JP")}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-gray-600 dark:text-slate-400">{ea.summary}</p>
+            {ea.signalEvaluation && (
+              <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
+                <span className="font-semibold">評価:</span> {ea.signalEvaluation}
+              </p>
+            )}
+            {ea.catalyst && (
+              <p className="mt-1 text-xs text-green-600 dark:text-green-400">
+                <span className="font-semibold">カタリスト:</span> {ea.catalyst}
+              </p>
+            )}
+            {ea.riskFactor && (
+              <p className="mt-1 text-xs text-red-500 dark:text-red-400">
+                <span className="font-semibold">リスク:</span> {ea.riskFactor}
+              </p>
+            )}
+          </div>
+        );
+      })()}
+
       {/* 期間マルチセレクタ */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <span className="text-sm font-medium text-gray-600">期間:</span>

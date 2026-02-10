@@ -16,6 +16,7 @@ import { getEarningsText, listAvailableEarnings } from "@/lib/utils/earningsRead
 import { getQuote, getFinancialData } from "@/lib/api/yahooFinance";
 import { fetchFundamentalResearch } from "@/lib/api/webResearch";
 import { validateSignal } from "@/lib/api/llm";
+import { setCachedValidation } from "@/lib/cache/fundamentalCache";
 
 // ---------- CLI引数 ----------
 
@@ -134,6 +135,10 @@ async function analyzeWithEarnings(symbol: string): Promise<void> {
   if (result.riskFactor) console.log(`  リスク: ${result.riskFactor}`);
   if (result.catalyst) console.log(`  カタリスト: ${result.catalyst}`);
   console.log("─".repeat(60));
+
+  // キャッシュ保存（UIから参照可能にする）
+  setCachedValidation(symbol, "earnings_analysis", result);
+  console.log("  → キャッシュ保存完了");
 
   // Slack通知 (オプション)
   if (sendSlack) {
