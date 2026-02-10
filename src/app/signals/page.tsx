@@ -76,6 +76,7 @@ export default function SignalsPage() {
   const [sortKey, setSortKey] = useState<SortKey>("signal_date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [tfFilter, setTfFilter] = useState("");
+  const [strategyFilter, setStrategyFilter] = useState("");
   const [search, setSearch] = useState("");
   const [scanning, setScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
@@ -317,11 +318,22 @@ export default function SignalsPage() {
     }
   };
 
+  // ── 戦略一覧 (フィルタ用) ──
+
+  const strategyOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const s of signals) {
+      if (!map.has(s.strategy_id)) map.set(s.strategy_id, s.strategy_name);
+    }
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [signals]);
+
   // ── フィルタ & ソート ──
 
   const filtered = useMemo(() => {
     let list = signals;
     if (tfFilter) list = list.filter((s) => s.timeframe === tfFilter);
+    if (strategyFilter) list = list.filter((s) => s.strategy_id === strategyFilter);
     if (search) {
       const q = search.toLowerCase();
       list = list.filter(
@@ -482,6 +494,20 @@ export default function SignalsPage() {
               </button>
             ))}
           </div>
+          {strategyOptions.length > 0 && (
+            <select
+              value={strategyFilter}
+              onChange={(e) => setStrategyFilter(e.target.value)}
+              className="rounded-lg border border-gray-300 px-2 py-1 text-xs focus:border-blue-400 focus:outline-none"
+            >
+              <option value="">全戦略</option>
+              {strategyOptions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          )}
           <span className="ml-auto text-xs text-gray-500">
             {filtered.length}件
           </span>
