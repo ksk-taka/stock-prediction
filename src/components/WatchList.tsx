@@ -254,7 +254,7 @@ export default function WatchList() {
         ]);
 
         const merged: Record<string, SignalSummary> = {};
-        let signalsLoaded = false;
+        let fileScannedCount = 0;
 
         // シグナルインデックス（ローカルファイルキャッシュ）
         if (sigRes.ok) {
@@ -264,18 +264,15 @@ export default function WatchList() {
               merged[symbol] = value as SignalSummary;
               signalsFetchedRef.current.add(symbol);
             }
-            setSignalScannedCount(sigData.scannedCount ?? 0);
+            fileScannedCount = sigData.scannedCount ?? 0;
+            setSignalScannedCount(fileScannedCount);
             setSignalLastScannedAt(sigData.lastScannedAt ?? null);
-            signalsLoaded = true;
-            // スキャン済み＝シグナルなし銘柄もfetched扱い（遅延ロードで再取得させない）
-            for (const stock of stocks) {
-              signalsFetchedRef.current.add(stock.symbol);
-            }
           }
         }
 
-        // Vercelフォールバック: ファイルキャッシュが空ならSupabaseから読む
-        if (!signalsLoaded) {
+        // Supabase から最新スキャン結果を補完
+        // ファイルキャッシュが全銘柄をカバーしていない場合、Supabaseで不足分を補う
+        if (fileScannedCount < stocks.length * 0.9) {
           try {
             const detRes = await fetch("/api/signals/detected");
             if (detRes.ok) {
@@ -297,6 +294,9 @@ export default function WatchList() {
                     stopLossLabel?: string;
                   };
                 }>) {
+                  // ファイルキャッシュに既にある銘柄はスキップ（より新しいデータ）
+                  if (signalsFetchedRef.current.has(sig.symbol)) continue;
+
                   if (!merged[sig.symbol]) {
                     merged[sig.symbol] = {
                       activeSignals: { daily: [], weekly: [] },
@@ -327,17 +327,22 @@ export default function WatchList() {
                   });
                   signalsFetchedRef.current.add(sig.symbol);
                 }
-                setSignalScannedCount(detData.scan?.total_stocks ?? Object.keys(merged).length);
-                setSignalLastScannedAt(detData.scan?.completed_at ?? null);
-                // スキャン済み＝シグナルなし銘柄もfetched扱い
-                for (const stock of stocks) {
-                  signalsFetchedRef.current.add(stock.symbol);
+                // Supabase のスキャン情報がより包括的なら更新
+                const supabaseTotal = detData.scan?.total_stocks ?? 0;
+                if (supabaseTotal > fileScannedCount) {
+                  setSignalScannedCount(supabaseTotal);
+                  setSignalLastScannedAt(detData.scan?.completed_at ?? null);
                 }
               }
             }
           } catch {
             // ignore Supabase fallback errors
           }
+        }
+
+        // 両ソース読み込み後、全銘柄をfetched扱い（遅延ロードで再取得させない）
+        for (const stock of stocks) {
+          signalsFetchedRef.current.add(stock.symbol);
         }
 
         // バリデーションインデックス
