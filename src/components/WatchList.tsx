@@ -799,7 +799,6 @@ export default function WatchList() {
     if (!sig?.activeSignals) return [];
     const all: { signal: ActiveSignalInfo; timeframe: "daily" | "weekly" }[] = [
       ...(sig.activeSignals.daily ?? []).map((a) => ({ signal: a, timeframe: "daily" as const })),
-      ...(sig.activeSignals.weekly ?? []).map((a) => ({ signal: a, timeframe: "weekly" as const })),
     ];
     const periodDays: Record<string, number> = { "1w": 7, "1m": 31, "3m": 93, "6m": 183 };
     const cutoffStr = signalPeriodFilter !== "all"
