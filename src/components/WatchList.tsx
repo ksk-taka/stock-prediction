@@ -794,10 +794,27 @@ export default function WatchList() {
     return true;
   });
 
-  // フィルタ中銘柄のアクティブシグナル数を計算
+  // 戦略・期間フィルタに基づいてアクティブシグナルを絞り込む
+  const getFilteredSignals = useCallback((sig: SignalSummary | undefined): { signal: ActiveSignalInfo; timeframe: "daily" | "weekly" }[] => {
+    if (!sig?.activeSignals) return [];
+    const all: { signal: ActiveSignalInfo; timeframe: "daily" | "weekly" }[] = [
+      ...(sig.activeSignals.daily ?? []).map((a) => ({ signal: a, timeframe: "daily" as const })),
+      ...(sig.activeSignals.weekly ?? []).map((a) => ({ signal: a, timeframe: "weekly" as const })),
+    ];
+    const periodDays: Record<string, number> = { "1w": 7, "1m": 31, "3m": 93, "6m": 183 };
+    const cutoffStr = signalPeriodFilter !== "all"
+      ? (() => { const d = new Date(); d.setDate(d.getDate() - (periodDays[signalPeriodFilter] ?? 0)); return d.toISOString().slice(0, 10); })()
+      : null;
+    return all.filter(({ signal }) => {
+      if (selectedStrategies.size > 0 && !selectedStrategies.has(signal.strategyId)) return false;
+      if (cutoffStr && signal.buyDate < cutoffStr) return false;
+      return true;
+    });
+  }, [selectedStrategies, signalPeriodFilter]);
+
+  // フィルタ中銘柄のアクティブシグナル数を計算（戦略・期間フィルタ適用）
   const filteredActiveSignalCount = filteredStocks.reduce((count, stock) => {
-    const sig = signals[stock.symbol];
-    return count + (sig?.activeSignals?.daily?.length ?? 0) + (sig?.activeSignals?.weekly?.length ?? 0);
+    return count + getFilteredSignals(signals[stock.symbol]).length;
   }, 0);
 
   // ── バッチアクション実行 ──
@@ -805,7 +822,7 @@ export default function WatchList() {
     if (!batchAnalysis && !batchSlack) return;
     if (batchRunning) return;
 
-    // フィルタ中の銘柄からアクティブシグナルを収集
+    // フィルタ中の銘柄からアクティブシグナルを収集（戦略・期間フィルタ適用）
     type SignalTarget = {
       symbol: string;
       stockName: string;
@@ -815,13 +832,8 @@ export default function WatchList() {
     };
     const targets: SignalTarget[] = [];
     for (const stock of filteredStocks) {
-      const sig = signals[stock.symbol];
-      if (!sig?.activeSignals) continue;
-      for (const a of sig.activeSignals.daily ?? []) {
-        targets.push({ symbol: stock.symbol, stockName: stock.name, sectors: stock.sectors, signal: a, timeframe: "daily" });
-      }
-      for (const a of sig.activeSignals.weekly ?? []) {
-        targets.push({ symbol: stock.symbol, stockName: stock.name, sectors: stock.sectors, signal: a, timeframe: "weekly" });
+      for (const { signal, timeframe } of getFilteredSignals(signals[stock.symbol])) {
+        targets.push({ symbol: stock.symbol, stockName: stock.name, sectors: stock.sectors, signal, timeframe });
       }
     }
 
@@ -908,7 +920,7 @@ export default function WatchList() {
     if (errors > 0) {
       console.error(`Batch: ${errors}件のエラーが発生`);
     }
-  }, [batchAnalysis, batchSlack, batchRunning, filteredStocks, signals]);
+  }, [batchAnalysis, batchSlack, batchRunning, filteredStocks, signals, getFilteredSignals]);
 
   // お気に入りを先頭にソート
   const sortedStocks = [...filteredStocks].sort((a, b) => (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0));
