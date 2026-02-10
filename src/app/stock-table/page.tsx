@@ -153,6 +153,18 @@ const EARNINGS_PRESETS: EarningsPreset[] = [
   },
 ];
 
+// ── Google Calendar URL生成 ──
+
+function googleCalendarUrl(date: string, stockName: string, code: string): string {
+  // date: "YYYY-MM-DD" → all-day event (end date is exclusive, so +1 day)
+  const start = date.replace(/-/g, "");
+  const d = new Date(date);
+  d.setDate(d.getDate() + 1);
+  const end = d.toISOString().slice(0, 10).replace(/-/g, "");
+  const title = encodeURIComponent(`${code} ${stockName} 決算発表`);
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${start}/${end}`;
+}
+
 // ── ヘルパー ──
 
 function formatNum(v: number | null, digits = 1): string {
@@ -429,7 +441,21 @@ export default function StockTablePage() {
         return formatNum(row.pbr, 2);
       case "earningsDate":
         return row.earningsDate ? (
-          <span className="text-xs">{row.earningsDate}</span>
+          <span className="inline-flex items-center gap-1 text-xs">
+            {row.earningsDate}
+            <a
+              href={googleCalendarUrl(row.earningsDate, row.name, row.code)}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Googleカレンダーに追加"
+              className="inline-flex items-center rounded p-0.5 text-gray-400 hover:bg-blue-100 hover:text-blue-600 dark:text-slate-500 dark:hover:bg-slate-600 dark:hover:text-blue-400"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 011 1v3a1 1 0 11-2 0V8a1 1 0 011-1zm4 0a1 1 0 011 1v3a1 1 0 11-2 0V8a1 1 0 011-1zm4 0a1 1 0 011 1v3a1 1 0 11-2 0V8a1 1 0 011-1z" clipRule="evenodd" />
+              </svg>
+            </a>
+          </span>
         ) : (
           "－"
         );
