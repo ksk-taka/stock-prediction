@@ -812,10 +812,18 @@ export default function WatchList() {
     });
   }, [selectedStrategies, signalPeriodFilter]);
 
-  // フィルタ中銘柄のアクティブシグナル数を計算（戦略・期間フィルタ適用）
-  const filteredActiveSignalCount = filteredStocks.reduce((count, stock) => {
-    return count + getFilteredSignals(signals[stock.symbol]).length;
-  }, 0);
+  // フィルタ中銘柄のアクティブシグナル数・銘柄数を計算（戦略・期間フィルタ適用）
+  const { filteredActiveSignalCount, filteredActiveStockCount } = filteredStocks.reduce(
+    (acc, stock) => {
+      const count = getFilteredSignals(signals[stock.symbol]).length;
+      if (count > 0) {
+        acc.filteredActiveSignalCount += count;
+        acc.filteredActiveStockCount += 1;
+      }
+      return acc;
+    },
+    { filteredActiveSignalCount: 0, filteredActiveStockCount: 0 },
+  );
 
   // ── バッチアクション実行 ──
   const handleBatchExecute = useCallback(async () => {
@@ -1400,7 +1408,7 @@ export default function WatchList() {
         <div className="mb-4 rounded-lg border border-indigo-200 bg-indigo-50 p-3 dark:border-indigo-700 dark:bg-indigo-900/20">
           <div className="flex flex-wrap items-center gap-4">
             <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">
-              フィルタ中の{filteredStocks.length}銘柄（{filteredActiveSignalCount}シグナル）に対して実行:
+              フィルタ中の{filteredActiveStockCount}銘柄（{filteredActiveSignalCount}シグナル）に対して実行:
             </span>
 
             <div className="flex items-center gap-3">
