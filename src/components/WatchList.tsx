@@ -267,6 +267,10 @@ export default function WatchList() {
             setSignalScannedCount(sigData.scannedCount ?? 0);
             setSignalLastScannedAt(sigData.lastScannedAt ?? null);
             signalsLoaded = true;
+            // スキャン済み＝シグナルなし銘柄もfetched扱い（遅延ロードで再取得させない）
+            for (const stock of stocks) {
+              signalsFetchedRef.current.add(stock.symbol);
+            }
           }
         }
 
@@ -325,6 +329,10 @@ export default function WatchList() {
                 }
                 setSignalScannedCount(detData.scan?.total_stocks ?? Object.keys(merged).length);
                 setSignalLastScannedAt(detData.scan?.completed_at ?? null);
+                // スキャン済み＝シグナルなし銘柄もfetched扱い
+                for (const stock of stocks) {
+                  signalsFetchedRef.current.add(stock.symbol);
+                }
               }
             }
           } catch {
