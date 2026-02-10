@@ -270,68 +270,55 @@ export default function WatchList() {
           }
         }
 
-        // Supabase から最新スキャン結果を補完
+        // Supabase から最新スキャン結果を補完（集約済みエンドポイント使用）
         // ファイルキャッシュが全銘柄をカバーしていない場合、Supabaseで不足分を補う
         if (fileScannedCount < stocks.length * 0.9) {
           try {
-            const detRes = await fetch("/api/signals/detected");
+            const detRes = await fetch("/api/signals/detected/grouped");
             if (detRes.ok) {
               const detData = await detRes.json();
-              const detSignals = detData.signals ?? [];
-              if (detSignals.length > 0) {
-                for (const sig of detSignals as Array<{
-                  symbol: string;
-                  strategy_id: string;
-                  strategy_name: string;
-                  timeframe: string;
-                  signal_date: string;
-                  buy_price: number;
-                  current_price: number;
-                  exit_levels?: {
-                    takeProfitPrice?: number;
-                    takeProfitLabel?: string;
-                    stopLossPrice?: number;
-                    stopLossLabel?: string;
-                  };
-                }>) {
-                  // ファイルキャッシュに既にある銘柄はスキップ（より新しいデータ）
-                  if (signalsFetchedRef.current.has(sig.symbol)) continue;
+              const groupedSignals = detData.signals ?? {};
+              const sNames: Record<string, string> = detData.strategyNames ?? {};
 
-                  if (!merged[sig.symbol]) {
-                    merged[sig.symbol] = {
-                      activeSignals: { daily: [], weekly: [] },
-                      recentSignals: { daily: [], weekly: [] },
-                    };
-                  }
-                  const tf = sig.timeframe as "daily" | "weekly";
-                  const pnl = sig.buy_price > 0
-                    ? ((sig.current_price - sig.buy_price) / sig.buy_price) * 100
+              for (const [symbol, sigs] of Object.entries(groupedSignals)) {
+                // ファイルキャッシュに既にある銘柄はスキップ（より新しいデータ）
+                if (signalsFetchedRef.current.has(symbol)) continue;
+
+                if (!merged[symbol]) {
+                  merged[symbol] = {
+                    activeSignals: { daily: [], weekly: [] },
+                    recentSignals: { daily: [], weekly: [] },
+                  };
+                }
+
+                for (const sig of sigs as Array<{ s: string; t: string; d: string; bp: number; cp: number }>) {
+                  const tf = sig.t === "d" ? "daily" : "weekly";
+                  const strategyName = sNames[sig.s] ?? sig.s;
+                  const pnl = sig.bp > 0
+                    ? ((sig.cp - sig.bp) / sig.bp) * 100
                     : 0;
-                  merged[sig.symbol].activeSignals![tf].push({
-                    strategyId: sig.strategy_id,
-                    strategyName: sig.strategy_name,
-                    buyDate: sig.signal_date,
-                    buyPrice: sig.buy_price,
-                    currentPrice: sig.current_price,
-                    pnlPct: pnl,
-                    takeProfitPrice: sig.exit_levels?.takeProfitPrice,
-                    takeProfitLabel: sig.exit_levels?.takeProfitLabel,
-                    stopLossPrice: sig.exit_levels?.stopLossPrice,
-                    stopLossLabel: sig.exit_levels?.stopLossLabel,
+                  merged[symbol].activeSignals![tf as "daily" | "weekly"].push({
+                    strategyId: sig.s,
+                    strategyName,
+                    buyDate: sig.d,
+                    buyPrice: sig.bp,
+                    currentPrice: sig.cp,
+                    pnlPct: Math.round(pnl * 100) / 100,
                   });
-                  merged[sig.symbol].recentSignals![tf].push({
-                    strategyId: sig.strategy_id,
-                    strategyName: sig.strategy_name,
-                    date: sig.signal_date,
-                    price: sig.buy_price,
+                  merged[symbol].recentSignals![tf as "daily" | "weekly"].push({
+                    strategyId: sig.s,
+                    strategyName,
+                    date: sig.d,
+                    price: sig.bp,
                   });
                 }
-                // Supabase のスキャン情報がより包括的なら更新
-                const supabaseTotal = detData.scan?.total_stocks ?? 0;
-                if (supabaseTotal > fileScannedCount) {
-                  setSignalScannedCount(supabaseTotal);
-                  setSignalLastScannedAt(detData.scan?.completed_at ?? null);
-                }
+              }
+
+              // Supabase のスキャン情報がより包括的なら更新
+              const supabaseTotal = detData.scan?.total_stocks ?? 0;
+              if (supabaseTotal > fileScannedCount) {
+                setSignalScannedCount(supabaseTotal);
+                setSignalLastScannedAt(detData.scan?.completed_at ?? null);
               }
             }
           } catch {
