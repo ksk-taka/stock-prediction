@@ -87,6 +87,72 @@ const MARKET_FILTERS = [
 
 const BATCH_SIZE = 50;
 
+// ── 決算日フィルタ プリセット ──
+
+interface EarningsPreset {
+  label: string;
+  value: string;
+  getRange: () => [string, string]; // [from, to] YYYY-MM-DD
+}
+
+function toISO(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function getMonday(d: Date): Date {
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  const mon = new Date(d);
+  mon.setDate(d.getDate() + diff);
+  return mon;
+}
+
+const EARNINGS_PRESETS: EarningsPreset[] = [
+  {
+    label: "今週",
+    value: "this_week",
+    getRange: () => {
+      const now = new Date();
+      const mon = getMonday(now);
+      const sun = new Date(mon);
+      sun.setDate(mon.getDate() + 6);
+      return [toISO(mon), toISO(sun)];
+    },
+  },
+  {
+    label: "来週",
+    value: "next_week",
+    getRange: () => {
+      const now = new Date();
+      const mon = getMonday(now);
+      mon.setDate(mon.getDate() + 7);
+      const sun = new Date(mon);
+      sun.setDate(mon.getDate() + 6);
+      return [toISO(mon), toISO(sun)];
+    },
+  },
+  {
+    label: "今月",
+    value: "this_month",
+    getRange: () => {
+      const now = new Date();
+      const first = new Date(now.getFullYear(), now.getMonth(), 1);
+      const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      return [toISO(first), toISO(last)];
+    },
+  },
+  {
+    label: "来月",
+    value: "next_month",
+    getRange: () => {
+      const now = new Date();
+      const first = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const last = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+      return [toISO(first), toISO(last)];
+    },
+  },
+];
+
 // ── ヘルパー ──
 
 function formatNum(v: number | null, digits = 1): string {
@@ -133,6 +199,11 @@ export default function StockTablePage() {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("code");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  // 決算日フィルタ
+  const [earningsPreset, setEarningsPreset] = useState("");
+  const [earningsFrom, setEarningsFrom] = useState("");
+  const [earningsTo, setEarningsTo] = useState("");
 
   // カラム表示
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
@@ -217,7 +288,7 @@ export default function StockTablePage() {
 
   // ── マージ＆ソート ──
   const mergedRows = useMemo(() => {
-    const rows: MergedRow[] = filteredStocks.map((s) => {
+    let rows: MergedRow[] = filteredStocks.map((s) => {
       const td = tableData.get(s.symbol);
       return {
         symbol: s.symbol,
@@ -246,6 +317,16 @@ export default function StockTablePage() {
       };
     });
 
+    // 決算日フィルタ
+    if (earningsFrom || earningsTo) {
+      rows = rows.filter((r) => {
+        if (!r.earningsDate) return false;
+        if (earningsFrom && r.earningsDate < earningsFrom) return false;
+        if (earningsTo && r.earningsDate > earningsTo) return false;
+        return true;
+      });
+    }
+
     // ソート
     rows.sort((a, b) => {
       const av = a[sortKey];
@@ -268,7 +349,7 @@ export default function StockTablePage() {
     });
 
     return rows;
-  }, [filteredStocks, tableData, sortKey, sortDir]);
+  }, [filteredStocks, tableData, sortKey, sortDir, earningsFrom, earningsTo]);
 
   // ── ソート切り替え ──
   function handleSort(key: SortKey) {
@@ -453,6 +534,70 @@ export default function StockTablePage() {
         >
           カラム設定
         </button>
+      </div>
+
+      {/* 決算日フィルタ */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium text-gray-500 dark:text-slate-400">
+          決算日:
+        </span>
+        {EARNINGS_PRESETS.map((p) => (
+          <button
+            key={p.value}
+            onClick={() => {
+              if (earningsPreset === p.value) {
+                setEarningsPreset("");
+                setEarningsFrom("");
+                setEarningsTo("");
+              } else {
+                const [from, to] = p.getRange();
+                setEarningsPreset(p.value);
+                setEarningsFrom(from);
+                setEarningsTo(to);
+              }
+            }}
+            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              earningsPreset === p.value
+                ? "bg-green-600 text-white"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+        <div className="flex items-center gap-1">
+          <input
+            type="date"
+            value={earningsFrom}
+            onChange={(e) => {
+              setEarningsPreset("");
+              setEarningsFrom(e.target.value);
+            }}
+            className="rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">〜</span>
+          <input
+            type="date"
+            value={earningsTo}
+            onChange={(e) => {
+              setEarningsPreset("");
+              setEarningsTo(e.target.value);
+            }}
+            className="rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+        </div>
+        {(earningsFrom || earningsTo) && (
+          <button
+            onClick={() => {
+              setEarningsPreset("");
+              setEarningsFrom("");
+              setEarningsTo("");
+            }}
+            className="rounded-full px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+          >
+            クリア
+          </button>
+        )}
       </div>
 
       {/* カラムピッカー */}
