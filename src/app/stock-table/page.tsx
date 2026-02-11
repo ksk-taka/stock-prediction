@@ -261,6 +261,9 @@ export default function StockTablePage() {
   // 時価総額フィルタ
   const [capSizeFilter, setCapSizeFilter] = useState<Set<string>>(new Set());
 
+  // NC率フィルタ
+  const [ncRatioFilter, setNcRatioFilter] = useState(false);
+
   // グループポップアップ
   const [groupPopup, setGroupPopup] = useState<{ symbol: string; anchor: DOMRect } | null>(null);
 
@@ -424,6 +427,11 @@ export default function StockTablePage() {
       });
     }
 
+    // NC率フィルタ
+    if (ncRatioFilter) {
+      rows = rows.filter((r) => r.simpleNcRatio != null && r.simpleNcRatio <= 100);
+    }
+
     // 決算日フィルタ
     if (earningsFrom || earningsTo) {
       rows = rows.filter((r) => {
@@ -456,7 +464,7 @@ export default function StockTablePage() {
     });
 
     return rows;
-  }, [filteredStocks, tableData, sortKey, sortDir, capSizeFilter, earningsFrom, earningsTo]);
+  }, [filteredStocks, tableData, sortKey, sortDir, capSizeFilter, ncRatioFilter, earningsFrom, earningsTo]);
 
   // ── ソート切り替え ──
   function handleSort(key: SortKey) {
@@ -742,6 +750,16 @@ export default function StockTablePage() {
             </button>
           ))}
         </div>
+        <button
+          onClick={() => setNcRatioFilter((v) => !v)}
+          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+            ncRatioFilter
+              ? "bg-emerald-600 text-white"
+              : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+          }`}
+        >
+          NC率≦100%
+        </button>
         <button
           onClick={() => setShowColumnPicker((v) => !v)}
           className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
