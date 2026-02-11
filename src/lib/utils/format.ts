@@ -81,3 +81,38 @@ export function sentimentLabelJa(
   };
   return map[label];
 }
+
+/**
+ * 時価総額を億円/兆円単位でフォーマット
+ */
+export function formatMarketCap(value: number | null | undefined): string {
+  if (value == null || value <= 0) return "－";
+  const oku = value / 100_000_000;
+  if (oku >= 10_000) {
+    return `${(oku / 10_000).toFixed(1)}兆円`;
+  }
+  if (oku >= 100) {
+    return `${Math.round(oku).toLocaleString("ja-JP")}億円`;
+  }
+  return `${oku.toFixed(1)}億円`;
+}
+
+/**
+ * 時価総額から規模を分類
+ * 小型: <500億円, 中型: 500億~3000億円, 大型: >=3000億円
+ */
+export type CapSize = "small" | "mid" | "large";
+
+export function getCapSize(marketCap: number | null | undefined): CapSize | null {
+  if (marketCap == null || marketCap <= 0) return null;
+  const oku = marketCap / 100_000_000;
+  if (oku < 500) return "small";
+  if (oku < 3000) return "mid";
+  return "large";
+}
+
+export const CAP_SIZE_LABELS: Record<CapSize, string> = {
+  small: "小型株",
+  mid: "中型株",
+  large: "大型株",
+};

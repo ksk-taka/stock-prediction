@@ -159,6 +159,7 @@ export async function GET(request: NextRequest) {
         eps: q?.eps ?? null,
         pbr: q?.pbr ?? null,
         simpleNcRatio: ncMap.get(sym) ?? null,
+        marketCap: q?.marketCap ?? null,
         dayHigh: q?.dayHigh ?? null,
         dayLow: q?.dayLow ?? null,
         weekHigh: r?.weekHigh ?? null,

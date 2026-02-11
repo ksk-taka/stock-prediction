@@ -10,7 +10,7 @@ import AnalysisCard from "@/components/AnalysisCard";
 import BacktestPanel from "@/components/BacktestPanel";
 import FundamentalPanel from "@/components/FundamentalPanel";
 import MarketSentiment from "@/components/MarketSentiment";
-import { formatChange } from "@/lib/utils/format";
+import { formatChange, formatMarketCap } from "@/lib/utils/format";
 import { isMarketOpen } from "@/lib/utils/date";
 import type { PriceData, NewsItem, SentimentData, LLMAnalysis, FundamentalResearchData, FundamentalAnalysis, SignalValidation } from "@/types";
 import type { Period } from "@/lib/utils/date";
@@ -44,6 +44,7 @@ export default function StockDetailPage() {
   const [pbr, setPbr] = useState<number | null>(null);
   const [roe, setRoe] = useState<number | null>(null);
   const [simpleNcRatio, setSimpleNcRatio] = useState<number | null>(null);
+  const [marketCap, setMarketCap] = useState<number | null>(null);
   const [tenYearHigh, setTenYearHigh] = useState<number | null>(null);
   const [activeSignals, setActiveSignals] = useState<{
     daily: { strategyId: string; strategyName: string; buyDate: string; buyPrice: number; currentPrice: number; pnlPct: number; takeProfitPrice?: number; takeProfitLabel?: string; stopLossPrice?: number; stopLossLabel?: string }[];
@@ -280,6 +281,7 @@ export default function StockDetailPage() {
         if (data.pbr != null) setPbr(data.pbr);
         if (data.roe != null) setRoe(data.roe);
         if (data.simpleNcRatio != null) setSimpleNcRatio(data.simpleNcRatio);
+        if (data.marketCap != null) setMarketCap(data.marketCap);
       } catch {
         // skip
       }
@@ -422,8 +424,11 @@ export default function StockDetailPage() {
             </span>
           </div>
         )}
-        {(per != null || pbr != null || roe != null || simpleNcRatio != null) && (
+        {(marketCap != null || per != null || pbr != null || roe != null || simpleNcRatio != null) && (
           <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-slate-400">
+            {marketCap != null && marketCap > 0 && (
+              <span>時価総額 <b className="text-gray-700 dark:text-slate-300">{formatMarketCap(marketCap)}</b></span>
+            )}
             {per != null && (
               <span>PER <b className="text-gray-700 dark:text-slate-300">{per.toFixed(1)}</b></span>
             )}

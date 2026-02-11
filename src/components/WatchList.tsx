@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, type TouchEvent as ReactTouch
 import StockCard from "./StockCard";
 import AddStockModal from "./AddStockModal";
 import { isJPMarketOpen, isUSMarketOpen } from "@/lib/utils/date";
+import { getCapSize } from "@/lib/utils/format";
 import type { Stock, SignalValidation } from "@/types";
 
 interface StockQuote {
@@ -18,6 +19,7 @@ interface StockStats {
   roe: number | null;
   eps: number | null;
   simpleNcRatio?: number | null;
+  marketCap?: number | null;
 }
 
 export interface ActiveSignalInfo {
@@ -64,6 +66,7 @@ interface FilterPreset {
   sectors: string[];
   strategies: string[];
   segments: string[];
+  capSizes?: string[];
   signalFilterMode?: "or" | "and";
   signalPeriodFilter?: string;
   decision: string | null;
@@ -116,6 +119,7 @@ export default function WatchList() {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [breakoutFilter, setBreakoutFilter] = useState(false);
   const [consolidationFilter, setConsolidationFilter] = useState(false);
+  const [selectedCapSizes, setSelectedCapSizes] = useState<Set<string>>(new Set());
   const [newHighsMap, setNewHighsMap] = useState<Record<string, NewHighInfo>>({});
   const [newHighsScannedAt, setNewHighsScannedAt] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
@@ -160,7 +164,7 @@ export default function WatchList() {
   // フィルタ変更時に表示件数をリセット
   useEffect(() => {
     setDisplayCount(PAGE_SIZE);
-  }, [searchQuery, selectedSectors, selectedStrategies, selectedSegments, signalFilterMode, signalPeriodFilter, selectedDecision, selectedJudgment, showFavoritesOnly, breakoutFilter, consolidationFilter]);
+  }, [searchQuery, selectedSectors, selectedStrategies, selectedSegments, signalFilterMode, signalPeriodFilter, selectedDecision, selectedJudgment, showFavoritesOnly, breakoutFilter, consolidationFilter, selectedCapSizes]);
 
   const fetchWatchlist = useCallback(async () => {
     try {
@@ -570,6 +574,8 @@ export default function WatchList() {
           pbr: data.pbr ?? null,
           roe: data.roe ?? null,
           eps: data.eps ?? null,
+          simpleNcRatio: data.simpleNcRatio ?? null,
+          marketCap: data.marketCap ?? null,
         },
       }));
     }
@@ -726,6 +732,12 @@ export default function WatchList() {
     // 市場区分フィルタ
     if (selectedSegments.size > 0) {
       if (!stock.marketSegment || !selectedSegments.has(stock.marketSegment)) return false;
+    }
+    // 時価総額フィルタ
+    if (selectedCapSizes.size > 0) {
+      const s = stats[stock.symbol];
+      const capSize = getCapSize(s?.marketCap);
+      if (!capSize || !selectedCapSizes.has(capSize)) return false;
     }
     // セクターフィルタ
     if (selectedSectors.size > 0) {
@@ -973,7 +985,7 @@ export default function WatchList() {
 
   // 表示する銘柄（Load More制御）
   // フィルタが掛かっている場合は全件表示（Load More不要）
-  const hasActiveFilter = showFavoritesOnly || !!searchQuery || selectedSegments.size > 0 || selectedSectors.size > 0 || selectedStrategies.size > 0 || signalPeriodFilter !== "all" || selectedDecision !== null || selectedJudgment !== null || breakoutFilter || consolidationFilter;
+  const hasActiveFilter = showFavoritesOnly || !!searchQuery || selectedSegments.size > 0 || selectedCapSizes.size > 0 || selectedSectors.size > 0 || selectedStrategies.size > 0 || signalPeriodFilter !== "all" || selectedDecision !== null || selectedJudgment !== null || breakoutFilter || consolidationFilter;
   const displayedStocks = hasActiveFilter ? sortedStocks : sortedStocks.slice(0, displayCount);
   const hasMore = !hasActiveFilter && displayCount < sortedStocks.length;
 
@@ -1004,13 +1016,23 @@ export default function WatchList() {
     });
   };
 
-  const hasAnyFilter = searchQuery !== "" || selectedSectors.size > 0 || selectedStrategies.size > 0 || selectedSegments.size > 0 || signalPeriodFilter !== "all" || selectedDecision !== null || selectedJudgment !== null || signalFilterMode !== "or" || showFavoritesOnly || breakoutFilter || consolidationFilter;
+  const toggleCapSize = (size: string) => {
+    setSelectedCapSizes((prev) => {
+      const next = new Set(prev);
+      if (next.has(size)) next.delete(size);
+      else next.add(size);
+      return next;
+    });
+  };
+
+  const hasAnyFilter = searchQuery !== "" || selectedSectors.size > 0 || selectedStrategies.size > 0 || selectedSegments.size > 0 || selectedCapSizes.size > 0 || signalPeriodFilter !== "all" || selectedDecision !== null || selectedJudgment !== null || signalFilterMode !== "or" || showFavoritesOnly || breakoutFilter || consolidationFilter;
 
   const clearAllFilters = () => {
     setSearchQuery("");
     setSelectedSectors(new Set());
     setSelectedStrategies(new Set());
     setSelectedSegments(new Set());
+    setSelectedCapSizes(new Set());
     setSignalFilterMode("or");
     setSignalPeriodFilter("all");
     setSelectedDecision(null);
@@ -1029,6 +1051,7 @@ export default function WatchList() {
       sectors: Array.from(selectedSectors),
       strategies: Array.from(selectedStrategies),
       segments: Array.from(selectedSegments),
+      capSizes: selectedCapSizes.size > 0 ? Array.from(selectedCapSizes) : undefined,
       signalFilterMode: signalFilterMode !== "or" ? signalFilterMode : undefined,
       signalPeriodFilter: signalPeriodFilter !== "all" ? signalPeriodFilter : undefined,
       decision: selectedDecision,
@@ -1044,6 +1067,7 @@ export default function WatchList() {
     setSelectedSectors(new Set(preset.sectors));
     setSelectedStrategies(new Set(preset.strategies));
     setSelectedSegments(new Set(preset.segments ?? []));
+    setSelectedCapSizes(new Set(preset.capSizes ?? []));
     setSignalFilterMode(preset.signalFilterMode ?? "or");
     setSignalPeriodFilter(preset.signalPeriodFilter ?? "all");
     setSelectedDecision(preset.decision);
@@ -1171,6 +1195,24 @@ export default function WatchList() {
                 }`}
               >
                 {segment}
+              </button>
+            ))}
+          </div>
+
+          {/* 時価総額フィルタ */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-gray-500 dark:text-slate-400">時価総額:</span>
+            {([["small", "小型株"], ["mid", "中型株"], ["large", "大型株"]] as const).map(([value, label]) => (
+              <button
+                key={value}
+                onClick={() => toggleCapSize(value)}
+                className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                  selectedCapSizes.has(value)
+                    ? "border-teal-400 bg-teal-50 text-teal-700 dark:border-teal-500 dark:bg-teal-900/30 dark:text-teal-300"
+                    : "border-gray-300 bg-white text-gray-500 hover:border-gray-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-500"
+                }`}
+              >
+                {label}
               </button>
             ))}
           </div>
@@ -1548,6 +1590,7 @@ export default function WatchList() {
                     pbr={s?.pbr ?? undefined}
                     roe={s?.roe ?? undefined}
                     simpleNcRatio={s?.simpleNcRatio ?? undefined}
+                    marketCap={s?.marketCap ?? undefined}
                     signals={sig}
                     signalPeriodFilter={signalPeriodFilter}
                     fundamentalJudgment={stock.fundamental?.judgment}

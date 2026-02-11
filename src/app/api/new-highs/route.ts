@@ -22,6 +22,7 @@ interface NewHighStock {
   consolidationDays: number;
   consolidationRangePct: number;
   simpleNcRatio: number | null;
+  marketCap: number | null;
 }
 
 const isVercel = !!process.env.VERCEL;
@@ -74,7 +75,7 @@ async function getFromSupabase(): Promise<NextResponse | null> {
     : data.stocks;
 
   // statsキャッシュから簡易NC率を補完
-  const stocks = enrichWithNcRatio(rawStocks);
+  const stocks = enrichWithCachedStats(rawStocks);
 
   return NextResponse.json({
     stocks,
@@ -85,11 +86,14 @@ async function getFromSupabase(): Promise<NextResponse | null> {
   });
 }
 
-function enrichWithNcRatio(stocks: NewHighStock[]): NewHighStock[] {
+function enrichWithCachedStats(stocks: NewHighStock[]): NewHighStock[] {
   return stocks.map((s) => {
-    if (s.simpleNcRatio != null) return s;
     const cached = getCachedStats(s.symbol);
-    return { ...s, simpleNcRatio: cached?.simpleNcRatio ?? null };
+    return {
+      ...s,
+      simpleNcRatio: s.simpleNcRatio ?? cached?.simpleNcRatio ?? null,
+      marketCap: s.marketCap ?? cached?.marketCap ?? null,
+    };
   });
 }
 
@@ -137,6 +141,7 @@ function parseRow(header: string[], row: string): NewHighStock | null {
     consolidationDays: num("consolidationDays") ?? 0,
     consolidationRangePct: num("consolidationRangePct") ?? 0,
     simpleNcRatio: num("simpleNcRatio"),
+    marketCap: num("marketCap"),
   };
 }
 
@@ -177,5 +182,5 @@ async function getFromCsv(): Promise<NextResponse> {
     if (row) stocks.push(row);
   }
 
-  return NextResponse.json({ stocks: enrichWithNcRatio(stocks), scannedAt, file: latestFile });
+  return NextResponse.json({ stocks: enrichWithCachedStats(stocks), scannedAt, file: latestFile });
 }

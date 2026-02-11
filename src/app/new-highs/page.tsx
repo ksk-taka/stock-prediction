@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
+import { formatMarketCap, getCapSize } from "@/lib/utils/format";
 
 interface Stock {
   code: string;
@@ -22,6 +23,7 @@ interface Stock {
   consolidationRangePct: number;
   simpleNcRatio: number | null;
   cnPer: number | null;
+  marketCap: number | null;
 }
 
 type SortKey = keyof Stock;
@@ -42,6 +44,7 @@ const COLUMNS: { key: SortKey; label: string; align: "left" | "right"; width?: s
   { key: "changePct", label: "前日比%", align: "right" },
   { key: "per", label: "PER", align: "right" },
   { key: "pbr", label: "PBR", align: "right" },
+  { key: "marketCap", label: "時価総額", align: "right" },
   { key: "simpleNcRatio", label: "簡易NC率", align: "right" },
   { key: "cnPer", label: "簡易CNPER", align: "right" },
   { key: "fiftyTwoWeekHigh", label: "52w高値", align: "right" },
@@ -74,6 +77,7 @@ export default function NewHighsPage() {
   const [search, setSearch] = useState("");
   const [breakoutOnly, setBreakoutOnly] = useState(true);
   const [consolidationOnly, setConsolidationOnly] = useState(false);
+  const [capSizeFilter, setCapSizeFilter] = useState<Set<string>>(new Set());
   const [scanning, setScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState<string | null>(null);
   const [scanProgress, setScanProgress] = useState<{ stage: string; current: number; total: number; message: string } | null>(null);
@@ -201,6 +205,10 @@ export default function NewHighsPage() {
     let list = stocks;
     if (breakoutOnly) list = list.filter((s) => s.isTrue52wBreakout);
     if (consolidationOnly) list = list.filter((s) => s.consolidationDays >= 10);
+    if (capSizeFilter.size > 0) list = list.filter((s) => {
+      const cs = getCapSize(s.marketCap);
+      return cs !== null && capSizeFilter.has(cs);
+    });
     if (marketFilter) list = list.filter((s) => s.market.includes(marketFilter));
     if (search) {
       const q = search.toLowerCase();
@@ -224,7 +232,7 @@ export default function NewHighsPage() {
       return 0;
     });
     return list;
-  }, [stocks, sortKey, sortDir, marketFilter, search, breakoutOnly, consolidationOnly]);
+  }, [stocks, sortKey, sortDir, marketFilter, search, breakoutOnly, consolidationOnly, capSizeFilter]);
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -390,6 +398,26 @@ export default function NewHighsPage() {
         >
           もみ合いあり
         </button>
+        <div className="flex gap-1">
+          {([["small", "小型株"], ["mid", "中型株"], ["large", "大型株"]] as const).map(([value, label]) => (
+            <button
+              key={value}
+              onClick={() => setCapSizeFilter((prev) => {
+                const next = new Set(prev);
+                if (next.has(value)) next.delete(value);
+                else next.add(value);
+                return next;
+              })}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                capSizeFilter.has(value)
+                  ? "bg-teal-600 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Table */}
@@ -446,6 +474,9 @@ export default function NewHighsPage() {
                 </td>
                 <td className="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums">
                   {formatNum(s.pbr, 2)}
+                </td>
+                <td className="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums text-gray-700 dark:text-slate-300">
+                  {s.marketCap ? formatMarketCap(s.marketCap) : "－"}
                 </td>
                 <td className={`whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums ${
                   s.simpleNcRatio != null && s.simpleNcRatio > 50 ? "text-green-600 dark:text-green-400"

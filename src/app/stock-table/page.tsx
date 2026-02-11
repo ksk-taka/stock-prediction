@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
+import { formatMarketCap, getCapSize } from "@/lib/utils/format";
 
 // ── 型定義 ──
 
@@ -35,6 +36,7 @@ interface StockTableRow {
   lastYearHigh: number | null;
   lastYearLow: number | null;
   earningsDate: string | null;
+  marketCap: number | null;
 }
 
 interface MergedRow extends StockTableRow {
@@ -67,7 +69,8 @@ const COLUMNS: ColumnDef[] = [
   { key: "per", label: "PER", group: "指標", align: "right", defaultVisible: true },
   { key: "eps", label: "EPS", group: "指標", align: "right", defaultVisible: true },
   { key: "pbr", label: "PBR", group: "指標", align: "right", defaultVisible: true },
-  { key: "simpleNcRatio", label: "簡易NC率", group: "指標", align: "right", defaultVisible: true },
+  { key: "marketCap", label: "時価総額", group: "指標", align: "right", defaultVisible: true },
+  { key: "simpleNcRatio", label: "簡易NC率", group: "指標", align: "right", defaultVisible: false },
   { key: "cnPer", label: "簡易CNPER", group: "指標", align: "right", defaultVisible: true },
   { key: "earningsDate", label: "決算日", group: "指標", align: "right", defaultVisible: true },
   { key: "dayHigh", label: "日高値", group: "日", align: "right", defaultVisible: false },
@@ -216,6 +219,9 @@ export default function StockTablePage() {
   const [sortKey, setSortKey] = useState<SortKey>("code");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
+  // 時価総額フィルタ
+  const [capSizeFilter, setCapSizeFilter] = useState<Set<string>>(new Set());
+
   // 決算日フィルタ
   const [earningsPreset, setEarningsPreset] = useState("");
   const [earningsFrom, setEarningsFrom] = useState("");
@@ -280,16 +286,25 @@ export default function StockTablePage() {
   }, [stocks, favoritesOnly, marketFilter, search]);
 
   // ── データ取得 ──
+  // refで既存データを参照（useEffectの依存配列に入れずに済む）
+  const tableDataRef = useRef(tableData);
+  tableDataRef.current = tableData;
+
   const fetchTableData = useCallback(
     async (symbolList: string[]) => {
       if (symbolList.length === 0) return;
+
+      // 既にフェッチ済みのシンボルを除外
+      const missing = symbolList.filter((s) => !tableDataRef.current.has(s));
+      if (missing.length === 0) return; // 全てキャッシュ済み → 何もしない
+
       setLoadingData(true);
       setLoadedCount(0);
 
-      const newData = new Map<string, StockTableRow>();
+      const existing = new Map(tableDataRef.current);
 
-      for (let i = 0; i < symbolList.length; i += BATCH_SIZE) {
-        const batch = symbolList.slice(i, i + BATCH_SIZE);
+      for (let i = 0; i < missing.length; i += BATCH_SIZE) {
+        const batch = missing.slice(i, i + BATCH_SIZE);
         try {
           const res = await fetch(
             `/api/stock-table?symbols=${batch.join(",")}`,
@@ -297,14 +312,14 @@ export default function StockTablePage() {
           const data = await res.json();
           if (data.rows) {
             for (const row of data.rows) {
-              newData.set(row.symbol, row);
+              existing.set(row.symbol, row);
             }
           }
         } catch {
           // continue with next batch
         }
-        setLoadedCount(Math.min(i + BATCH_SIZE, symbolList.length));
-        setTableData(new Map(newData));
+        setLoadedCount(Math.min(i + BATCH_SIZE, missing.length));
+        setTableData(new Map(existing));
       }
 
       setLoadingData(false);
@@ -312,7 +327,7 @@ export default function StockTablePage() {
     [],
   );
 
-  // フィルタが変わったらデータ取得
+  // フィルタが変わったらデータ取得（未取得分のみ）
   useEffect(() => {
     if (loadingStocks) return;
     const syms = filteredStocks.map((s) => s.symbol);
@@ -349,8 +364,17 @@ export default function StockTablePage() {
         lastYearHigh: td?.lastYearHigh ?? null,
         lastYearLow: td?.lastYearLow ?? null,
         earningsDate: td?.earningsDate ?? null,
+        marketCap: td?.marketCap ?? null,
       };
     });
+
+    // 時価総額フィルタ
+    if (capSizeFilter.size > 0) {
+      rows = rows.filter((r) => {
+        const cs = getCapSize(r.marketCap);
+        return cs !== null && capSizeFilter.has(cs);
+      });
+    }
 
     // 決算日フィルタ
     if (earningsFrom || earningsTo) {
@@ -384,7 +408,7 @@ export default function StockTablePage() {
     });
 
     return rows;
-  }, [filteredStocks, tableData, sortKey, sortDir, earningsFrom, earningsTo]);
+  }, [filteredStocks, tableData, sortKey, sortDir, capSizeFilter, earningsFrom, earningsTo]);
 
   // ── ソート切り替え ──
   function handleSort(key: SortKey) {
@@ -473,6 +497,8 @@ export default function StockTablePage() {
             {row.simpleNcRatio > 0 ? "+" : ""}{row.simpleNcRatio.toFixed(1)}%
           </span>
         );
+      case "marketCap":
+        return row.marketCap ? formatMarketCap(row.marketCap) : "－";
       case "cnPer":
         if (row.cnPer == null) return "－";
         return formatNum(row.cnPer);
@@ -584,6 +610,26 @@ export default function StockTablePage() {
               }`}
             >
               {m.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1">
+          {([["small", "小型株"], ["mid", "中型株"], ["large", "大型株"]] as const).map(([value, label]) => (
+            <button
+              key={value}
+              onClick={() => setCapSizeFilter((prev) => {
+                const next = new Set(prev);
+                if (next.has(value)) next.delete(value);
+                else next.add(value);
+                return next;
+              })}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                capSizeFilter.has(value)
+                  ? "bg-teal-600 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+              }`}
+            >
+              {label}
             </button>
           ))}
         </div>

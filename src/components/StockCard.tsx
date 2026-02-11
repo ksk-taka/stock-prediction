@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import Link from "next/link";
-import { formatChange } from "@/lib/utils/format";
+import { formatChange, formatMarketCap } from "@/lib/utils/format";
 import type { Stock } from "@/types";
 import type { SignalSummary, ActiveSignalInfo, RecentSignalInfo } from "./WatchList";
 
@@ -29,6 +29,7 @@ interface StockCardProps {
   pbr?: number;
   roe?: number;
   simpleNcRatio?: number;
+  marketCap?: number;
   signals?: SignalSummary;
   signalPeriodFilter?: string;
   fundamentalJudgment?: "bullish" | "neutral" | "bearish";
@@ -47,6 +48,7 @@ export default function StockCard({
   pbr,
   roe,
   simpleNcRatio,
+  marketCap,
   signals,
   signalPeriodFilter = "all",
   fundamentalJudgment,
@@ -239,9 +241,15 @@ export default function StockCard({
           </div>
         )}
       </div>
-      {/* PER / PBR / ROE / 簡易NC率 / ファンダ判定 */}
-      {(per !== undefined || pbr !== undefined || roe !== undefined || simpleNcRatio !== undefined || fundamentalJudgment) && (
+      {/* 時価総額 / PER / PBR / ROE / 簡易NC率 / ファンダ判定 */}
+      {(marketCap !== undefined || per !== undefined || pbr !== undefined || roe !== undefined || simpleNcRatio !== undefined || fundamentalJudgment) && (
         <div className="mt-2 flex items-center gap-3 border-t border-gray-100 dark:border-slate-700 pt-2">
+          {marketCap !== undefined && marketCap > 0 && (
+            <div className="text-center">
+              <span className="block text-[10px] text-gray-400 dark:text-slate-500">時価総額</span>
+              <span className="text-xs font-semibold text-gray-700 dark:text-slate-300">{formatMarketCap(marketCap)}</span>
+            </div>
+          )}
           {per !== undefined && (
             <div className="text-center">
               <span className="block text-[10px] text-gray-400 dark:text-slate-500">PER</span>
