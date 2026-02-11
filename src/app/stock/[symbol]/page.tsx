@@ -43,6 +43,7 @@ export default function StockDetailPage() {
   const [per, setPer] = useState<number | null>(null);
   const [pbr, setPbr] = useState<number | null>(null);
   const [roe, setRoe] = useState<number | null>(null);
+  const [simpleNcRatio, setSimpleNcRatio] = useState<number | null>(null);
   const [tenYearHigh, setTenYearHigh] = useState<number | null>(null);
   const [activeSignals, setActiveSignals] = useState<{
     daily: { strategyId: string; strategyName: string; buyDate: string; buyPrice: number; currentPrice: number; pnlPct: number; takeProfitPrice?: number; takeProfitLabel?: string; stopLossPrice?: number; stopLossLabel?: string }[];
@@ -278,6 +279,7 @@ export default function StockDetailPage() {
         if (data.per != null) setPer(data.per);
         if (data.pbr != null) setPbr(data.pbr);
         if (data.roe != null) setRoe(data.roe);
+        if (data.simpleNcRatio != null) setSimpleNcRatio(data.simpleNcRatio);
       } catch {
         // skip
       }
@@ -420,7 +422,7 @@ export default function StockDetailPage() {
             </span>
           </div>
         )}
-        {(per != null || pbr != null || roe != null) && (
+        {(per != null || pbr != null || roe != null || simpleNcRatio != null) && (
           <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-slate-400">
             {per != null && (
               <span>PER <b className="text-gray-700 dark:text-slate-300">{per.toFixed(1)}</b></span>
@@ -430,6 +432,16 @@ export default function StockDetailPage() {
             )}
             {roe != null && (
               <span>ROE <b className={roe >= 10 ? "text-green-600 dark:text-green-400" : "text-gray-700 dark:text-slate-300"}>{roe.toFixed(1)}%</b></span>
+            )}
+            {simpleNcRatio != null && (
+              <span>簡易NC率 <b className={
+                simpleNcRatio > 50 ? "text-green-600 dark:text-green-400"
+                  : simpleNcRatio < -50 ? "text-red-600 dark:text-red-400"
+                  : "text-gray-700 dark:text-slate-300"
+              }>{simpleNcRatio > 0 ? "+" : ""}{simpleNcRatio.toFixed(1)}%</b></span>
+            )}
+            {per != null && simpleNcRatio != null && (
+              <span>簡易CNPER <b className="text-gray-700 dark:text-slate-300">{(per * (1 - simpleNcRatio / 100)).toFixed(1)}</b></span>
             )}
           </div>
         )}

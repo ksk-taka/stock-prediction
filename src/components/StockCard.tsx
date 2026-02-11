@@ -28,6 +28,7 @@ interface StockCardProps {
   per?: number;
   pbr?: number;
   roe?: number;
+  simpleNcRatio?: number;
   signals?: SignalSummary;
   signalPeriodFilter?: string;
   fundamentalJudgment?: "bullish" | "neutral" | "bearish";
@@ -45,6 +46,7 @@ export default function StockCard({
   per,
   pbr,
   roe,
+  simpleNcRatio,
   signals,
   signalPeriodFilter = "all",
   fundamentalJudgment,
@@ -237,8 +239,8 @@ export default function StockCard({
           </div>
         )}
       </div>
-      {/* PER / PBR / ROE / ファンダ判定 */}
-      {(per !== undefined || pbr !== undefined || roe !== undefined || fundamentalJudgment) && (
+      {/* PER / PBR / ROE / 簡易NC率 / ファンダ判定 */}
+      {(per !== undefined || pbr !== undefined || roe !== undefined || simpleNcRatio !== undefined || fundamentalJudgment) && (
         <div className="mt-2 flex items-center gap-3 border-t border-gray-100 dark:border-slate-700 pt-2">
           {per !== undefined && (
             <div className="text-center">
@@ -258,6 +260,25 @@ export default function StockCard({
               <span className="text-xs font-semibold text-gray-700 dark:text-slate-300">{(roe * 100).toFixed(1)}%</span>
             </div>
           )}
+          {simpleNcRatio !== undefined && (
+            <div className="text-center">
+              <span className="block text-[10px] text-gray-400 dark:text-slate-500">簡易NC率</span>
+              <span className={`text-xs font-semibold ${
+                simpleNcRatio > 50 ? "text-green-600 dark:text-green-400"
+                  : simpleNcRatio < -50 ? "text-red-600 dark:text-red-400"
+                  : "text-gray-700 dark:text-slate-300"
+              }`}>{simpleNcRatio > 0 ? "+" : ""}{simpleNcRatio.toFixed(1)}%</span>
+            </div>
+          )}
+          {per !== undefined && simpleNcRatio !== undefined && (() => {
+            const cnPer = per * (1 - simpleNcRatio / 100);
+            return (
+              <div className="text-center">
+                <span className="block text-[10px] text-gray-400 dark:text-slate-500">簡易CNPER</span>
+                <span className="text-xs font-semibold text-gray-700 dark:text-slate-300">{cnPer.toFixed(1)}x</span>
+              </div>
+            );
+          })()}
           {fundamentalJudgment && (
             <div className="ml-auto">
               <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${

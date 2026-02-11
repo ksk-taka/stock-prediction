@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getQuoteBatch } from "@/lib/api/yahooFinance";
+import { getCachedStats } from "@/lib/cache/statsCache";
 
 export const dynamic = "force-dynamic";
 
@@ -103,10 +104,11 @@ export async function GET(request: NextRequest) {
       // price_history が無い場合はスキップ
     }
 
-    // 3. 結合
+    // 3. 結合 (簡易NC率はstatsキャッシュから取得)
     const rows = symbols.map((sym) => {
       const q = quoteMap.get(sym);
       const r = rangeMap.get(sym);
+      const cached = getCachedStats(sym);
       return {
         symbol: sym,
         name: q?.name ?? sym,
@@ -116,6 +118,7 @@ export async function GET(request: NextRequest) {
         per: q?.per ?? null,
         eps: q?.eps ?? null,
         pbr: q?.pbr ?? null,
+        simpleNcRatio: cached?.simpleNcRatio ?? null,
         dayHigh: q?.dayHigh ?? null,
         dayLow: q?.dayLow ?? null,
         weekHigh: r?.weekHigh ?? null,

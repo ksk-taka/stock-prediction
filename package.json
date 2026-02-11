@@ -44,7 +44,12 @@
     "analyze:earnings": "npx tsx scripts/analyze-earnings.ts",
     "analyze:earnings:list": "npx tsx scripts/analyze-earnings.ts --list",
     "analyze:earnings:all": "npx tsx scripts/analyze-earnings.ts --all",
-    "monitor:signals:earnings": "npx tsx scripts/monitor-signals.ts --with-earnings"
+    "monitor:signals:earnings": "npx tsx scripts/monitor-signals.ts --with-earnings",
+    "prompt:gemini": "npx tsx scripts/generate-gemini-prompt.ts",
+    "prompt:gemini:clip": "npx tsx scripts/generate-gemini-prompt.ts --clip",
+    "scan:netcash": "npx tsx scripts/scan-net-cash.ts",
+    "scan:netcash:csv": "npx tsx scripts/scan-net-cash.ts --csv",
+    "scan:netcash:favorites": "npx tsx scripts/scan-net-cash.ts --favorites --csv"
   },
   "dependencies": {
     "@slack/bolt": "^4.6.0",

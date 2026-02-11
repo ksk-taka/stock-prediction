@@ -118,6 +118,52 @@ npm run backtest:10yr
 npm run walkforward
 ```
 
+## Gemini用プロンプト生成
+
+銘柄コードを指定すると、Yahoo Financeから定量データ＋6ヶ月分の日足OHLCVを取得し、Geminiに貼り付けるためのMarkdownプロンプトを自動生成する。
+
+```bash
+# 標準出力に表示
+npm run prompt:gemini 6503.T
+npm run prompt:gemini 6503        # .T は省略可
+
+# クリップボードにコピー（そのままGeminiに貼り付け）
+npm run prompt:gemini:clip 6503
+```
+
+### 含まれる情報
+
+- 銘柄情報（業種・時価総額・事業概要）
+- 株価情報（現在値・52週高安・移動平均）
+- バリュエーション（PER/PBR/EPS/配当利回り/Beta）
+- 財務指標（ROE/ROA/利益率/成長率/D&E/FCF）
+- アナリストコンセンサス（目標株価・レーティング）
+- 決算発表日（残日数を自動計算）
+- 6ヶ月分の日足OHLCVテーブル（約120行）
+- チャート注目ポイント自動検出（トレンド・出来高スパイク・MA乖離・52週高値圏・PER乖離）
+
+### 使い方
+
+1. `npm run prompt:gemini:clip 6503` でプロンプトをクリップボードにコピー
+2. Geminiを開いてプロンプトをペースト
+3. 決算資料PDFがあれば一緒に添付
+4. Go / No Go / 様子見 の投資判断を取得
+
+決算資料のダウンロードは `npm run fetch:earnings -- --symbol 6503.T` で可能。
+
+## 決算資料
+
+```bash
+# 決算資料ダウンロード（Kabutan決算短信 + TDnet説明資料 + EDINET有報）
+npm run fetch:earnings -- --symbol 7203.T
+npm run fetch:earnings              # お気に入り全銘柄
+
+# 決算資料LLM分析（ローカルPDF → Go/NoGo判定）
+npm run analyze:earnings 7203.T
+npm run analyze:earnings:all        # 全銘柄
+npm run analyze:earnings:list       # 利用可能な銘柄一覧
+```
+
 ## その他のスクリプト
 
 ```bash

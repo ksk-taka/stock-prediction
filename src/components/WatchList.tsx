@@ -17,6 +17,7 @@ interface StockStats {
   pbr: number | null;
   roe: number | null;
   eps: number | null;
+  simpleNcRatio?: number | null;
 }
 
 export interface ActiveSignalInfo {
@@ -1546,6 +1547,7 @@ export default function WatchList() {
                     per={s?.per ?? undefined}
                     pbr={s?.pbr ?? undefined}
                     roe={s?.roe ?? undefined}
+                    simpleNcRatio={s?.simpleNcRatio ?? undefined}
                     signals={sig}
                     signalPeriodFilter={signalPeriodFilter}
                     fundamentalJudgment={stock.fundamental?.judgment}

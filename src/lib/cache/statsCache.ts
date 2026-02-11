@@ -12,6 +12,7 @@ interface StatsCacheEntry {
   eps: number | null;
   roe: number | null;
   dividendYield: number | null;
+  simpleNcRatio?: number | null;
   cachedAt: number;
 }
 

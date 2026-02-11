@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getQuote, getFinancialData } from "@/lib/api/yahooFinance";
+import { getQuote, getFinancialData, getSimpleNetCashRatio } from "@/lib/api/yahooFinance";
 import { getCachedStats, setCachedStats } from "@/lib/cache/statsCache";
 
 export async function GET(request: NextRequest) {
@@ -25,6 +25,9 @@ export async function GET(request: NextRequest) {
       getFinancialData(symbol),
     ]);
 
+    // 簡易NC率はquote取得後にmarketCapを使って計算
+    const simpleNcRatio = await getSimpleNetCashRatio(symbol, quote.marketCap);
+
     const result = {
       per: quote.per,
       forwardPer: quote.forwardPer,
@@ -32,6 +35,7 @@ export async function GET(request: NextRequest) {
       eps: quote.eps,
       roe: financial.roe,
       dividendYield: quote.dividendYield,
+      simpleNcRatio,
     };
 
     // キャッシュ保存

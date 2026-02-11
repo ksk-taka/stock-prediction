@@ -48,6 +48,7 @@ interface BreakoutStock extends KabutanStock {
   pctAbove52wHigh: number;
   consolidationDays: number;
   consolidationRangePct: number;
+  simpleNcRatio: number | null;
 }
 
 // ── CLI Args ───────────────────────────────────────────────
@@ -375,6 +376,65 @@ async function addConsolidationData(stocks: BreakoutStock[], scanId?: number): P
   console.log("");
 }
 
+// ── 簡易ネットキャッシュ比率 ──────────────────────────────
+
+async function addNetCashData(stocks: BreakoutStock[]): Promise<void> {
+  if (stocks.length === 0) return;
+
+  console.log(`\n簡易NC率計算中... (${stocks.length} 銘柄)`);
+
+  const BATCH_SIZE = 30;
+  let completed = 0;
+
+  const period1 = new Date();
+  period1.setFullYear(period1.getFullYear() - 1);
+
+  for (let i = 0; i < stocks.length; i += BATCH_SIZE) {
+    const batch = stocks.slice(i, i + BATCH_SIZE);
+
+    await Promise.allSettled(
+      batch.map(async (stock) => {
+        try {
+          const [bsResult, quoteResult] = await Promise.all([
+            yfQueue.add(() =>
+              yf.fundamentalsTimeSeries(stock.symbol, {
+                period1,
+                type: "quarterly",
+                module: "balance-sheet",
+              })
+            ),
+            yfQueue.add(() => yf.quote(stock.symbol)),
+          ]);
+
+          const q = quoteResult as Record<string, unknown>;
+          const marketCap = (q.marketCap as number) ?? 0;
+          if (marketCap <= 0 || !bsResult || bsResult.length === 0) return;
+
+          const bs = bsResult[bsResult.length - 1] as Record<string, unknown>;
+          const currentAssets = (bs.currentAssets as number) ?? 0;
+          const investmentInFA =
+            (bs.investmentinFinancialAssets as number) ??
+            (bs.availableForSaleSecurities as number) ??
+            (bs.investmentsAndAdvances as number) ??
+            0;
+          const totalLiabilities = (bs.totalLiabilitiesNetMinorityInterest as number) ?? 0;
+
+          if (currentAssets === 0 && totalLiabilities === 0) return;
+
+          const netCash = currentAssets + investmentInFA * 0.7 - totalLiabilities;
+          stock.simpleNcRatio = Math.round((netCash / marketCap) * 1000) / 10;
+        } catch {
+          // leave null
+        }
+      }),
+    );
+
+    completed += batch.length;
+    process.stdout.write(`\r  [${completed}/${stocks.length}] 計算完了`);
+  }
+  console.log("");
+}
+
 // ── 52-Week High Check ─────────────────────────────────────
 
 async function checkFiftyTwoWeekBreakouts(stocks: KabutanStock[], scanId?: number): Promise<BreakoutStock[]> {
@@ -417,6 +477,7 @@ async function checkFiftyTwoWeekBreakouts(stocks: KabutanStock[], scanId?: numbe
             pctAbove52wHigh,
             consolidationDays: 0,
             consolidationRangePct: 0,
+            simpleNcRatio: null,
           } as BreakoutStock;
         } catch {
           return null;
@@ -551,6 +612,7 @@ function writeCsv(stocks: BreakoutStock[]): string {
     "pctAbove52wHigh",
     "consolidationDays",
     "consolidationRangePct",
+    "simpleNcRatio",
   ].join(",");
 
   const rows = stocks.map((s) =>
@@ -571,6 +633,7 @@ function writeCsv(stocks: BreakoutStock[]): string {
       s.pctAbove52wHigh.toFixed(2),
       s.consolidationDays,
       s.consolidationRangePct.toFixed(2),
+      s.simpleNcRatio != null ? s.simpleNcRatio.toFixed(1) : "",
     ].join(","),
   );
 
@@ -706,6 +769,9 @@ async function main() {
   await addConsolidationData(breakouts, doSupabase ? scanId : undefined);
   const withConsolidation = true52wBreakouts.filter((s) => s.consolidationDays >= 10);
   console.log(`もみ合い (≥10日) 付きブレイクアウト: ${withConsolidation.length} 銘柄`);
+
+  // Step 5.5: 簡易ネットキャッシュ比率
+  await addNetCashData(true52wBreakouts);
 
   // Step 6: Display
   printResults(breakouts, breakoutOnly);

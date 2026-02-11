@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getCachedStats } from "@/lib/cache/statsCache";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,7 @@ interface NewHighStock {
   pctAbove52wHigh: number;
   consolidationDays: number;
   consolidationRangePct: number;
+  simpleNcRatio: number | null;
 }
 
 const isVercel = !!process.env.VERCEL;
@@ -67,9 +69,12 @@ async function getFromSupabase(): Promise<NextResponse | null> {
 
   if (error || !data) return null;
 
-  const stocks: NewHighStock[] = typeof data.stocks === "string"
+  const rawStocks: NewHighStock[] = typeof data.stocks === "string"
     ? JSON.parse(data.stocks)
     : data.stocks;
+
+  // statsキャッシュから簡易NC率を補完
+  const stocks = enrichWithNcRatio(rawStocks);
 
   return NextResponse.json({
     stocks,
@@ -77,6 +82,14 @@ async function getFromSupabase(): Promise<NextResponse | null> {
     scanId: data.id,
     stockCount: data.stock_count,
     breakoutCount: data.breakout_count,
+  });
+}
+
+function enrichWithNcRatio(stocks: NewHighStock[]): NewHighStock[] {
+  return stocks.map((s) => {
+    if (s.simpleNcRatio != null) return s;
+    const cached = getCachedStats(s.symbol);
+    return { ...s, simpleNcRatio: cached?.simpleNcRatio ?? null };
   });
 }
 
@@ -123,6 +136,7 @@ function parseRow(header: string[], row: string): NewHighStock | null {
     pctAbove52wHigh: num("pctAbove52wHigh") ?? 0,
     consolidationDays: num("consolidationDays") ?? 0,
     consolidationRangePct: num("consolidationRangePct") ?? 0,
+    simpleNcRatio: num("simpleNcRatio"),
   };
 }
 
@@ -163,5 +177,5 @@ async function getFromCsv(): Promise<NextResponse> {
     if (row) stocks.push(row);
   }
 
-  return NextResponse.json({ stocks, scannedAt, file: latestFile });
+  return NextResponse.json({ stocks: enrichWithNcRatio(stocks), scannedAt, file: latestFile });
 }

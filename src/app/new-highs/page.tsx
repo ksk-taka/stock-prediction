@@ -20,6 +20,8 @@ interface Stock {
   pctAbove52wHigh: number;
   consolidationDays: number;
   consolidationRangePct: number;
+  simpleNcRatio: number | null;
+  cnPer: number | null;
 }
 
 type SortKey = keyof Stock;
@@ -40,6 +42,8 @@ const COLUMNS: { key: SortKey; label: string; align: "left" | "right"; width?: s
   { key: "changePct", label: "前日比%", align: "right" },
   { key: "per", label: "PER", align: "right" },
   { key: "pbr", label: "PBR", align: "right" },
+  { key: "simpleNcRatio", label: "簡易NC率", align: "right" },
+  { key: "cnPer", label: "簡易CNPER", align: "right" },
   { key: "fiftyTwoWeekHigh", label: "52w高値", align: "right" },
   { key: "pctAbove52wHigh", label: "乖離%", align: "right" },
   { key: "consolidationDays", label: "もみ合い", align: "right" },
@@ -79,7 +83,10 @@ export default function NewHighsPage() {
     try {
       const res = await fetch("/api/new-highs");
       const data = await res.json();
-      setStocks(data.stocks ?? []);
+      setStocks((data.stocks ?? []).map((s: Stock) => ({
+        ...s,
+        cnPer: (s.per != null && s.simpleNcRatio != null) ? s.per * (1 - s.simpleNcRatio / 100) : null,
+      })));
       setScannedAt(data.scannedAt ?? null);
       if (data.error) setError(data.error);
       else setError(null);
@@ -439,6 +446,16 @@ export default function NewHighsPage() {
                 </td>
                 <td className="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums">
                   {formatNum(s.pbr, 2)}
+                </td>
+                <td className={`whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums ${
+                  s.simpleNcRatio != null && s.simpleNcRatio > 50 ? "text-green-600 dark:text-green-400"
+                    : s.simpleNcRatio != null && s.simpleNcRatio < -50 ? "text-red-600 dark:text-red-400"
+                    : ""
+                }`}>
+                  {s.simpleNcRatio != null ? `${s.simpleNcRatio > 0 ? "+" : ""}${s.simpleNcRatio.toFixed(1)}%` : "－"}
+                </td>
+                <td className="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums">
+                  {s.cnPer != null ? formatNum(s.cnPer) : "－"}
                 </td>
                 <td className="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums">
                   {s.fiftyTwoWeekHigh.toLocaleString()}

@@ -158,6 +158,44 @@ export async function getFinancialData(symbol: string) {
 }
 
 /**
+ * 簡易ネットキャッシュ比率を取得（fundamentalsTimeSeries経由）
+ * NC = 流動資産 + 投資有価証券×70% - 負債合計
+ * NC比率 = NC / 時価総額 × 100 (%)
+ */
+export async function getSimpleNetCashRatio(symbol: string, marketCap: number): Promise<number | null> {
+  if (marketCap <= 0) return null;
+  try {
+    const period1 = new Date();
+    period1.setFullYear(period1.getFullYear() - 1);
+
+    const bsResult = await yfQueue.add(() =>
+      yf.fundamentalsTimeSeries(symbol, {
+        period1,
+        type: "quarterly",
+        module: "balance-sheet",
+      })
+    );
+    if (!bsResult || bsResult.length === 0) return null;
+
+    const bs = bsResult[bsResult.length - 1] as Record<string, unknown>;
+    const currentAssets = (bs.currentAssets as number) ?? 0;
+    const investmentInFA =
+      (bs.investmentinFinancialAssets as number) ??
+      (bs.availableForSaleSecurities as number) ??
+      (bs.investmentsAndAdvances as number) ??
+      0;
+    const totalLiabilities = (bs.totalLiabilitiesNetMinorityInterest as number) ?? 0;
+
+    if (currentAssets === 0 && totalLiabilities === 0) return null;
+
+    const netCash = currentAssets + investmentInFA * 0.7 - totalLiabilities;
+    return Math.round((netCash / marketCap) * 1000) / 10; // % (小数1桁)
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 複数銘柄の株価情報をバッチ取得（テーブル表示用）
  */
 export async function getQuoteBatch(symbols: string[]) {

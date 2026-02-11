@@ -22,6 +22,8 @@ interface StockTableRow {
   per: number | null;
   eps: number | null;
   pbr: number | null;
+  simpleNcRatio: number | null;
+  cnPer: number | null;
   dayHigh: number | null;
   dayLow: number | null;
   weekHigh: number | null;
@@ -65,6 +67,8 @@ const COLUMNS: ColumnDef[] = [
   { key: "per", label: "PER", group: "指標", align: "right", defaultVisible: true },
   { key: "eps", label: "EPS", group: "指標", align: "right", defaultVisible: true },
   { key: "pbr", label: "PBR", group: "指標", align: "right", defaultVisible: true },
+  { key: "simpleNcRatio", label: "簡易NC率", group: "指標", align: "right", defaultVisible: false },
+  { key: "cnPer", label: "簡易CNPER", group: "指標", align: "right", defaultVisible: false },
   { key: "earningsDate", label: "決算日", group: "指標", align: "right", defaultVisible: true },
   { key: "dayHigh", label: "日高値", group: "日", align: "right", defaultVisible: true },
   { key: "dayLow", label: "日安値", group: "日", align: "right", defaultVisible: true },
@@ -315,6 +319,8 @@ export default function StockTablePage() {
         per: td?.per ?? null,
         eps: td?.eps ?? null,
         pbr: td?.pbr ?? null,
+        simpleNcRatio: td?.simpleNcRatio ?? null,
+        cnPer: (td?.per != null && td?.simpleNcRatio != null) ? td.per * (1 - td.simpleNcRatio / 100) : null,
         dayHigh: td?.dayHigh ?? null,
         dayLow: td?.dayLow ?? null,
         weekHigh: td?.weekHigh ?? null,
@@ -439,6 +445,20 @@ export default function StockTablePage() {
         return formatNum(row.eps);
       case "pbr":
         return formatNum(row.pbr, 2);
+      case "simpleNcRatio":
+        if (row.simpleNcRatio == null) return "－";
+        return (
+          <span className={
+            row.simpleNcRatio > 50 ? "text-green-600 dark:text-green-400"
+              : row.simpleNcRatio < -50 ? "text-red-600 dark:text-red-400"
+              : ""
+          }>
+            {row.simpleNcRatio > 0 ? "+" : ""}{row.simpleNcRatio.toFixed(1)}%
+          </span>
+        );
+      case "cnPer":
+        if (row.cnPer == null) return "－";
+        return formatNum(row.cnPer);
       case "earningsDate":
         return row.earningsDate ? (
           <span className="inline-flex items-center gap-1 text-xs">
