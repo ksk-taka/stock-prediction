@@ -75,3 +75,30 @@ export function setCachedStats(
     // ignore write errors
   }
 }
+
+/**
+ * NC率のみをキャッシュに書き込む（既存エントリがあれば更新、なければ新規作成）
+ * stock-table APIなどでNC率だけ取得した場合に使う
+ */
+export function setCachedNcOnly(symbol: string, ncRatio: number | null): void {
+  try {
+    ensureDir();
+    const file = cacheFile(symbol);
+    let entry: StatsCacheEntry;
+    try {
+      const existing: StatsCacheEntry = JSON.parse(fs.readFileSync(file, "utf-8"));
+      existing.simpleNcRatio = ncRatio;
+      entry = existing; // cachedAtは元のまま（他フィールドのTTLを壊さない）
+    } catch {
+      entry = {
+        per: null, forwardPer: null, pbr: null, eps: null,
+        roe: null, dividendYield: null,
+        simpleNcRatio: ncRatio,
+        cachedAt: Date.now(),
+      };
+    }
+    fs.writeFileSync(file, JSON.stringify(entry), "utf-8");
+  } catch {
+    // ignore write errors
+  }
+}

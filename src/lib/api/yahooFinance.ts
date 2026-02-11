@@ -226,6 +226,7 @@ export async function getQuoteBatch(symbols: string[]) {
       dayLow: (r.regularMarketDayLow as number) ?? null,
       yearHigh: (r.fiftyTwoWeekHigh as number) ?? null,
       yearLow: (r.fiftyTwoWeekLow as number) ?? null,
+      marketCap: (r.marketCap as number) ?? 0,
       earningsDate:
         earningsTs instanceof Date
           ? earningsTs.toISOString().split("T")[0]

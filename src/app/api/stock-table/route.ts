@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getQuoteBatch } from "@/lib/api/yahooFinance";
-import { getCachedStats } from "@/lib/cache/statsCache";
+import { getQuoteBatch, getSimpleNetCashRatio } from "@/lib/api/yahooFinance";
+import { getCachedStats, getCachedNcRatio, setCachedNcOnly } from "@/lib/cache/statsCache";
 
 export const dynamic = "force-dynamic";
 
@@ -104,11 +104,51 @@ export async function GET(request: NextRequest) {
       // price_history が無い場合はスキップ
     }
 
-    // 3. 結合 (簡易NC率はstatsキャッシュから取得)
+    // 3. NC率取得: キャッシュ(24h) → 長期キャッシュ(7d) → YFから取得
+    const ncMap = new Map<string, number | null>();
+    const ncMissing: { sym: string; marketCap: number }[] = [];
+
+    for (const sym of symbols) {
+      const cached = getCachedStats(sym);
+      if (cached?.simpleNcRatio !== undefined && cached.simpleNcRatio !== null) {
+        ncMap.set(sym, cached.simpleNcRatio);
+        continue;
+      }
+      const cachedNc = getCachedNcRatio(sym);
+      if (cachedNc !== undefined) {
+        ncMap.set(sym, cachedNc);
+        continue;
+      }
+      const mc = quoteMap.get(sym)?.marketCap ?? 0;
+      if (mc > 0) {
+        ncMissing.push({ sym, marketCap: mc });
+      } else {
+        ncMap.set(sym, null);
+      }
+    }
+
+    // キャッシュにない銘柄はYFから並列取得（yfQueue内で10並列制限）
+    if (ncMissing.length > 0) {
+      const results = await Promise.allSettled(
+        ncMissing.map(async ({ sym, marketCap }) => {
+          const nc = await getSimpleNetCashRatio(sym, marketCap);
+          setCachedNcOnly(sym, nc);
+          return { sym, nc };
+        })
+      );
+      for (const r of results) {
+        if (r.status === "fulfilled") {
+          ncMap.set(r.value.sym, r.value.nc);
+        } else {
+          // エラー時はnull
+        }
+      }
+    }
+
+    // 4. 結合
     const rows = symbols.map((sym) => {
       const q = quoteMap.get(sym);
       const r = rangeMap.get(sym);
-      const cached = getCachedStats(sym);
       return {
         symbol: sym,
         name: q?.name ?? sym,
@@ -118,7 +158,7 @@ export async function GET(request: NextRequest) {
         per: q?.per ?? null,
         eps: q?.eps ?? null,
         pbr: q?.pbr ?? null,
-        simpleNcRatio: cached?.simpleNcRatio ?? null,
+        simpleNcRatio: ncMap.get(sym) ?? null,
         dayHigh: q?.dayHigh ?? null,
         dayLow: q?.dayLow ?? null,
         weekHigh: r?.weekHigh ?? null,
