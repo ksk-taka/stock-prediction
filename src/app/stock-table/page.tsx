@@ -67,17 +67,17 @@ const COLUMNS: ColumnDef[] = [
   { key: "per", label: "PER", group: "指標", align: "right", defaultVisible: true },
   { key: "eps", label: "EPS", group: "指標", align: "right", defaultVisible: true },
   { key: "pbr", label: "PBR", group: "指標", align: "right", defaultVisible: true },
-  { key: "simpleNcRatio", label: "簡易NC率", group: "指標", align: "right", defaultVisible: false },
-  { key: "cnPer", label: "簡易CNPER", group: "指標", align: "right", defaultVisible: false },
+  { key: "simpleNcRatio", label: "簡易NC率", group: "指標", align: "right", defaultVisible: true },
+  { key: "cnPer", label: "簡易CNPER", group: "指標", align: "right", defaultVisible: true },
   { key: "earningsDate", label: "決算日", group: "指標", align: "right", defaultVisible: true },
-  { key: "dayHigh", label: "日高値", group: "日", align: "right", defaultVisible: true },
-  { key: "dayLow", label: "日安値", group: "日", align: "right", defaultVisible: true },
-  { key: "weekHigh", label: "週高値", group: "週", align: "right", defaultVisible: true },
-  { key: "weekLow", label: "週安値", group: "週", align: "right", defaultVisible: true },
+  { key: "dayHigh", label: "日高値", group: "日", align: "right", defaultVisible: false },
+  { key: "dayLow", label: "日安値", group: "日", align: "right", defaultVisible: false },
+  { key: "weekHigh", label: "週高値", group: "週", align: "right", defaultVisible: false },
+  { key: "weekLow", label: "週安値", group: "週", align: "right", defaultVisible: false },
   { key: "monthHigh", label: "月高値", group: "月", align: "right", defaultVisible: false },
   { key: "monthLow", label: "月安値", group: "月", align: "right", defaultVisible: false },
-  { key: "yearHigh", label: "年高値", group: "年", align: "right", defaultVisible: true },
-  { key: "yearLow", label: "年安値", group: "年", align: "right", defaultVisible: true },
+  { key: "yearHigh", label: "年高値", group: "年", align: "right", defaultVisible: false },
+  { key: "yearLow", label: "年安値", group: "年", align: "right", defaultVisible: false },
   { key: "lastYearHigh", label: "昨年高値", group: "昨年", align: "right", defaultVisible: false },
   { key: "lastYearLow", label: "昨年安値", group: "昨年", align: "right", defaultVisible: false },
 ];
@@ -221,13 +221,30 @@ export default function StockTablePage() {
   const [earningsFrom, setEarningsFrom] = useState("");
   const [earningsTo, setEarningsTo] = useState("");
 
-  // カラム表示
+  // カラム表示 (localStorage永続化)
+  const COLUMNS_STORAGE_KEY = "stock-table-visible-columns";
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem(COLUMNS_STORAGE_KEY);
+        if (saved) {
+          const arr = JSON.parse(saved) as string[];
+          if (Array.isArray(arr) && arr.length > 0) return new Set(arr);
+        }
+      } catch { /* ignore */ }
+    }
     const s = new Set<string>();
     COLUMNS.forEach((c) => { if (c.defaultVisible) s.add(c.key); });
     return s;
   });
   const [showColumnPicker, setShowColumnPicker] = useState(false);
+
+  // visibleColumns変更時にlocalStorageに保存
+  useEffect(() => {
+    try {
+      localStorage.setItem(COLUMNS_STORAGE_KEY, JSON.stringify(Array.from(visibleColumns)));
+    } catch { /* ignore */ }
+  }, [visibleColumns]);
 
   // ── ウォッチリスト読み込み ──
   useEffect(() => {
