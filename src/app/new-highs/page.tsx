@@ -541,9 +541,9 @@ export default function NewHighsPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-slate-700/50">
-            {filtered.map((s) => (
+            {filtered.map((s, idx) => (
               <tr
-                key={s.symbol}
+                key={`${s.symbol}-${idx}`}
                 className="transition-colors hover:bg-blue-50/50 dark:hover:bg-slate-700/30"
               >
                 <td className="px-1 py-2 text-center">

@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
 import { formatMarketCap, getCapSize } from "@/lib/utils/format";
+import GroupAssignPopup from "@/components/GroupAssignPopup";
 
 // ── 型定義 ──
 
@@ -260,6 +261,9 @@ export default function StockTablePage() {
   // 時価総額フィルタ
   const [capSizeFilter, setCapSizeFilter] = useState<Set<string>>(new Set());
 
+  // グループポップアップ
+  const [groupPopup, setGroupPopup] = useState<{ symbol: string; anchor: DOMRect } | null>(null);
+
   // 決算日フィルタ
   const [earningsPreset, setEarningsPreset] = useState("");
   const [earningsFrom, setEarningsFrom] = useState("");
@@ -487,6 +491,53 @@ export default function StockTablePage() {
       return next;
     });
   }
+
+  // symbol → groupIds マップ
+  const stockGroupMap = useMemo(() => {
+    const m = new Map<string, number[]>();
+    stocks.forEach((s) => m.set(s.symbol, s.groupIds ?? []));
+    return m;
+  }, [stocks]);
+
+  // ── グループ操作 ──
+  const handleEditGroups = useCallback((symbol: string, event: React.MouseEvent) => {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    setGroupPopup({ symbol, anchor: rect });
+  }, []);
+
+  const handleSaveGroups = useCallback(async (symbol: string, groupIds: number[]) => {
+    try {
+      const res = await fetch("/api/watchlist", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol, groupIds }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setStocks((prev) =>
+          prev.map((s) =>
+            s.symbol === symbol
+              ? { ...s, groupIds: (data.groups as WatchlistGroup[]).map((g) => g.id), favorite: (data.groups as WatchlistGroup[]).length > 0 }
+              : s,
+          ),
+        );
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  const handleCreateGroup = useCallback(async (name: string) => {
+    try {
+      const res = await fetch("/api/watchlist/groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (res.ok) {
+        const group = await res.json() as WatchlistGroup;
+        setAllGroups((prev) => [...prev, group]);
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   // ── セル描画 ──
   function renderCell(row: MergedRow, col: ColumnDef): React.ReactNode {
@@ -832,6 +883,7 @@ export default function StockTablePage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50 dark:border-slate-700 dark:bg-slate-900/50">
+              <th className="w-8 px-1 py-2.5" />
               {displayColumns.map((col) => (
                 <th
                   key={col.key}
@@ -856,6 +908,17 @@ export default function StockTablePage() {
                 key={row.symbol}
                 className="transition-colors hover:bg-blue-50/50 dark:hover:bg-slate-700/30"
               >
+                <td className="px-1 py-2 text-center">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleEditGroups(row.symbol, e); }}
+                    className={`transition-colors ${(stockGroupMap.get(row.symbol)?.length ?? 0) > 0 ? "text-yellow-400" : "text-gray-300 dark:text-slate-600 hover:text-yellow-300"}`}
+                    title="グループ設定"
+                  >
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill={(stockGroupMap.get(row.symbol)?.length ?? 0) > 0 ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.562.562 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+                    </svg>
+                  </button>
+                </td>
                 {displayColumns.map((col) => (
                   <td
                     key={col.key}
@@ -882,6 +945,23 @@ export default function StockTablePage() {
           </div>
         )}
       </div>
+      {groupPopup && (
+        <GroupAssignPopup
+          symbol={groupPopup.symbol}
+          currentGroupIds={stockGroupMap.get(groupPopup.symbol) ?? []}
+          allGroups={allGroups}
+          anchor={groupPopup.anchor}
+          onToggleGroup={(groupId, checked) => {
+            const currentIds = stockGroupMap.get(groupPopup.symbol) ?? [];
+            const newIds = checked
+              ? [...currentIds, groupId]
+              : currentIds.filter((id) => id !== groupId);
+            handleSaveGroups(groupPopup.symbol, newIds);
+          }}
+          onCreateGroup={handleCreateGroup}
+          onClose={() => setGroupPopup(null)}
+        />
+      )}
     </div>
   );
 }
