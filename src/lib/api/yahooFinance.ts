@@ -207,7 +207,8 @@ export async function getQuoteBatch(symbols: string[]) {
 
   return arr.map((result) => {
     const r = result as Record<string, unknown>;
-    const earningsTs = r.earningsTimestamp;
+    const earningsTs =
+      r.earningsTimestamp ?? r.earningsTimestampStart ?? r.earningsTimestampEnd;
     return {
       symbol: result.symbol,
       name:
