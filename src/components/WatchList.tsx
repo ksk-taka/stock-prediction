@@ -5,7 +5,8 @@ import StockCard from "./StockCard";
 import AddStockModal from "./AddStockModal";
 import { isJPMarketOpen, isUSMarketOpen } from "@/lib/utils/date";
 import { getCapSize } from "@/lib/utils/format";
-import type { Stock, SignalValidation } from "@/types";
+import GroupAssignPopup from "./GroupAssignPopup";
+import type { Stock, WatchlistGroup, SignalValidation } from "@/types";
 
 interface StockQuote {
   symbol: string;
@@ -67,6 +68,7 @@ interface FilterPreset {
   strategies: string[];
   segments: string[];
   capSizes?: string[];
+  groupIds?: number[];
   signalFilterMode?: "or" | "and";
   signalPeriodFilter?: string;
   decision: string | null;
@@ -116,7 +118,9 @@ export default function WatchList() {
   const [signalFilterMode, setSignalFilterMode] = useState<"or" | "and">("or");
   const [selectedDecision, setSelectedDecision] = useState<string | null>(null);
   const [selectedJudgment, setSelectedJudgment] = useState<string | null>(null);
-  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [selectedGroupIds, setSelectedGroupIds] = useState<Set<number>>(new Set());
+  const [allGroups, setAllGroups] = useState<WatchlistGroup[]>([]);
+  const [groupPopup, setGroupPopup] = useState<{ symbol: string; anchor: DOMRect } | null>(null);
   const [breakoutFilter, setBreakoutFilter] = useState(false);
   const [consolidationFilter, setConsolidationFilter] = useState(false);
   const [selectedCapSizes, setSelectedCapSizes] = useState<Set<string>>(new Set());
@@ -164,13 +168,14 @@ export default function WatchList() {
   // フィルタ変更時に表示件数をリセット
   useEffect(() => {
     setDisplayCount(PAGE_SIZE);
-  }, [searchQuery, selectedSectors, selectedStrategies, selectedSegments, signalFilterMode, signalPeriodFilter, selectedDecision, selectedJudgment, showFavoritesOnly, breakoutFilter, consolidationFilter, selectedCapSizes]);
+  }, [searchQuery, selectedSectors, selectedStrategies, selectedSegments, signalFilterMode, signalPeriodFilter, selectedDecision, selectedJudgment, selectedGroupIds, breakoutFilter, consolidationFilter, selectedCapSizes]);
 
   const fetchWatchlist = useCallback(async () => {
     try {
       const res = await fetch("/api/watchlist");
       const data = await res.json();
       setStocks(data.stocks ?? []);
+      if (data.groups) setAllGroups(data.groups);
     } catch {
       console.error("Failed to fetch watchlist");
     } finally {
@@ -680,18 +685,41 @@ export default function WatchList() {
     }
   };
 
-  const handleToggleFavorite = async (symbol: string) => {
-    // 即座にUI更新（楽観的更新）
-    setStocks((prev) => prev.map((s) => s.symbol === symbol ? { ...s, favorite: !s.favorite } : s));
+  const handleEditGroups = (symbol: string, event: React.MouseEvent) => {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    setGroupPopup({ symbol, anchor: rect });
+  };
+
+  const handleSaveGroups = async (symbol: string, groupIds: number[]) => {
+    // 楽観的更新
+    const groupMap = new Map(allGroups.map((g) => [g.id, g]));
+    const newGroups = groupIds.map((id) => groupMap.get(id)).filter((g): g is WatchlistGroup => g != null);
+    setStocks((prev) => prev.map((s) =>
+      s.symbol === symbol ? { ...s, groups: newGroups, favorite: newGroups.length > 0 } : s
+    ));
     try {
       await fetch("/api/watchlist", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbol }),
+        body: JSON.stringify({ symbol, groupIds }),
       });
     } catch {
-      // ロールバック
-      setStocks((prev) => prev.map((s) => s.symbol === symbol ? { ...s, favorite: !s.favorite } : s));
+      // ロールバック: 再取得
+      fetchWatchlist();
+    }
+  };
+
+  const handleCreateGroup = async (name: string, color: string) => {
+    try {
+      const res = await fetch("/api/watchlist/groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, color }),
+      });
+      const newGroup: WatchlistGroup = await res.json();
+      setAllGroups((prev) => [...prev, newGroup]);
+    } catch {
+      console.error("Failed to create group");
     }
   };
 
@@ -720,8 +748,8 @@ export default function WatchList() {
 
   // フィルタ適用
   const filteredStocks = stocks.filter((stock) => {
-    // お気に入りフィルタ
-    if (showFavoritesOnly && !stock.favorite) return false;
+    // グループフィルタ
+    if (selectedGroupIds.size > 0 && !stock.groups?.some((g) => selectedGroupIds.has(g.id))) return false;
     // テキスト検索
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -980,12 +1008,12 @@ export default function WatchList() {
     }
   }, [batchAnalysis, batchSlack, batchRunning, filteredStocks, signals, getFilteredSignals]);
 
-  // お気に入りを先頭にソート
-  const sortedStocks = [...filteredStocks].sort((a, b) => (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0));
+  // グループ所属銘柄を先頭にソート
+  const sortedStocks = [...filteredStocks].sort((a, b) => ((b.groups?.length ?? 0) > 0 ? 1 : 0) - ((a.groups?.length ?? 0) > 0 ? 1 : 0));
 
   // 表示する銘柄（Load More制御）
   // フィルタが掛かっている場合は全件表示（Load More不要）
-  const hasActiveFilter = showFavoritesOnly || !!searchQuery || selectedSegments.size > 0 || selectedCapSizes.size > 0 || selectedSectors.size > 0 || selectedStrategies.size > 0 || signalPeriodFilter !== "all" || selectedDecision !== null || selectedJudgment !== null || breakoutFilter || consolidationFilter;
+  const hasActiveFilter = selectedGroupIds.size > 0 || !!searchQuery || selectedSegments.size > 0 || selectedCapSizes.size > 0 || selectedSectors.size > 0 || selectedStrategies.size > 0 || signalPeriodFilter !== "all" || selectedDecision !== null || selectedJudgment !== null || breakoutFilter || consolidationFilter;
   const displayedStocks = hasActiveFilter ? sortedStocks : sortedStocks.slice(0, displayCount);
   const hasMore = !hasActiveFilter && displayCount < sortedStocks.length;
 
@@ -1025,7 +1053,7 @@ export default function WatchList() {
     });
   };
 
-  const hasAnyFilter = searchQuery !== "" || selectedSectors.size > 0 || selectedStrategies.size > 0 || selectedSegments.size > 0 || selectedCapSizes.size > 0 || signalPeriodFilter !== "all" || selectedDecision !== null || selectedJudgment !== null || signalFilterMode !== "or" || showFavoritesOnly || breakoutFilter || consolidationFilter;
+  const hasAnyFilter = searchQuery !== "" || selectedSectors.size > 0 || selectedStrategies.size > 0 || selectedSegments.size > 0 || selectedCapSizes.size > 0 || selectedGroupIds.size > 0 || signalPeriodFilter !== "all" || selectedDecision !== null || selectedJudgment !== null || signalFilterMode !== "or" || breakoutFilter || consolidationFilter;
 
   const clearAllFilters = () => {
     setSearchQuery("");
@@ -1037,7 +1065,7 @@ export default function WatchList() {
     setSignalPeriodFilter("all");
     setSelectedDecision(null);
     setSelectedJudgment(null);
-    setShowFavoritesOnly(false);
+    setSelectedGroupIds(new Set());
     setBreakoutFilter(false);
     setConsolidationFilter(false);
     setActivePresetName(null);
@@ -1052,6 +1080,7 @@ export default function WatchList() {
       strategies: Array.from(selectedStrategies),
       segments: Array.from(selectedSegments),
       capSizes: selectedCapSizes.size > 0 ? Array.from(selectedCapSizes) : undefined,
+      groupIds: selectedGroupIds.size > 0 ? Array.from(selectedGroupIds) : undefined,
       signalFilterMode: signalFilterMode !== "or" ? signalFilterMode : undefined,
       signalPeriodFilter: signalPeriodFilter !== "all" ? signalPeriodFilter : undefined,
       decision: selectedDecision,
@@ -1068,6 +1097,7 @@ export default function WatchList() {
     setSelectedStrategies(new Set(preset.strategies));
     setSelectedSegments(new Set(preset.segments ?? []));
     setSelectedCapSizes(new Set(preset.capSizes ?? []));
+    setSelectedGroupIds(new Set(preset.groupIds ?? []));
     setSignalFilterMode(preset.signalFilterMode ?? "or");
     setSignalPeriodFilter(preset.signalPeriodFilter ?? "all");
     setSelectedDecision(preset.decision);
@@ -1128,20 +1158,30 @@ export default function WatchList() {
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">ウォッチリスト</h2>
-          <button
-            onClick={() => setShowFavoritesOnly((v) => !v)}
-            className={`flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-              showFavoritesOnly
-                ? "border-yellow-400 bg-yellow-50 text-yellow-700 dark:border-yellow-500 dark:bg-yellow-900/30 dark:text-yellow-300"
-                : "border-gray-300 bg-white text-gray-500 hover:border-yellow-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400"
-            }`}
-          >
-            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill={showFavoritesOnly ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.562.562 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
-            </svg>
-            お気に入り
-            {showFavoritesOnly && <span>({stocks.filter((s) => s.favorite).length})</span>}
-          </button>
+          {allGroups.length > 0 && (
+            <div className="flex items-center gap-1">
+              {allGroups.map((g) => (
+                <button
+                  key={g.id}
+                  onClick={() => setSelectedGroupIds((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(g.id)) next.delete(g.id);
+                    else next.add(g.id);
+                    return next;
+                  })}
+                  className={`flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                    selectedGroupIds.has(g.id)
+                      ? "border-current text-white"
+                      : "border-gray-300 bg-white text-gray-500 hover:border-gray-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-500"
+                  }`}
+                  style={selectedGroupIds.has(g.id) ? { backgroundColor: g.color, borderColor: g.color } : undefined}
+                >
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: selectedGroupIds.has(g.id) ? "#fff" : g.color }} />
+                  {g.name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <button
           onClick={() => setModalOpen(true)}
@@ -1596,7 +1636,7 @@ export default function WatchList() {
                     fundamentalJudgment={stock.fundamental?.judgment}
                     fundamentalMemo={stock.fundamental?.memo}
                     onDelete={handleDeleteStock}
-                    onToggleFavorite={handleToggleFavorite}
+                    onEditGroups={handleEditGroups}
                     onVisible={handleCardVisible}
                   />
                 );
@@ -1623,6 +1663,25 @@ export default function WatchList() {
         onClose={() => setModalOpen(false)}
         onAdd={handleAddStock}
       />
+
+      {groupPopup && (
+        <GroupAssignPopup
+          symbol={groupPopup.symbol}
+          currentGroupIds={stocks.find((s) => s.symbol === groupPopup.symbol)?.groups?.map((g) => g.id) ?? []}
+          allGroups={allGroups}
+          anchor={groupPopup.anchor}
+          onToggleGroup={(groupId, checked) => {
+            const stock = stocks.find((s) => s.symbol === groupPopup.symbol);
+            const currentIds = stock?.groups?.map((g) => g.id) ?? [];
+            const newIds = checked
+              ? [...currentIds, groupId]
+              : currentIds.filter((id) => id !== groupId);
+            handleSaveGroups(groupPopup.symbol, newIds);
+          }}
+          onCreateGroup={handleCreateGroup}
+          onClose={() => setGroupPopup(null)}
+        />
+      )}
     </div>
   );
 }

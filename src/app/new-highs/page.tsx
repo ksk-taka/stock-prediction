@@ -3,6 +3,8 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
 import { formatMarketCap, getCapSize } from "@/lib/utils/format";
+import GroupAssignPopup from "@/components/GroupAssignPopup";
+import type { WatchlistGroup } from "@/types";
 
 interface Stock {
   code: string;
@@ -78,6 +80,11 @@ export default function NewHighsPage() {
   const [breakoutOnly, setBreakoutOnly] = useState(true);
   const [consolidationOnly, setConsolidationOnly] = useState(false);
   const [capSizeFilter, setCapSizeFilter] = useState<Set<string>>(new Set());
+  // グループ関連
+  const [allGroups, setAllGroups] = useState<WatchlistGroup[]>([]);
+  const [selectedGroupIds, setSelectedGroupIds] = useState<Set<number>>(new Set());
+  const [watchlistGroupMap, setWatchlistGroupMap] = useState<Map<string, number[]>>(new Map());
+  const [groupPopup, setGroupPopup] = useState<{ symbol: string; anchor: DOMRect } | null>(null);
   const [scanning, setScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState<string | null>(null);
   const [scanProgress, setScanProgress] = useState<{ stage: string; current: number; total: number; message: string } | null>(null);
@@ -104,6 +111,24 @@ export default function NewHighsPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // ウォッチリストグループ取得
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/watchlist");
+        const data = await res.json();
+        if (data.groups) setAllGroups(data.groups);
+        // symbol → groupIds マップ構築
+        const map = new Map<string, number[]>();
+        for (const s of data.stocks ?? []) {
+          const ids = (s.groups ?? []).map((g: { id: number }) => g.id);
+          if (ids.length > 0) map.set(s.symbol, ids);
+        }
+        setWatchlistGroupMap(map);
+      } catch { /* ignore */ }
+    })();
+  }, []);
 
   // ポーリングクリーンアップ
   useEffect(() => {
@@ -203,6 +228,10 @@ export default function NewHighsPage() {
 
   const filtered = useMemo(() => {
     let list = stocks;
+    if (selectedGroupIds.size > 0) list = list.filter((s) => {
+      const gids = watchlistGroupMap.get(s.symbol);
+      return gids?.some((id) => selectedGroupIds.has(id));
+    });
     if (breakoutOnly) list = list.filter((s) => s.isTrue52wBreakout);
     if (consolidationOnly) list = list.filter((s) => s.consolidationDays >= 10);
     if (capSizeFilter.size > 0) list = list.filter((s) => {
@@ -232,7 +261,7 @@ export default function NewHighsPage() {
       return 0;
     });
     return list;
-  }, [stocks, sortKey, sortDir, marketFilter, search, breakoutOnly, consolidationOnly, capSizeFilter]);
+  }, [stocks, sortKey, sortDir, marketFilter, search, breakoutOnly, consolidationOnly, capSizeFilter, selectedGroupIds, watchlistGroupMap]);
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -254,6 +283,51 @@ export default function NewHighsPage() {
     if (v >= -0.5) return "text-yellow-600 dark:text-yellow-400";
     return "text-gray-500 dark:text-slate-400";
   }
+
+  // グループ編集ハンドラ
+  const handleEditGroups = (symbol: string, event: React.MouseEvent) => {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    setGroupPopup({ symbol, anchor: rect });
+  };
+
+  const handleSaveGroups = async (symbol: string, groupIds: number[]) => {
+    // ウォッチリスト未登録なら先に追加
+    if (!watchlistGroupMap.has(symbol)) {
+      const stock = stocks.find((s) => s.symbol === symbol);
+      const market = symbol.endsWith(".T") ? "JP" : "US";
+      await fetch("/api/watchlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol, name: stock?.name ?? symbol, market }),
+      });
+    }
+    // 楽観的更新
+    setWatchlistGroupMap((prev) => {
+      const next = new Map(prev);
+      if (groupIds.length > 0) next.set(symbol, groupIds);
+      else next.delete(symbol);
+      return next;
+    });
+    try {
+      await fetch("/api/watchlist", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol, groupIds }),
+      });
+    } catch { /* ignore */ }
+  };
+
+  const handleCreateGroup = async (name: string, color: string) => {
+    try {
+      const res = await fetch("/api/watchlist/groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, color }),
+      });
+      const newGroup: WatchlistGroup = await res.json();
+      setAllGroups((prev) => [...prev, newGroup]);
+    } catch { /* ignore */ }
+  };
 
   if (loading) {
     return (
@@ -418,6 +492,30 @@ export default function NewHighsPage() {
             </button>
           ))}
         </div>
+        {allGroups.length > 0 && (
+          <div className="flex gap-1">
+            {allGroups.map((g) => (
+              <button
+                key={g.id}
+                onClick={() => setSelectedGroupIds((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(g.id)) next.delete(g.id);
+                  else next.add(g.id);
+                  return next;
+                })}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                  selectedGroupIds.has(g.id)
+                    ? "text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+                }`}
+                style={selectedGroupIds.has(g.id) ? { backgroundColor: g.color } : undefined}
+              >
+                <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: selectedGroupIds.has(g.id) ? "#fff" : g.color }} />
+                {g.name}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Table */}
@@ -425,6 +523,7 @@ export default function NewHighsPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50 dark:border-slate-700 dark:bg-slate-900/50">
+              <th className="w-8 px-1 py-2.5" />
               {COLUMNS.map((col) => (
                 <th
                   key={col.key}
@@ -447,6 +546,19 @@ export default function NewHighsPage() {
                 key={s.symbol}
                 className="transition-colors hover:bg-blue-50/50 dark:hover:bg-slate-700/30"
               >
+                <td className="px-1 py-2 text-center">
+                  <button
+                    onClick={(e) => handleEditGroups(s.symbol, e)}
+                    className="text-lg transition-transform hover:scale-110"
+                    title="グループ設定"
+                  >
+                    {watchlistGroupMap.has(s.symbol) ? (
+                      <span className="text-yellow-400">&#9733;</span>
+                    ) : (
+                      <span className="text-gray-300 dark:text-slate-600 hover:text-yellow-300">&#9734;</span>
+                    )}
+                  </button>
+                </td>
                 <td className="whitespace-nowrap px-3 py-2">
                   <Link
                     href={`/stock/${s.symbol}`}
@@ -519,6 +631,24 @@ export default function NewHighsPage() {
           </div>
         )}
       </div>
+
+      {groupPopup && (
+        <GroupAssignPopup
+          symbol={groupPopup.symbol}
+          currentGroupIds={watchlistGroupMap.get(groupPopup.symbol) ?? []}
+          allGroups={allGroups}
+          anchor={groupPopup.anchor}
+          onToggleGroup={(groupId, checked) => {
+            const currentIds = watchlistGroupMap.get(groupPopup.symbol) ?? [];
+            const newIds = checked
+              ? [...currentIds, groupId]
+              : currentIds.filter((id) => id !== groupId);
+            handleSaveGroups(groupPopup.symbol, newIds);
+          }}
+          onCreateGroup={handleCreateGroup}
+          onClose={() => setGroupPopup(null)}
+        />
+      )}
     </div>
   );
 }

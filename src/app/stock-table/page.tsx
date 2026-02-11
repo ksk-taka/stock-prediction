@@ -6,12 +6,20 @@ import { formatMarketCap, getCapSize } from "@/lib/utils/format";
 
 // ── 型定義 ──
 
+interface WatchlistGroup {
+  id: number;
+  name: string;
+  color: string;
+  sortOrder: number;
+}
+
 interface Stock {
   symbol: string;
   name: string;
   market: "JP" | "US";
   marketSegment?: string;
   favorite?: boolean;
+  groupIds?: number[];
 }
 
 interface StockTableRow {
@@ -242,7 +250,8 @@ export default function StockTablePage() {
   }, [tableData]);
 
   // フィルタ・ソート
-  const [favoritesOnly, setFavoritesOnly] = useState(true);
+  const [allGroups, setAllGroups] = useState<WatchlistGroup[]>([]);
+  const [selectedGroupIds, setSelectedGroupIds] = useState<Set<number>>(new Set());
   const [marketFilter, setMarketFilter] = useState("");
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("code");
@@ -287,7 +296,12 @@ export default function StockTablePage() {
       try {
         const res = await fetch("/api/watchlist");
         const data = await res.json();
-        setStocks(data.stocks ?? []);
+        const stockList = (data.stocks ?? []).map((s: Stock & { groups?: { id: number }[] }) => ({
+          ...s,
+          groupIds: s.groups?.map((g) => g.id) ?? [],
+        }));
+        setStocks(stockList);
+        if (data.groups) setAllGroups(data.groups);
       } catch {
         // ignore
       } finally {
@@ -299,7 +313,7 @@ export default function StockTablePage() {
   // ── フィルタ適用済みリスト ──
   const filteredStocks = useMemo(() => {
     let list = stocks;
-    if (favoritesOnly) list = list.filter((s) => s.favorite);
+    if (selectedGroupIds.size > 0) list = list.filter((s) => s.groupIds?.some((id) => selectedGroupIds.has(id)));
     if (marketFilter) {
       list = list.filter((s) => s.marketSegment?.includes(marketFilter));
     }
@@ -312,7 +326,7 @@ export default function StockTablePage() {
       );
     }
     return list;
-  }, [stocks, favoritesOnly, marketFilter, search]);
+  }, [stocks, selectedGroupIds, marketFilter, search]);
 
   // ── データ取得 ──
   // refで既存データを参照（useEffectの依存配列に入れずに済む）
@@ -618,16 +632,30 @@ export default function StockTablePage() {
           onChange={(e) => setSearch(e.target.value)}
           className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white dark:focus:border-blue-400"
         />
-        <button
-          onClick={() => setFavoritesOnly((v) => !v)}
-          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-            favoritesOnly
-              ? "bg-yellow-500 text-white"
-              : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
-          }`}
-        >
-          お気に入りのみ
-        </button>
+        {allGroups.length > 0 && (
+          <div className="flex gap-1">
+            {allGroups.map((g) => (
+              <button
+                key={g.id}
+                onClick={() => setSelectedGroupIds((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(g.id)) next.delete(g.id);
+                  else next.add(g.id);
+                  return next;
+                })}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                  selectedGroupIds.has(g.id)
+                    ? "text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+                }`}
+                style={selectedGroupIds.has(g.id) ? { backgroundColor: g.color } : undefined}
+              >
+                <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: selectedGroupIds.has(g.id) ? "#fff" : g.color }} />
+                {g.name}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex gap-1">
           {MARKET_FILTERS.map((m) => (
             <button

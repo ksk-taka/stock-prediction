@@ -12,7 +12,8 @@ import FundamentalPanel from "@/components/FundamentalPanel";
 import MarketSentiment from "@/components/MarketSentiment";
 import { formatChange, formatMarketCap } from "@/lib/utils/format";
 import { isMarketOpen } from "@/lib/utils/date";
-import type { PriceData, NewsItem, SentimentData, LLMAnalysis, FundamentalResearchData, FundamentalAnalysis, SignalValidation } from "@/types";
+import GroupAssignPopup from "@/components/GroupAssignPopup";
+import type { PriceData, NewsItem, SentimentData, LLMAnalysis, FundamentalResearchData, FundamentalAnalysis, SignalValidation, WatchlistGroup } from "@/types";
 import type { Period } from "@/lib/utils/date";
 
 type Tab = "chart" | "news" | "sentiment" | "analysis" | "fundamental" | "backtest";
@@ -62,10 +63,11 @@ export default function StockDetailPage() {
   // ニュースの追加データ
   const [snsOverview, setSnsOverview] = useState("");
   const [analystRating, setAnalystRating] = useState("");
-  // お気に入り
-  const [isFavorite, setIsFavorite] = useState(false);
+  // グループ管理
+  const [stockGroups, setStockGroups] = useState<WatchlistGroup[]>([]);
+  const [allGroups, setAllGroups] = useState<WatchlistGroup[]>([]);
   const [inWatchlist, setInWatchlist] = useState(false);
-  const [togglingFav, setTogglingFav] = useState(false);
+  const [groupPopup, setGroupPopup] = useState<{ anchor: DOMRect } | null>(null);
   // シグナル期間フィルタ
   const [signalPeriodFilter, setSignalPeriodFilter] = useState<string>("all");
 
@@ -234,40 +236,57 @@ export default function StockDetailPage() {
         const res = await fetch("/api/watchlist");
         if (res.ok) {
           const data = await res.json();
+          if (data.groups) setAllGroups(data.groups);
           const stock = data.stocks?.find((s: { symbol: string }) => s.symbol === symbol);
           if (stock) {
             setInWatchlist(true);
-            setIsFavorite(!!stock.favorite);
+            setStockGroups(stock.groups ?? []);
           }
         }
       } catch { /* skip */ }
     })();
   }, [symbol]);
 
-  // お気に入りトグル（ウォッチリスト未登録なら先に追加）
-  const toggleFavorite = async () => {
-    setTogglingFav(true);
+  // グループ編集ポップアップ表示
+  const handleEditGroups = (event: React.MouseEvent) => {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    setGroupPopup({ anchor: rect });
+  };
+
+  const handleSaveGroups = async (groupIds: number[]) => {
+    // ウォッチリスト未登録なら先に追加
+    if (!inWatchlist) {
+      const market = symbol.endsWith(".T") ? "JP" : "US";
+      await fetch("/api/watchlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol, name: quote?.name ?? symbol, market }),
+      });
+      setInWatchlist(true);
+    }
+    // 楽観的更新
+    const groupMap = new Map(allGroups.map((g) => [g.id, g]));
+    const newGroups = groupIds.map((id) => groupMap.get(id)).filter((g): g is WatchlistGroup => g != null);
+    setStockGroups(newGroups);
     try {
-      if (!inWatchlist) {
-        const market = symbol.endsWith(".T") ? "JP" : "US";
-        await fetch("/api/watchlist", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ symbol, name: quote?.name ?? symbol, market }),
-        });
-        setInWatchlist(true);
-      }
-      const res = await fetch("/api/watchlist", {
+      await fetch("/api/watchlist", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbol }),
+        body: JSON.stringify({ symbol, groupIds }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setIsFavorite(data.favorite);
-      }
     } catch { /* skip */ }
-    setTogglingFav(false);
+  };
+
+  const handleCreateGroup = async (name: string, color: string) => {
+    try {
+      const res = await fetch("/api/watchlist/groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, color }),
+      });
+      const newGroup: WatchlistGroup = await res.json();
+      setAllGroups((prev) => [...prev, newGroup]);
+    } catch { /* skip */ }
   };
 
   // EPS取得（PERバンド用）+ アクティブシグナル取得
@@ -391,21 +410,32 @@ export default function StockDetailPage() {
       <div className="sticky top-[49px] z-[9] -mx-3 mb-6 flex flex-wrap items-end gap-3 bg-gray-50 px-3 py-2 dark:bg-slate-900 sm:-mx-4 sm:gap-4 sm:px-4">
         <div className="flex items-center gap-2 min-w-0">
           <button
-            onClick={toggleFavorite}
-            disabled={togglingFav}
-            title={isFavorite ? "お気に入り解除" : inWatchlist ? "お気に入りに追加" : "ウォッチリストに追加してお気に入り登録"}
-            className="text-2xl transition-colors disabled:opacity-50 hover:scale-110"
+            onClick={handleEditGroups}
+            title="グループ設定"
+            className="text-2xl transition-colors hover:scale-110"
           >
-            {isFavorite ? (
+            {stockGroups.length > 0 ? (
               <span className="text-yellow-400">&#9733;</span>
             ) : (
               <span className="text-gray-300 dark:text-slate-600 hover:text-yellow-300">&#9734;</span>
             )}
           </button>
           <div className="min-w-0">
-            <h1 className="truncate text-xl font-bold text-gray-900 dark:text-white sm:text-2xl">
-              {quote?.name ?? symbol}
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="truncate text-xl font-bold text-gray-900 dark:text-white sm:text-2xl">
+                {quote?.name ?? symbol}
+              </h1>
+              {stockGroups.length > 0 && (
+                <div className="flex gap-1">
+                  {stockGroups.slice(0, 3).map((g) => (
+                    <span key={g.id} className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium text-gray-600 dark:text-slate-400" style={{ backgroundColor: g.color + "20" }}>
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: g.color }} />
+                      {g.name}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
             <p className="text-sm text-gray-500 dark:text-slate-400">{symbol}</p>
           </div>
         </div>
@@ -896,6 +926,24 @@ export default function StockDetailPage() {
           />
         )}
       </div>
+
+      {groupPopup && (
+        <GroupAssignPopup
+          symbol={symbol}
+          currentGroupIds={stockGroups.map((g) => g.id)}
+          allGroups={allGroups}
+          anchor={groupPopup.anchor}
+          onToggleGroup={(groupId, checked) => {
+            const currentIds = stockGroups.map((g) => g.id);
+            const newIds = checked
+              ? [...currentIds, groupId]
+              : currentIds.filter((id) => id !== groupId);
+            handleSaveGroups(newIds);
+          }}
+          onCreateGroup={handleCreateGroup}
+          onClose={() => setGroupPopup(null)}
+        />
+      )}
     </div>
   );
 }

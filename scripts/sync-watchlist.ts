@@ -65,6 +65,7 @@ async function pull() {
 
   const watchlist: WatchList = {
     stocks: mappedStocks,
+    groups: [],
     updatedAt: new Date().toISOString(),
   };
 

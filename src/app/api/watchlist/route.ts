@@ -4,7 +4,7 @@ import {
   addStock,
   removeStock,
   updateStockFundamental,
-  toggleFavorite,
+  setStockGroups,
 } from "@/lib/data/watchlist";
 import { getAuthUserId } from "@/lib/supabase/auth";
 import type { Stock } from "@/types";
@@ -48,20 +48,19 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const userId = await getAuthUserId();
-    const { symbol } = await request.json();
-    if (!symbol) {
+    const { symbol, groupIds } = await request.json();
+    if (!symbol || !Array.isArray(groupIds)) {
       return NextResponse.json(
-        { error: "symbol is required" },
+        { error: "symbol and groupIds[] are required" },
         { status: 400 }
       );
     }
-    const list = await toggleFavorite(userId, symbol);
-    const stock = list.stocks.find((s) => s.symbol === symbol);
-    return NextResponse.json({ favorite: stock?.favorite ?? false });
+    const result = await setStockGroups(userId, symbol, groupIds);
+    return NextResponse.json(result);
   } catch (error) {
     console.error("Watchlist PUT error:", error);
     return NextResponse.json(
-      { error: "Failed to toggle favorite" },
+      { error: "Failed to set stock groups" },
       { status: 500 }
     );
   }
