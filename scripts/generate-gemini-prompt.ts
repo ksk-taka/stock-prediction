@@ -84,10 +84,14 @@ async function main() {
     yf.chart(symbol, { period1, period2, interval: "1d" as const }),
   ]);
 
-  const fd = summary.financialData ?? {};
-  const ks = summary.defaultKeyStatistics ?? {};
-  const cal = summary.calendarEvents ?? {};
-  const ap = summary.assetProfile ?? {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fd = (summary.financialData ?? {}) as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ks = (summary.defaultKeyStatistics ?? {}) as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const cal = (summary.calendarEvents ?? {}) as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ap = (summary.assetProfile ?? {}) as any;
 
   // 株価データ
   const price = quote.regularMarketPrice ?? 0;
