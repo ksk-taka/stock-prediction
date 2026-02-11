@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
 import { formatMarketCap, getCapSize } from "@/lib/utils/format";
+import { isMarketOpen } from "@/lib/utils/date";
 import GroupAssignPopup from "@/components/GroupAssignPopup";
 
 // ── 型定義 ──
@@ -103,7 +104,12 @@ const MARKET_FILTERS = [
 
 const BATCH_SIZE = 50;
 const TABLE_DATA_CACHE_KEY = "stock-table-data";
-const TABLE_DATA_CACHE_TTL = 10 * 60 * 1000; // 10分
+const TABLE_DATA_CACHE_TTL_MARKET = 15 * 60 * 1000; // 場中: 15分
+const TABLE_DATA_CACHE_TTL_CLOSED = 6 * 60 * 60 * 1000; // 場外: 6時間
+
+function getTableCacheTTL(): number {
+  return isMarketOpen("JP") ? TABLE_DATA_CACHE_TTL_MARKET : TABLE_DATA_CACHE_TTL_CLOSED;
+}
 
 // ── 決算日フィルタ プリセット ──
 
@@ -225,7 +231,7 @@ export default function StockTablePage() {
         const saved = sessionStorage.getItem(TABLE_DATA_CACHE_KEY);
         if (saved) {
           const { data, timestamp } = JSON.parse(saved);
-          if (Date.now() - timestamp < TABLE_DATA_CACHE_TTL) {
+          if (Date.now() - timestamp < getTableCacheTTL()) {
             return new Map(Object.entries(data) as [string, StockTableRow][]);
           }
         }
@@ -237,18 +243,18 @@ export default function StockTablePage() {
   const [loadedCount, setLoadedCount] = useState(0);
   const [fetchTotal, setFetchTotal] = useState(0); // 実際にフェッチする件数
 
-  // tableData変更時にsessionStorageに保存
-  useEffect(() => {
-    if (tableData.size === 0) return;
+  // sessionStorageに保存するヘルパー（fetch完了時のみ呼ぶ）
+  const saveToSessionStorage = useCallback((data: Map<string, StockTableRow>) => {
+    if (data.size === 0) return;
     try {
       const obj: Record<string, StockTableRow> = {};
-      tableData.forEach((v, k) => { obj[k] = v; });
+      data.forEach((v, k) => { obj[k] = v; });
       sessionStorage.setItem(TABLE_DATA_CACHE_KEY, JSON.stringify({
         data: obj,
         timestamp: Date.now(),
       }));
     } catch { /* ignore */ }
-  }, [tableData]);
+  }, []);
 
   // フィルタ・ソート
   const [allGroups, setAllGroups] = useState<WatchlistGroup[]>([]);
@@ -340,6 +346,9 @@ export default function StockTablePage() {
   const tableDataRef = useRef(tableData);
   tableDataRef.current = tableData;
 
+  // fetch世代カウンタ: 新しいfetchが始まったら古いfetchの状態更新を無視する
+  const fetchGenRef = useRef(0);
+
   const fetchTableData = useCallback(
     async (symbolList: string[]) => {
       if (symbolList.length === 0) return;
@@ -348,6 +357,9 @@ export default function StockTablePage() {
       const missing = symbolList.filter((s) => !tableDataRef.current.has(s));
       if (missing.length === 0) return; // 全てキャッシュ済み → 何もしない
 
+      // 新しいfetch世代を開始（古い並行fetchを無効化）
+      const gen = ++fetchGenRef.current;
+
       setLoadingData(true);
       setLoadedCount(0);
       setFetchTotal(missing.length);
@@ -355,6 +367,9 @@ export default function StockTablePage() {
       const existing = new Map(tableDataRef.current);
 
       for (let i = 0; i < missing.length; i += BATCH_SIZE) {
+        // 新しいfetchが始まっていたら中断
+        if (fetchGenRef.current !== gen) return;
+
         const batch = missing.slice(i, i + BATCH_SIZE);
         try {
           const res = await fetch(
@@ -369,13 +384,21 @@ export default function StockTablePage() {
         } catch {
           // continue with next batch
         }
+
+        // 中断チェック（fetch中に新世代が始まった場合）
+        if (fetchGenRef.current !== gen) return;
+
         setLoadedCount(Math.min(i + BATCH_SIZE, missing.length));
         setTableData(new Map(existing));
       }
 
-      setLoadingData(false);
+      // 最終チェック: このfetchがまだ最新なら完了
+      if (fetchGenRef.current === gen) {
+        setLoadingData(false);
+        saveToSessionStorage(existing);
+      }
     },
-    [],
+    [saveToSessionStorage],
   );
 
   // フィルタが変わったらデータ取得（未取得分のみ）
