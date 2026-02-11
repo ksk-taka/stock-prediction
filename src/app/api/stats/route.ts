@@ -13,9 +13,9 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // キャッシュチェック（24時間TTL）
+  // キャッシュチェック（24時間TTL）— NC率・時価総額が揃っている場合のみ返す
   const cached = getCachedStats(symbol);
-  if (cached) {
+  if (cached && cached.simpleNcRatio !== undefined && cached.marketCap !== undefined) {
     return NextResponse.json({ symbol, ...cached });
   }
 
@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
       roe: financial.roe,
       dividendYield: quote.dividendYield,
       simpleNcRatio,
+      marketCap: quote.marketCap || null,
     };
 
     // キャッシュ保存
