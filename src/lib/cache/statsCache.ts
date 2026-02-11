@@ -14,7 +14,9 @@ interface StatsCacheEntry {
   roe: number | null;
   dividendYield: number | null;
   simpleNcRatio?: number | null;
+  marketCap?: number | null;
   cachedAt: number;
+  ncCachedAt?: number; // NC率専用タイムスタンプ（cachedAtとは独立）
 }
 
 function ensureDir() {
@@ -27,7 +29,7 @@ function cacheFile(symbol: string): string {
   return path.join(CACHE_DIR, `${symbol.replace(".", "_")}.json`);
 }
 
-export function getCachedStats(symbol: string): Omit<StatsCacheEntry, "cachedAt"> | null {
+export function getCachedStats(symbol: string): Omit<StatsCacheEntry, "cachedAt" | "ncCachedAt"> | null {
   try {
     ensureDir();
     const file = cacheFile(symbol);
@@ -36,7 +38,7 @@ export function getCachedStats(symbol: string): Omit<StatsCacheEntry, "cachedAt"
     const entry: StatsCacheEntry = JSON.parse(fs.readFileSync(file, "utf-8"));
     if (Date.now() - entry.cachedAt > TTL) return null;
 
-    const { cachedAt: _, ...data } = entry;
+    const { cachedAt: _, ncCachedAt: _nc, ...data } = entry;
     return data;
   } catch {
     return null;
@@ -45,7 +47,7 @@ export function getCachedStats(symbol: string): Omit<StatsCacheEntry, "cachedAt"
 
 /**
  * NC率だけを長期キャッシュから取得（7日TTL）
- * 主キャッシュ(24h)が切れてもNC率は有効な場合に使い、API呼出しをスキップする
+ * ncCachedAtがあればそれを使い、なければcachedAtにフォールバック
  * undefined = キャッシュなし/期限切れ, null = データなし（計算不能）
  */
 export function getCachedNcRatio(symbol: string): number | null | undefined {
@@ -55,7 +57,9 @@ export function getCachedNcRatio(symbol: string): number | null | undefined {
     if (!fs.existsSync(file)) return undefined;
 
     const entry: StatsCacheEntry = JSON.parse(fs.readFileSync(file, "utf-8"));
-    if (Date.now() - entry.cachedAt > NC_TTL) return undefined;
+    const ncTs = entry.ncCachedAt ?? entry.cachedAt;
+    if (Date.now() - ncTs > NC_TTL) return undefined;
+    if (entry.simpleNcRatio === undefined) return undefined;
     return entry.simpleNcRatio ?? null;
   } catch {
     return undefined;
@@ -64,12 +68,13 @@ export function getCachedNcRatio(symbol: string): number | null | undefined {
 
 export function setCachedStats(
   symbol: string,
-  data: Omit<StatsCacheEntry, "cachedAt">
+  data: Omit<StatsCacheEntry, "cachedAt" | "ncCachedAt">
 ): void {
   try {
     ensureDir();
     const file = cacheFile(symbol);
-    const entry: StatsCacheEntry = { ...data, cachedAt: Date.now() };
+    const now = Date.now();
+    const entry: StatsCacheEntry = { ...data, cachedAt: now, ncCachedAt: now };
     fs.writeFileSync(file, JSON.stringify(entry), "utf-8");
   } catch {
     // ignore write errors
@@ -78,7 +83,7 @@ export function setCachedStats(
 
 /**
  * NC率のみをキャッシュに書き込む（既存エントリがあれば更新、なければ新規作成）
- * stock-table APIなどでNC率だけ取得した場合に使う
+ * ncCachedAtを更新してNC率のTTLを独立管理（他フィールドのcachedAtは壊さない）
  */
 export function setCachedNcOnly(symbol: string, ncRatio: number | null): void {
   try {
@@ -88,6 +93,7 @@ export function setCachedNcOnly(symbol: string, ncRatio: number | null): void {
     try {
       const existing: StatsCacheEntry = JSON.parse(fs.readFileSync(file, "utf-8"));
       existing.simpleNcRatio = ncRatio;
+      existing.ncCachedAt = Date.now();
       entry = existing; // cachedAtは元のまま（他フィールドのTTLを壊さない）
     } catch {
       entry = {
@@ -95,6 +101,7 @@ export function setCachedNcOnly(symbol: string, ncRatio: number | null): void {
         roe: null, dividendYield: null,
         simpleNcRatio: ncRatio,
         cachedAt: Date.now(),
+        ncCachedAt: Date.now(),
       };
     }
     fs.writeFileSync(file, JSON.stringify(entry), "utf-8");
