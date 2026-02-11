@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getQuote, getFinancialData, getSimpleNetCashRatio } from "@/lib/api/yahooFinance";
-import { getCachedStats, setCachedStats } from "@/lib/cache/statsCache";
+import { getCachedStats, setCachedStats, getCachedNcRatio } from "@/lib/cache/statsCache";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // キャッシュチェック（6時間TTL）
+  // キャッシュチェック（24時間TTL）
   const cached = getCachedStats(symbol);
   if (cached) {
     return NextResponse.json({ symbol, ...cached });
@@ -25,8 +25,11 @@ export async function GET(request: NextRequest) {
       getFinancialData(symbol),
     ]);
 
-    // 簡易NC率はquote取得後にmarketCapを使って計算
-    const simpleNcRatio = await getSimpleNetCashRatio(symbol, quote.marketCap);
+    // NC率は7日キャッシュ（四半期データ）→ 有効ならAPI呼出しスキップ
+    const cachedNc = getCachedNcRatio(symbol);
+    const simpleNcRatio = cachedNc !== undefined
+      ? cachedNc
+      : await getSimpleNetCashRatio(symbol, quote.marketCap);
 
     const result = {
       per: quote.per,

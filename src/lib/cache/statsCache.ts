@@ -3,7 +3,8 @@ import path from "path";
 import { getCacheBaseDir } from "./cacheDir";
 
 const CACHE_DIR = path.join(getCacheBaseDir(), "stats");
-const TTL = 6 * 60 * 60 * 1000; // 6時間
+const TTL = 24 * 60 * 60 * 1000; // 24時間（1日1回更新）
+const NC_TTL = 7 * 24 * 60 * 60 * 1000; // 7日間（四半期データなので長め）
 
 interface StatsCacheEntry {
   per: number | null;
@@ -39,6 +40,25 @@ export function getCachedStats(symbol: string): Omit<StatsCacheEntry, "cachedAt"
     return data;
   } catch {
     return null;
+  }
+}
+
+/**
+ * NC率だけを長期キャッシュから取得（7日TTL）
+ * 主キャッシュ(24h)が切れてもNC率は有効な場合に使い、API呼出しをスキップする
+ * undefined = キャッシュなし/期限切れ, null = データなし（計算不能）
+ */
+export function getCachedNcRatio(symbol: string): number | null | undefined {
+  try {
+    ensureDir();
+    const file = cacheFile(symbol);
+    if (!fs.existsSync(file)) return undefined;
+
+    const entry: StatsCacheEntry = JSON.parse(fs.readFileSync(file, "utf-8"));
+    if (Date.now() - entry.cachedAt > NC_TTL) return undefined;
+    return entry.simpleNcRatio ?? null;
+  } catch {
+    return undefined;
   }
 }
 
