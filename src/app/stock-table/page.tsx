@@ -93,6 +93,8 @@ const MARKET_FILTERS = [
 ];
 
 const BATCH_SIZE = 50;
+const TABLE_DATA_CACHE_KEY = "stock-table-data";
+const TABLE_DATA_CACHE_TTL = 10 * 60 * 1000; // 10分
 
 // ── 決算日フィルタ プリセット ──
 
@@ -207,10 +209,37 @@ export default function StockTablePage() {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [loadingStocks, setLoadingStocks] = useState(true);
 
-  // テーブルデータ
-  const [tableData, setTableData] = useState<Map<string, StockTableRow>>(new Map());
+  // テーブルデータ (sessionStorageからリストア)
+  const [tableData, setTableData] = useState<Map<string, StockTableRow>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = sessionStorage.getItem(TABLE_DATA_CACHE_KEY);
+        if (saved) {
+          const { data, timestamp } = JSON.parse(saved);
+          if (Date.now() - timestamp < TABLE_DATA_CACHE_TTL) {
+            return new Map(Object.entries(data) as [string, StockTableRow][]);
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    return new Map();
+  });
   const [loadingData, setLoadingData] = useState(false);
   const [loadedCount, setLoadedCount] = useState(0);
+  const [fetchTotal, setFetchTotal] = useState(0); // 実際にフェッチする件数
+
+  // tableData変更時にsessionStorageに保存
+  useEffect(() => {
+    if (tableData.size === 0) return;
+    try {
+      const obj: Record<string, StockTableRow> = {};
+      tableData.forEach((v, k) => { obj[k] = v; });
+      sessionStorage.setItem(TABLE_DATA_CACHE_KEY, JSON.stringify({
+        data: obj,
+        timestamp: Date.now(),
+      }));
+    } catch { /* ignore */ }
+  }, [tableData]);
 
   // フィルタ・ソート
   const [favoritesOnly, setFavoritesOnly] = useState(true);
@@ -300,6 +329,7 @@ export default function StockTablePage() {
 
       setLoadingData(true);
       setLoadedCount(0);
+      setFetchTotal(missing.length);
 
       const existing = new Map(tableDataRef.current);
 
@@ -553,7 +583,7 @@ export default function StockTablePage() {
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-600 dark:text-slate-300">
             {mergedRows.length} 銘柄
-            {loadingData && ` (${loadedCount}/${filteredStocks.length} 取得中...)`}
+            {loadingData && ` (${loadedCount}/${fetchTotal} 取得中...)`}
           </span>
           {loadingData && (
             <svg
@@ -758,12 +788,12 @@ export default function StockTablePage() {
       )}
 
       {/* プログレスバー */}
-      {loadingData && filteredStocks.length > BATCH_SIZE && (
+      {loadingData && fetchTotal > BATCH_SIZE && (
         <div className="h-1 overflow-hidden rounded-full bg-gray-200 dark:bg-slate-700">
           <div
             className="h-full rounded-full bg-blue-500 transition-all duration-300"
             style={{
-              width: `${Math.min(100, (loadedCount / filteredStocks.length) * 100)}%`,
+              width: `${Math.min(100, fetchTotal > 0 ? (loadedCount / fetchTotal) * 100 : 0)}%`,
             }}
           />
         </div>
