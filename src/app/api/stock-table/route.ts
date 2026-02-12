@@ -118,7 +118,8 @@ export async function GET(request: NextRequest) {
     const roeMissing: string[] = [];
 
     for (const sym of symbols) {
-      const cached = getCachedStatsAll(sym);
+      const quote = quoteMap.get(sym);
+      const cached = getCachedStatsAll(sym, quote?.earningsDate);
 
       // NC率
       if (cached.nc !== undefined) {

@@ -8,6 +8,7 @@ const TTL = 24 * 60 * 60 * 1000; // 24時間（1日1回更新）
 const NC_TTL = 7 * 24 * 60 * 60 * 1000; // 7日間（四半期データなので長め）
 const DIVIDEND_TTL = 30 * 24 * 60 * 60 * 1000; // 30日間（配当は年2回程度なので長めに）
 const ROE_TTL = 30 * 24 * 60 * 60 * 1000; // 30日間（四半期決算ごとに更新）
+const EARNINGS_INVALIDATION_DAYS = 3; // 決算日前後N日以内はキャッシュ無効化
 
 /**
  * 1回の読み取りで全項目を返す（各項目ごとにTTL判定）
@@ -45,6 +46,40 @@ function ensureDir() {
 
 function cacheFile(symbol: string): string {
   return path.join(CACHE_DIR, `${symbol.replace(".", "_")}.json`);
+}
+
+/**
+ * 決算日が直近かどうかをチェック
+ * @param earningsDate 決算日（Date, string, number, null）
+ * @returns 決算日が前後N日以内ならtrue
+ */
+export function isNearEarningsDate(earningsDate: Date | string | number | null | undefined): boolean {
+  if (!earningsDate) return false;
+
+  const earnings = new Date(earningsDate);
+  if (isNaN(earnings.getTime())) return false;
+
+  const now = new Date();
+  const diffDays = Math.abs(now.getTime() - earnings.getTime()) / (24 * 60 * 60 * 1000);
+
+  return diffDays <= EARNINGS_INVALIDATION_DAYS;
+}
+
+/**
+ * 特定銘柄のstatsキャッシュを削除
+ */
+export function invalidateStatsCache(symbol: string): boolean {
+  try {
+    ensureDir();
+    const file = cacheFile(symbol);
+    if (fs.existsSync(file)) {
+      fs.unlinkSync(file);
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
 }
 
 export function getCachedStats(symbol: string): Omit<StatsCacheEntry, "cachedAt" | "ncCachedAt"> | null {
@@ -274,13 +309,20 @@ export function setCachedStatsPartial(symbol: string, updates: StatsPartialUpdat
 /**
  * 1回のファイル読み取りで全項目を取得（各項目ごとにTTL判定）
  * 重複読み取りを避けるための最適化関数
+ * @param earningsDate 決算日（直近ならROEキャッシュを無効化）
  */
-export function getCachedStatsAll(symbol: string): CachedStatsAllResult {
+export function getCachedStatsAll(
+  symbol: string,
+  earningsDate?: Date | string | number | null
+): CachedStatsAllResult {
   const result: CachedStatsAllResult = {
     nc: undefined,
     dividend: undefined,
     roe: undefined,
   };
+
+  // 決算日が直近の場合、ROEは常に再取得（PER/EPS/ROEが更新される可能性）
+  const nearEarnings = isNearEarningsDate(earningsDate);
 
   try {
     ensureDir();
@@ -296,16 +338,18 @@ export function getCachedStatsAll(symbol: string): CachedStatsAllResult {
       result.nc = entry.simpleNcRatio;
     }
 
-    // 配当（7日TTL）
+    // 配当（30日TTL）
     const divTs = entry.dividendCachedAt ?? entry.cachedAt;
     if (now - divTs <= DIVIDEND_TTL && entry.dividendSummary !== undefined) {
       result.dividend = entry.dividendSummary;
     }
 
-    // ROE（30日TTL）
-    const roeTs = entry.roeCachedAt ?? entry.cachedAt;
-    if (now - roeTs <= ROE_TTL && entry.roe !== undefined) {
-      result.roe = entry.roe;
+    // ROE（30日TTL）- 決算日が近い場合は無効化
+    if (!nearEarnings) {
+      const roeTs = entry.roeCachedAt ?? entry.cachedAt;
+      if (now - roeTs <= ROE_TTL && entry.roe !== undefined) {
+        result.roe = entry.roe;
+      }
     }
 
     return result;
