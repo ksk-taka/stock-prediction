@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
 
       if (ncHit) ncMap.set(sym, cached.nc ?? null);
       if (roeHit) roeMap.set(sym, cached.roe ?? null);
-      if (divHit) divMap.set(sym, cached.dividend);
+      if (divHit) divMap.set(sym, cached.dividend ?? null);
 
       // いずれかがファイルキャッシュミスならSupabaseフォールバック対象
       if (!ncHit || !roeHit || !divHit) {
