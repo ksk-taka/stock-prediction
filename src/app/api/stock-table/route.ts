@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getQuoteBatch, getSimpleNetCashRatio } from "@/lib/api/yahooFinance";
 import { getCachedStats, getCachedNcRatio, setCachedNcOnly } from "@/lib/cache/statsCache";
+import { calcSharpeRatioFromPrices } from "@/lib/utils/indicators";
+import type { PriceData } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -81,8 +83,9 @@ export async function GET(request: NextRequest) {
     const quotes = await getQuoteBatch(symbols);
     const quoteMap = new Map(quotes.map((q) => [q.symbol, q]));
 
-    // 2. Supabase price_history からレンジ計算
+    // 2. Supabase price_history からレンジ計算 + シャープレシオ算出
     let rangeMap = new Map<string, ReturnType<typeof computeRanges>>();
+    const sharpeMap = new Map<string, number | null>();
     try {
       const supabase = createServiceClient();
       const { data: priceRows } = await supabase
@@ -93,11 +96,12 @@ export async function GET(request: NextRequest) {
 
       if (priceRows) {
         for (const row of priceRows) {
-          const prices: PriceBar[] =
+          const prices: PriceData[] =
             typeof row.prices === "string"
               ? JSON.parse(row.prices)
               : row.prices;
           rangeMap.set(row.symbol, computeRanges(prices));
+          sharpeMap.set(row.symbol, calcSharpeRatioFromPrices(prices));
         }
       }
     } catch {
@@ -171,6 +175,7 @@ export async function GET(request: NextRequest) {
         lastYearHigh: r?.lastYearHigh ?? null,
         lastYearLow: r?.lastYearLow ?? null,
         earningsDate: q?.earningsDate ?? null,
+        sharpe1y: sharpeMap.get(sym) ?? null,
       };
     });
 

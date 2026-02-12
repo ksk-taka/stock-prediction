@@ -47,6 +47,7 @@ interface StockTableRow {
   lastYearLow: number | null;
   earningsDate: string | null;
   marketCap: number | null;
+  sharpe1y: number | null;
 }
 
 interface MergedRow extends StockTableRow {
@@ -83,6 +84,7 @@ const COLUMNS: ColumnDef[] = [
   { key: "simpleNcRatio", label: "簡易NC率", group: "指標", align: "right", defaultVisible: false },
   { key: "cnPer", label: "簡易CNPER", group: "指標", align: "right", defaultVisible: true },
   { key: "earningsDate", label: "決算日", group: "指標", align: "right", defaultVisible: true },
+  { key: "sharpe1y", label: "Sharpe", group: "指標", align: "right", defaultVisible: false },
   { key: "dayHigh", label: "日高値", group: "日", align: "right", defaultVisible: false },
   { key: "dayLow", label: "日安値", group: "日", align: "right", defaultVisible: false },
   { key: "weekHigh", label: "週高値", group: "週", align: "right", defaultVisible: false },
@@ -439,6 +441,7 @@ export default function StockTablePage() {
         lastYearLow: td?.lastYearLow ?? null,
         earningsDate: td?.earningsDate ?? null,
         marketCap: td?.marketCap ?? null,
+        sharpe1y: td?.sharpe1y ?? null,
       };
     });
 
@@ -628,6 +631,17 @@ export default function StockTablePage() {
       case "cnPer":
         if (row.cnPer == null) return "－";
         return formatNum(row.cnPer);
+      case "sharpe1y":
+        if (row.sharpe1y == null) return "－";
+        return (
+          <span className={
+            row.sharpe1y > 1 ? "text-green-600 dark:text-green-400"
+              : row.sharpe1y < 0 ? "text-red-600 dark:text-red-400"
+              : ""
+          }>
+            {row.sharpe1y > 0 ? "+" : ""}{row.sharpe1y.toFixed(2)}
+          </span>
+        );
       case "earningsDate":
         return row.earningsDate ? (
           <span className="inline-flex items-center gap-1 text-xs">

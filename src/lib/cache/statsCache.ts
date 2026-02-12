@@ -15,6 +15,8 @@ interface StatsCacheEntry {
   dividendYield: number | null;
   simpleNcRatio?: number | null;
   marketCap?: number | null;
+  sharpe1y?: number | null;
+  sharpe3y?: number | null;
   cachedAt: number;
   ncCachedAt?: number; // NC率専用タイムスタンプ（cachedAtとは独立）
 }

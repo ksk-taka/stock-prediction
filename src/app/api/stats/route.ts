@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getQuote, getFinancialData, getSimpleNetCashRatio } from "@/lib/api/yahooFinance";
+import { getQuote, getFinancialData, getSimpleNetCashRatio, getHistoricalPrices } from "@/lib/api/yahooFinance";
 import { getCachedStats, setCachedStats, getCachedNcRatio } from "@/lib/cache/statsCache";
+import { calcSharpeRatioFromPrices } from "@/lib/utils/indicators";
+import { yfQueue } from "@/lib/utils/requestQueue";
+import YahooFinance from "yahoo-finance2";
+import { subYears } from "date-fns";
+
+const yf = new YahooFinance();
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -31,6 +37,33 @@ export async function GET(request: NextRequest) {
       ? cachedNc
       : await getSimpleNetCashRatio(symbol, quote.marketCap);
 
+    // シャープレシオ算出（1年 + 3年）
+    let sharpe1y: number | null = null;
+    let sharpe3y: number | null = null;
+    try {
+      const daily1y = await getHistoricalPrices(symbol, "daily");
+      sharpe1y = calcSharpeRatioFromPrices(daily1y);
+    } catch { /* skip */ }
+    try {
+      const now = new Date();
+      const raw3y = await yfQueue.add(() =>
+        yf.historical(symbol, {
+          period1: subYears(now, 3),
+          period2: now,
+          interval: "1d" as const,
+        })
+      );
+      const daily3y = raw3y.map((row) => ({
+        date: row.date instanceof Date ? row.date.toISOString().split("T")[0] : String(row.date),
+        open: row.open ?? 0,
+        high: row.high ?? 0,
+        low: row.low ?? 0,
+        close: row.close ?? 0,
+        volume: row.volume ?? 0,
+      }));
+      sharpe3y = calcSharpeRatioFromPrices(daily3y);
+    } catch { /* skip */ }
+
     const result = {
       per: quote.per,
       forwardPer: quote.forwardPer,
@@ -40,6 +73,8 @@ export async function GET(request: NextRequest) {
       dividendYield: quote.dividendYield,
       simpleNcRatio,
       marketCap: quote.marketCap || null,
+      sharpe1y,
+      sharpe3y,
     };
 
     // キャッシュ保存

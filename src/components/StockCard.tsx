@@ -30,6 +30,7 @@ interface StockCardProps {
   roe?: number;
   simpleNcRatio?: number;
   marketCap?: number;
+  sharpe1y?: number;
   signals?: SignalSummary;
   signalPeriodFilter?: string;
   fundamentalJudgment?: "bullish" | "neutral" | "bearish";
@@ -49,6 +50,7 @@ export default function StockCard({
   roe,
   simpleNcRatio,
   marketCap,
+  sharpe1y,
   signals,
   signalPeriodFilter = "all",
   fundamentalJudgment,
@@ -257,7 +259,7 @@ export default function StockCard({
         )}
       </div>
       {/* 時価総額 / PER / PBR / ROE / 簡易NC率 / ファンダ判定 */}
-      {(marketCap !== undefined || per !== undefined || pbr !== undefined || roe !== undefined || simpleNcRatio !== undefined || fundamentalJudgment) && (
+      {(marketCap !== undefined || per !== undefined || pbr !== undefined || roe !== undefined || simpleNcRatio !== undefined || sharpe1y !== undefined || fundamentalJudgment) && (
         <div className="mt-2 flex items-center gap-3 border-t border-gray-100 dark:border-slate-700 pt-2">
           {marketCap !== undefined && marketCap > 0 && (
             <div className="text-center">
@@ -302,6 +304,16 @@ export default function StockCard({
               </div>
             );
           })()}
+          {sharpe1y !== undefined && (
+            <div className="text-center">
+              <span className="block text-[10px] text-gray-400 dark:text-slate-500">Sharpe</span>
+              <span className={`text-xs font-semibold ${
+                sharpe1y > 1 ? "text-green-600 dark:text-green-400"
+                  : sharpe1y < 0 ? "text-red-600 dark:text-red-400"
+                  : "text-gray-700 dark:text-slate-300"
+              }`}>{sharpe1y > 0 ? "+" : ""}{sharpe1y.toFixed(2)}</span>
+            </div>
+          )}
           {fundamentalJudgment && (
             <div className="ml-auto">
               <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${

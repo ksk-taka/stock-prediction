@@ -46,6 +46,8 @@ export default function StockDetailPage() {
   const [roe, setRoe] = useState<number | null>(null);
   const [simpleNcRatio, setSimpleNcRatio] = useState<number | null>(null);
   const [marketCap, setMarketCap] = useState<number | null>(null);
+  const [sharpe1y, setSharpe1y] = useState<number | null>(null);
+  const [sharpe3y, setSharpe3y] = useState<number | null>(null);
   const [tenYearHigh, setTenYearHigh] = useState<number | null>(null);
   const [activeSignals, setActiveSignals] = useState<{
     daily: { strategyId: string; strategyName: string; buyDate: string; buyPrice: number; currentPrice: number; pnlPct: number; takeProfitPrice?: number; takeProfitLabel?: string; stopLossPrice?: number; stopLossLabel?: string }[];
@@ -301,6 +303,8 @@ export default function StockDetailPage() {
         if (data.roe != null) setRoe(data.roe);
         if (data.simpleNcRatio != null) setSimpleNcRatio(data.simpleNcRatio);
         if (data.marketCap != null) setMarketCap(data.marketCap);
+        if (data.sharpe1y != null) setSharpe1y(data.sharpe1y);
+        if (data.sharpe3y != null) setSharpe3y(data.sharpe3y);
       } catch {
         // skip
       }
@@ -477,6 +481,20 @@ export default function StockDetailPage() {
             )}
             {per != null && simpleNcRatio != null && (
               <span>簡易CNPER <b className="text-gray-700 dark:text-slate-300">{(per * (1 - simpleNcRatio / 100)).toFixed(1)}</b></span>
+            )}
+            {sharpe1y != null && (
+              <span>Sharpe(1Y) <b className={
+                sharpe1y > 1 ? "text-green-600 dark:text-green-400"
+                  : sharpe1y < 0 ? "text-red-600 dark:text-red-400"
+                  : "text-gray-700 dark:text-slate-300"
+              }>{sharpe1y > 0 ? "+" : ""}{sharpe1y.toFixed(2)}</b></span>
+            )}
+            {sharpe3y != null && (
+              <span>Sharpe(3Y) <b className={
+                sharpe3y > 1 ? "text-green-600 dark:text-green-400"
+                  : sharpe3y < 0 ? "text-red-600 dark:text-red-400"
+                  : "text-gray-700 dark:text-slate-300"
+              }>{sharpe3y > 0 ? "+" : ""}{sharpe3y.toFixed(2)}</b></span>
             )}
           </div>
         )}

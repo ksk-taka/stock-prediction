@@ -196,3 +196,30 @@ export function calcBollingerBands(
 
   return result;
 }
+
+/**
+ * シャープレシオ（価格データから直接算出）
+ * 日次リターンの平均と標準偏差から年率化して計算。RFR = 0。
+ */
+export function calcSharpeRatioFromPrices(
+  data: PriceData[],
+  tradingDays: number = 252
+): number | null {
+  if (data.length < 20) return null;
+
+  const returns: number[] = [];
+  for (let i = 1; i < data.length; i++) {
+    if (data[i - 1].close > 0) {
+      returns.push((data[i].close - data[i - 1].close) / data[i - 1].close);
+    }
+  }
+  if (returns.length < 2) return null;
+
+  const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
+  const variance =
+    returns.reduce((a, r) => a + (r - mean) ** 2, 0) / (returns.length - 1);
+  const stdDev = Math.sqrt(variance);
+  if (stdDev === 0) return null;
+
+  return Math.round((mean / stdDev) * Math.sqrt(tradingDays) * 100) / 100;
+}

@@ -21,6 +21,7 @@ interface StockStats {
   eps: number | null;
   simpleNcRatio?: number | null;
   marketCap?: number | null;
+  sharpe1y?: number | null;
 }
 
 export interface ActiveSignalInfo {
@@ -581,6 +582,7 @@ export default function WatchList() {
           eps: data.eps ?? null,
           simpleNcRatio: data.simpleNcRatio ?? null,
           marketCap: data.marketCap ?? null,
+          sharpe1y: data.sharpe1y ?? null,
         },
       }));
     }
@@ -1631,6 +1633,7 @@ export default function WatchList() {
                     roe={s?.roe ?? undefined}
                     simpleNcRatio={s?.simpleNcRatio ?? undefined}
                     marketCap={s?.marketCap ?? undefined}
+                    sharpe1y={s?.sharpe1y ?? undefined}
                     signals={sig}
                     signalPeriodFilter={signalPeriodFilter}
                     fundamentalJudgment={stock.fundamental?.judgment}
