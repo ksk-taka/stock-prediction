@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import AddStockModal from "./AddStockModal";
 import GroupAssignPopup from "./GroupAssignPopup";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
@@ -45,6 +45,8 @@ export default function WatchList() {
     handleSaveGroups,
     handleCreateGroup,
     signalsFetchedRef,
+    fetchBatchStats,
+    batchStatsLoading,
   } = useWatchlistData();
 
   // Pull-to-refresh
@@ -64,6 +66,21 @@ export default function WatchList() {
     signals,
     newHighsMap,
   });
+
+  // 数値フィルタが有効になったら全銘柄statsをバッチ取得
+  const hasNumericFilter =
+    filters.ncRatioMin !== "" ||
+    filters.ncRatioMax !== "" ||
+    filters.sharpeMin !== "" ||
+    filters.increaseMin !== "" ||
+    filters.roeMin !== "" ||
+    filters.roeMax !== "";
+
+  useEffect(() => {
+    if (hasNumericFilter) {
+      fetchBatchStats();
+    }
+  }, [hasNumericFilter, fetchBatchStats]);
 
   // Signal scanner hook
   const signalScanner = useSignalScanner({
@@ -175,14 +192,8 @@ export default function WatchList() {
             filters.setRoeMin("");
             filters.setRoeMax("");
           }}
-          hasNumericFilter={
-            filters.ncRatioMin !== "" ||
-            filters.ncRatioMax !== "" ||
-            filters.sharpeMin !== "" ||
-            filters.increaseMin !== "" ||
-            filters.roeMin !== "" ||
-            filters.roeMax !== ""
-          }
+          hasNumericFilter={hasNumericFilter}
+          batchStatsLoading={batchStatsLoading}
           filterPresets={filters.filterPresets}
           activePresetName={filters.activePresetName}
           onApplyPreset={filters.handleApplyPreset}

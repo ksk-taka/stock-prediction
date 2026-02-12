@@ -30,6 +30,7 @@ interface FilterPanelProps {
   onRoeMaxChange: (value: string) => void;
   onClearNumericFilters: () => void;
   hasNumericFilter: boolean;
+  batchStatsLoading: boolean;
 
   // Presets
   filterPresets: FilterPreset[];
@@ -109,6 +110,7 @@ export function FilterPanel({
   onRoeMaxChange,
   onClearNumericFilters,
   hasNumericFilter,
+  batchStatsLoading,
   filterPresets,
   activePresetName,
   onApplyPreset,
@@ -307,6 +309,9 @@ export function FilterPanel({
           />
           <span className="text-xs text-gray-400">%未満</span>
         </div>
+        {batchStatsLoading && (
+          <span className="text-xs text-blue-500 dark:text-blue-400">読込中...</span>
+        )}
         {hasNumericFilter && (
           <button
             onClick={onClearNumericFilters}

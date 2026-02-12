@@ -311,6 +311,61 @@ export function setCachedStatsPartial(symbol: string, updates: StatsPartialUpdat
  * 重複読み取りを避けるための最適化関数
  * @param earningsDate 決算日（直近ならROEキャッシュを無効化）
  */
+/**
+ * バッチ用: キャッシュから全指標を読み取り (NC/ROE/Sharpe/配当/PER/PBR/時価総額)
+ * TTL期限切れ項目はundefined
+ */
+export function getCachedStatsFull(symbol: string): {
+  per?: number | null;
+  pbr?: number | null;
+  roe?: number | null;
+  simpleNcRatio?: number | null;
+  marketCap?: number | null;
+  sharpe1y?: number | null;
+  latestDividend?: number | null;
+  latestIncrease?: number | null;
+} | null {
+  try {
+    ensureDir();
+    const file = cacheFile(symbol);
+    if (!fs.existsSync(file)) return null;
+
+    const entry: StatsCacheEntry = JSON.parse(fs.readFileSync(file, "utf-8"));
+    const now = Date.now();
+
+    // メインTTL (24h) でPER/PBR/marketCap/Sharpeを判定
+    const mainValid = now - entry.cachedAt <= TTL;
+
+    // NC率 (7日TTL)
+    const ncTs = entry.ncCachedAt ?? entry.cachedAt;
+    const nc = now - ncTs <= NC_TTL && entry.simpleNcRatio !== undefined
+      ? entry.simpleNcRatio : undefined;
+
+    // ROE (30日TTL)
+    const roeTs = entry.roeCachedAt ?? entry.cachedAt;
+    const roe = now - roeTs <= ROE_TTL && entry.roe !== undefined
+      ? entry.roe : undefined;
+
+    // 配当 (30日TTL)
+    const divTs = entry.dividendCachedAt ?? entry.cachedAt;
+    const div = now - divTs <= DIVIDEND_TTL && entry.dividendSummary !== undefined
+      ? entry.dividendSummary : undefined;
+
+    return {
+      per: mainValid ? (entry.per ?? null) : undefined,
+      pbr: mainValid ? (entry.pbr ?? null) : undefined,
+      roe,
+      simpleNcRatio: nc,
+      marketCap: mainValid ? (entry.marketCap ?? null) : undefined,
+      sharpe1y: mainValid ? (entry.sharpe1y ?? null) : undefined,
+      latestDividend: div !== undefined ? (div?.latestAmount ?? null) : undefined,
+      latestIncrease: div !== undefined ? (div?.latestIncrease ?? null) : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function getCachedStatsAll(
   symbol: string,
   earningsDate?: Date | string | number | null

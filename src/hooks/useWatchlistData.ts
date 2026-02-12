@@ -3,6 +3,8 @@ import type { Stock, WatchlistGroup, SignalValidation } from "@/types";
 import type { StockQuote, StockStats, SignalSummary, NewHighInfo } from "@/types/watchlist";
 import { isJPMarketOpen, isUSMarketOpen } from "@/lib/utils/date";
 
+const BATCH_CHUNK = 200; // URL長制限を考慮
+
 interface UseWatchlistDataReturn {
   stocks: Stock[];
   setStocks: React.Dispatch<React.SetStateAction<Stock[]>>;
@@ -29,6 +31,8 @@ interface UseWatchlistDataReturn {
   handleCreateGroup: (name: string, color: string) => Promise<void>;
   signalsFetchedRef: React.MutableRefObject<Set<string>>;
   initialSignalLoadComplete: boolean;
+  fetchBatchStats: () => Promise<void>;
+  batchStatsLoading: boolean;
 }
 
 export function useWatchlistData(): UseWatchlistDataReturn {
@@ -406,6 +410,63 @@ export function useWatchlistData(): UseWatchlistDataReturn {
     [allGroups, fetchWatchlist]
   );
 
+  // バッチstats取得（数値フィルタ用: キャッシュのみ読み取り）
+  const [batchStatsLoading, setBatchStatsLoading] = useState(false);
+  const batchStatsFetchedRef = useRef(false);
+
+  const fetchBatchStats = useCallback(async () => {
+    if (batchStatsFetchedRef.current || stocks.length === 0) return;
+    batchStatsFetchedRef.current = true;
+    setBatchStatsLoading(true);
+
+    try {
+      // stats未取得の銘柄のみ対象
+      const missing = stocks
+        .map((s) => s.symbol)
+        .filter((sym) => !stats[sym]);
+
+      if (missing.length === 0) {
+        setBatchStatsLoading(false);
+        return;
+      }
+
+      // チャンク分割してバッチ取得
+      const allResults: Record<string, StockStats> = {};
+      for (let i = 0; i < missing.length; i += BATCH_CHUNK) {
+        const chunk = missing.slice(i, i + BATCH_CHUNK);
+        try {
+          const res = await fetch(
+            `/api/stats/batch?symbols=${chunk.map(encodeURIComponent).join(",")}`
+          );
+          if (res.ok) {
+            const data = await res.json();
+            for (const [sym, s] of Object.entries(data.stats) as [string, Record<string, unknown>][]) {
+              allResults[sym] = {
+                per: (s.per as number | null) ?? null,
+                pbr: (s.pbr as number | null) ?? null,
+                roe: (s.roe as number | null) ?? null,
+                eps: null,
+                simpleNcRatio: (s.simpleNcRatio as number | null) ?? null,
+                marketCap: (s.marketCap as number | null) ?? null,
+                sharpe1y: (s.sharpe1y as number | null) ?? null,
+                latestDividend: (s.latestDividend as number | null) ?? null,
+                latestIncrease: (s.latestIncrease as number | null) ?? null,
+              };
+            }
+          }
+        } catch {
+          // ignore chunk errors
+        }
+      }
+
+      if (Object.keys(allResults).length > 0) {
+        setStats((prev) => ({ ...prev, ...allResults }));
+      }
+    } finally {
+      setBatchStatsLoading(false);
+    }
+  }, [stocks, stats]);
+
   const handleCreateGroup = useCallback(async (name: string, color: string) => {
     try {
       const res = await fetch("/api/watchlist/groups", {
@@ -446,5 +507,7 @@ export function useWatchlistData(): UseWatchlistDataReturn {
     handleCreateGroup,
     signalsFetchedRef,
     initialSignalLoadComplete,
+    fetchBatchStats,
+    batchStatsLoading,
   };
 }
