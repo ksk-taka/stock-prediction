@@ -601,8 +601,10 @@ export function useWatchlistData(): UseWatchlistDataReturn {
 
       // stock-table API (Yahoo Finance取得あり) を使用
       const CHUNK_SIZE = 50;
-      const newQuotes: Record<string, StockQuote> = {};
-      const newStats: Record<string, StockStats> = {};
+      const FLUSH_INTERVAL = 5; // 5チャンクごとにstateに反映
+
+      const pendingQuotes: Record<string, StockQuote> = {};
+      const pendingStats: Record<string, StockStats> = {};
 
       for (let i = 0; i < allSymbols.length; i += CHUNK_SIZE) {
         const chunk = allSymbols.slice(i, i + CHUNK_SIZE);
@@ -611,12 +613,12 @@ export function useWatchlistData(): UseWatchlistDataReturn {
           if (res.ok) {
             const data = await res.json();
             for (const row of data.rows ?? []) {
-              newQuotes[row.symbol] = {
+              pendingQuotes[row.symbol] = {
                 symbol: row.symbol,
                 price: row.price ?? 0,
                 changePercent: row.changePercent ?? 0,
               };
-              newStats[row.symbol] = {
+              pendingStats[row.symbol] = {
                 per: row.per ?? null,
                 pbr: row.pbr ?? null,
                 roe: row.roe ?? null,
@@ -632,11 +634,18 @@ export function useWatchlistData(): UseWatchlistDataReturn {
         } catch {
           // ignore chunk errors
         }
-      }
 
-      if (Object.keys(newStats).length > 0) {
-        setQuotes((prev) => ({ ...prev, ...newQuotes }));
-        setStats((prev) => ({ ...prev, ...newStats }));
+        // 定期的にstateに反映（フィルタ結果がプログレッシブに更新される）
+        const chunkIndex = Math.floor(i / CHUNK_SIZE) + 1;
+        const isLastChunk = i + CHUNK_SIZE >= allSymbols.length;
+        if (isLastChunk || chunkIndex % FLUSH_INTERVAL === 0) {
+          if (Object.keys(pendingStats).length > 0) {
+            const flushQ = { ...pendingQuotes };
+            const flushS = { ...pendingStats };
+            setQuotes((prev) => ({ ...prev, ...flushQ }));
+            setStats((prev) => ({ ...prev, ...flushS }));
+          }
+        }
       }
     } finally {
       setBatchStatsLoading(false);
