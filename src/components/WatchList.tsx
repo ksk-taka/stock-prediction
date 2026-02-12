@@ -45,6 +45,7 @@ export default function WatchList() {
     handleSaveGroups,
     handleCreateGroup,
     signalsFetchedRef,
+    initialSignalLoadComplete,
     fetchBatchStats,
     batchStatsLoading,
   } = useWatchlistData();
@@ -101,6 +102,7 @@ export default function WatchList() {
     signals,
     selectedStrategies: filters.selectedStrategies,
     signalPeriodFilter: filters.signalPeriodFilter,
+    initialSignalLoadComplete,
     onSignalsUpdate: useCallback(
       (updater) => setSignals(updater),
       [setSignals]

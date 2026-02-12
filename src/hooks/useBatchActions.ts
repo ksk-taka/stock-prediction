@@ -8,6 +8,7 @@ interface UseBatchActionsOptions {
   signals: Record<string, SignalSummary>;
   selectedStrategies: Set<string>;
   signalPeriodFilter: string;
+  initialSignalLoadComplete: boolean;
   onSignalsUpdate: (
     updater: (prev: Record<string, SignalSummary>) => Record<string, SignalSummary>
   ) => void;
@@ -18,6 +19,7 @@ export function useBatchActions({
   signals,
   selectedStrategies,
   signalPeriodFilter,
+  initialSignalLoadComplete,
   onSignalsUpdate,
 }: UseBatchActionsOptions) {
   const [batchAnalysis, setBatchAnalysis] = useState(true);
@@ -83,7 +85,11 @@ export function useBatchActions({
   );
 
   // フィルタ中銘柄のシグナル数・銘柄数を計算（メモ化）
+  // initialSignalLoadComplete がfalseの間は0を返す（中途半端なカウント防止）
   const { filteredSignalCount, filteredSignalStockCount } = useMemo(() => {
+    if (!initialSignalLoadComplete) {
+      return { filteredSignalCount: 0, filteredSignalStockCount: 0 };
+    }
     return filteredStocks.reduce(
       (acc, stock) => {
         const count = getFilteredSignals(signals[stock.symbol]).length;
@@ -95,7 +101,7 @@ export function useBatchActions({
       },
       { filteredSignalCount: 0, filteredSignalStockCount: 0 }
     );
-  }, [filteredStocks, signals, getFilteredSignals]);
+  }, [filteredStocks, signals, getFilteredSignals, initialSignalLoadComplete]);
 
   const handleBatchExecute = useCallback(async () => {
     if (!batchAnalysis && !batchSlack) return;
