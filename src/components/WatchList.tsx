@@ -155,6 +155,34 @@ export default function WatchList() {
           onToggleSegment={filters.toggleSegment}
           selectedCapSizes={filters.selectedCapSizes}
           onToggleCapSize={filters.toggleCapSize}
+          ncRatioMin={filters.ncRatioMin}
+          onNcRatioMinChange={filters.setNcRatioMin}
+          ncRatioMax={filters.ncRatioMax}
+          onNcRatioMaxChange={filters.setNcRatioMax}
+          sharpeMin={filters.sharpeMin}
+          onSharpeMinChange={filters.setSharpeMin}
+          increaseMin={filters.increaseMin}
+          onIncreaseMinChange={filters.setIncreaseMin}
+          roeMin={filters.roeMin}
+          onRoeMinChange={filters.setRoeMin}
+          roeMax={filters.roeMax}
+          onRoeMaxChange={filters.setRoeMax}
+          onClearNumericFilters={() => {
+            filters.setNcRatioMin("");
+            filters.setNcRatioMax("");
+            filters.setSharpeMin("");
+            filters.setIncreaseMin("");
+            filters.setRoeMin("");
+            filters.setRoeMax("");
+          }}
+          hasNumericFilter={
+            filters.ncRatioMin !== "" ||
+            filters.ncRatioMax !== "" ||
+            filters.sharpeMin !== "" ||
+            filters.increaseMin !== "" ||
+            filters.roeMin !== "" ||
+            filters.roeMax !== ""
+          }
           filterPresets={filters.filterPresets}
           activePresetName={filters.activePresetName}
           onApplyPreset={filters.handleApplyPreset}

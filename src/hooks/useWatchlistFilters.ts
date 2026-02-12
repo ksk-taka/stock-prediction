@@ -53,6 +53,14 @@ export function useWatchlistFilters({
   const [signalPeriodFilter, setSignalPeriodFilter] = useState("all");
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
 
+  // 数値範囲フィルタ
+  const [ncRatioMin, setNcRatioMin] = useState("");
+  const [ncRatioMax, setNcRatioMax] = useState("");
+  const [sharpeMin, setSharpeMin] = useState("");
+  const [increaseMin, setIncreaseMin] = useState("");
+  const [roeMin, setRoeMin] = useState("");
+  const [roeMax, setRoeMax] = useState("");
+
   // 初期化: プリセット読み込み
   useEffect(() => {
     setFilterPresets(loadPresets());
@@ -74,6 +82,12 @@ export function useWatchlistFilters({
     breakoutFilter,
     consolidationFilter,
     selectedCapSizes,
+    ncRatioMin,
+    ncRatioMax,
+    sharpeMin,
+    increaseMin,
+    roeMin,
+    roeMax,
   ]);
 
   // トグル関数
@@ -135,7 +149,13 @@ export function useWatchlistFilters({
       selectedJudgment !== null ||
       signalFilterMode !== "or" ||
       breakoutFilter ||
-      consolidationFilter,
+      consolidationFilter ||
+      ncRatioMin !== "" ||
+      ncRatioMax !== "" ||
+      sharpeMin !== "" ||
+      increaseMin !== "" ||
+      roeMin !== "" ||
+      roeMax !== "",
     [
       searchQuery,
       selectedSectors,
@@ -149,6 +169,12 @@ export function useWatchlistFilters({
       signalFilterMode,
       breakoutFilter,
       consolidationFilter,
+      ncRatioMin,
+      ncRatioMax,
+      sharpeMin,
+      increaseMin,
+      roeMin,
+      roeMax,
     ]
   );
 
@@ -165,6 +191,12 @@ export function useWatchlistFilters({
     setSelectedGroupIds(new Set());
     setBreakoutFilter(false);
     setConsolidationFilter(false);
+    setNcRatioMin("");
+    setNcRatioMax("");
+    setSharpeMin("");
+    setIncreaseMin("");
+    setRoeMin("");
+    setRoeMax("");
     setActivePresetName(null);
   }, []);
 
@@ -182,6 +214,12 @@ export function useWatchlistFilters({
       signalPeriodFilter: signalPeriodFilter !== "all" ? signalPeriodFilter : undefined,
       decision: selectedDecision,
       judgment: selectedJudgment,
+      ncRatioMin: ncRatioMin || undefined,
+      ncRatioMax: ncRatioMax || undefined,
+      sharpeMin: sharpeMin || undefined,
+      increaseMin: increaseMin || undefined,
+      roeMin: roeMin || undefined,
+      roeMax: roeMax || undefined,
     };
     const next = [...filterPresets.filter((p) => p.name !== preset.name), preset];
     setFilterPresets(next);
@@ -197,6 +235,12 @@ export function useWatchlistFilters({
     signalPeriodFilter,
     selectedDecision,
     selectedJudgment,
+    ncRatioMin,
+    ncRatioMax,
+    sharpeMin,
+    increaseMin,
+    roeMin,
+    roeMax,
     filterPresets,
   ]);
 
@@ -210,6 +254,12 @@ export function useWatchlistFilters({
     setSignalPeriodFilter(preset.signalPeriodFilter ?? "all");
     setSelectedDecision(preset.decision);
     setSelectedJudgment(preset.judgment);
+    setNcRatioMin(preset.ncRatioMin ?? "");
+    setNcRatioMax(preset.ncRatioMax ?? "");
+    setSharpeMin(preset.sharpeMin ?? "");
+    setIncreaseMin(preset.increaseMin ?? "");
+    setRoeMin(preset.roeMin ?? "");
+    setRoeMax(preset.roeMax ?? "");
     setActivePresetName(preset.name);
   }, []);
 
@@ -365,6 +415,41 @@ export function useWatchlistFilters({
         const nh = newHighsMap[stock.symbol];
         if (!nh || nh.consolidationDays < 10) return false;
       }
+      // NC率フィルタ
+      if (ncRatioMin !== "" || ncRatioMax !== "") {
+        const nc = stats[stock.symbol]?.simpleNcRatio;
+        if (nc == null) return false;
+        const min = ncRatioMin !== "" ? parseFloat(ncRatioMin) : NaN;
+        const max = ncRatioMax !== "" ? parseFloat(ncRatioMax) : NaN;
+        if (!isNaN(min) && nc < min) return false;
+        if (!isNaN(max) && nc >= max) return false;
+      }
+      // シャープレシオ フィルタ
+      if (sharpeMin !== "") {
+        const min = parseFloat(sharpeMin);
+        if (!isNaN(min)) {
+          const sh = stats[stock.symbol]?.sharpe1y;
+          if (sh == null || sh < min) return false;
+        }
+      }
+      // 増配額フィルタ
+      if (increaseMin !== "") {
+        const min = parseFloat(increaseMin);
+        if (!isNaN(min)) {
+          const inc = stats[stock.symbol]?.latestIncrease;
+          if (inc == null || inc < min) return false;
+        }
+      }
+      // ROEフィルタ (入力は%、データは小数)
+      if (roeMin !== "" || roeMax !== "") {
+        const roe = stats[stock.symbol]?.roe;
+        if (roe == null) return false;
+        const roePct = roe * 100;
+        const min = roeMin !== "" ? parseFloat(roeMin) : NaN;
+        const max = roeMax !== "" ? parseFloat(roeMax) : NaN;
+        if (!isNaN(min) && roePct < min) return false;
+        if (!isNaN(max) && roePct >= max) return false;
+      }
       return true;
     });
   }, [
@@ -381,6 +466,12 @@ export function useWatchlistFilters({
     selectedJudgment,
     breakoutFilter,
     consolidationFilter,
+    ncRatioMin,
+    ncRatioMax,
+    sharpeMin,
+    increaseMin,
+    roeMin,
+    roeMax,
     stats,
     signals,
     newHighsMap,
@@ -408,7 +499,13 @@ export function useWatchlistFilters({
       selectedDecision !== null ||
       selectedJudgment !== null ||
       breakoutFilter ||
-      consolidationFilter,
+      consolidationFilter ||
+      ncRatioMin !== "" ||
+      ncRatioMax !== "" ||
+      sharpeMin !== "" ||
+      increaseMin !== "" ||
+      roeMin !== "" ||
+      roeMax !== "",
     [
       selectedGroupIds,
       searchQuery,
@@ -421,6 +518,12 @@ export function useWatchlistFilters({
       selectedJudgment,
       breakoutFilter,
       consolidationFilter,
+      ncRatioMin,
+      ncRatioMax,
+      sharpeMin,
+      increaseMin,
+      roeMin,
+      roeMax,
     ]
   );
 
@@ -458,6 +561,20 @@ export function useWatchlistFilters({
     activePresetName,
     signalPeriodFilter,
     setSignalPeriodFilter,
+
+    // Numeric range filters
+    ncRatioMin,
+    setNcRatioMin,
+    ncRatioMax,
+    setNcRatioMax,
+    sharpeMin,
+    setSharpeMin,
+    increaseMin,
+    setIncreaseMin,
+    roeMin,
+    setRoeMin,
+    roeMax,
+    setRoeMax,
 
     // Actions
     toggleSector,

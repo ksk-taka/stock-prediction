@@ -15,6 +15,22 @@ interface FilterPanelProps {
   selectedCapSizes: Set<string>;
   onToggleCapSize: (size: string) => void;
 
+  // Numeric range filters
+  ncRatioMin: string;
+  onNcRatioMinChange: (value: string) => void;
+  ncRatioMax: string;
+  onNcRatioMaxChange: (value: string) => void;
+  sharpeMin: string;
+  onSharpeMinChange: (value: string) => void;
+  increaseMin: string;
+  onIncreaseMinChange: (value: string) => void;
+  roeMin: string;
+  onRoeMinChange: (value: string) => void;
+  roeMax: string;
+  onRoeMaxChange: (value: string) => void;
+  onClearNumericFilters: () => void;
+  hasNumericFilter: boolean;
+
   // Presets
   filterPresets: FilterPreset[];
   activePresetName: string | null;
@@ -79,6 +95,20 @@ export function FilterPanel({
   onToggleSegment,
   selectedCapSizes,
   onToggleCapSize,
+  ncRatioMin,
+  onNcRatioMinChange,
+  ncRatioMax,
+  onNcRatioMaxChange,
+  sharpeMin,
+  onSharpeMinChange,
+  increaseMin,
+  onIncreaseMinChange,
+  roeMin,
+  onRoeMinChange,
+  roeMax,
+  onRoeMaxChange,
+  onClearNumericFilters,
+  hasNumericFilter,
   filterPresets,
   activePresetName,
   onApplyPreset,
@@ -205,6 +235,86 @@ export function FilterPanel({
             {label}
           </button>
         ))}
+      </div>
+
+      {/* 数値範囲フィルタ */}
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">NC率</span>
+          <input
+            type="number"
+            step="10"
+            value={ncRatioMin}
+            onChange={(e) => onNcRatioMinChange(e.target.value)}
+            placeholder=""
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">%以上</span>
+          <span className="text-xs text-gray-400">〜</span>
+          <input
+            type="number"
+            step="10"
+            value={ncRatioMax}
+            onChange={(e) => onNcRatioMaxChange(e.target.value)}
+            placeholder="100"
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">%未満</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">Sharpe</span>
+          <input
+            type="number"
+            step="0.1"
+            value={sharpeMin}
+            onChange={(e) => onSharpeMinChange(e.target.value)}
+            placeholder="0.5"
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">以上</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">増配額</span>
+          <input
+            type="number"
+            step="1"
+            value={increaseMin}
+            onChange={(e) => onIncreaseMinChange(e.target.value)}
+            placeholder="0"
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">以上</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">ROE</span>
+          <input
+            type="number"
+            step="1"
+            value={roeMin}
+            onChange={(e) => onRoeMinChange(e.target.value)}
+            placeholder="10"
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">%以上</span>
+          <span className="text-xs text-gray-400">〜</span>
+          <input
+            type="number"
+            step="1"
+            value={roeMax}
+            onChange={(e) => onRoeMaxChange(e.target.value)}
+            placeholder=""
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">%未満</span>
+        </div>
+        {hasNumericFilter && (
+          <button
+            onClick={onClearNumericFilters}
+            className="rounded-full px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+          >
+            クリア
+          </button>
+        )}
       </div>
 
       {/* 保存済みプリセット */}

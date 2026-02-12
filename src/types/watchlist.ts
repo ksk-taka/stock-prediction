@@ -68,6 +68,13 @@ export interface FilterPreset {
   signalPeriodFilter?: string;
   decision: string | null;
   judgment: string | null;
+  // 数値範囲フィルタ
+  ncRatioMin?: string;
+  ncRatioMax?: string;
+  sharpeMin?: string;
+  increaseMin?: string;
+  roeMin?: string;
+  roeMax?: string;
 }
 
 // ウォッチリストで非表示にする戦略（個別銘柄ページでは引き続き表示）
