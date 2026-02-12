@@ -229,20 +229,23 @@ export default function StockTablePage() {
   const [loadingStocks, setLoadingStocks] = useState(true);
 
   // テーブルデータ (localStorageからリストア - タブ間・再訪問で共有)
-  const [tableData, setTableData] = useState<Map<string, StockTableRow>>(() => {
-    if (typeof window === "undefined") return new Map();
+  const [tableData, setTableData] = useState<Map<string, StockTableRow>>(new Map());
+  const [cacheRestored, setCacheRestored] = useState(false);
+  const [loadingData, setLoadingData] = useState(false);
+
+  // マウント時にlocalStorageから復元（SSRでは実行されない）
+  useEffect(() => {
     try {
       const saved = localStorage.getItem(TABLE_DATA_CACHE_KEY);
       if (saved) {
         const { version, data, timestamp } = JSON.parse(saved);
         if (version === TABLE_DATA_CACHE_VERSION && Date.now() - timestamp < getTableCacheTTL()) {
-          return new Map(Object.entries(data) as [string, StockTableRow][]);
+          setTableData(new Map(Object.entries(data) as [string, StockTableRow][]));
         }
       }
     } catch { /* ignore */ }
-    return new Map();
-  });
-  const [loadingData, setLoadingData] = useState(false);
+    setCacheRestored(true);
+  }, []);
   const [loadedCount, setLoadedCount] = useState(0);
   const [fetchTotal, setFetchTotal] = useState(0); // 実際にフェッチする件数
 
@@ -442,11 +445,12 @@ export default function StockTablePage() {
   );
 
   // フィルタが変わったらデータ取得（未取得分のみ）
+  // cacheRestored を待つことで、localStorage復元前にfetchが走るのを防ぐ
   useEffect(() => {
-    if (loadingStocks) return;
+    if (loadingStocks || !cacheRestored) return;
     const syms = filteredStocks.map((s) => s.symbol);
     fetchTableData(syms);
-  }, [filteredStocks, loadingStocks, fetchTableData]);
+  }, [filteredStocks, loadingStocks, cacheRestored, fetchTableData]);
 
   // ── マージ＆ソート ──
   const mergedRows = useMemo(() => {
