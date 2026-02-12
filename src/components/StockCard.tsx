@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { formatChange, formatMarketCap } from "@/lib/utils/format";
 import type { Stock } from "@/types";
-import type { SignalSummary, ActiveSignalInfo, RecentSignalInfo } from "./WatchList";
+import type { SignalSummary, ActiveSignalInfo, RecentSignalInfo } from "@/types/watchlist";
 
 function isWithinPeriod(buyDate: string, filter: string): boolean {
   if (filter === "all") return true;
