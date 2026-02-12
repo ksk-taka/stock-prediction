@@ -16,6 +16,10 @@ interface FilterPanelProps {
   onToggleCapSize: (size: string) => void;
 
   // Numeric range filters
+  priceMin: string;
+  onPriceMinChange: (value: string) => void;
+  priceMax: string;
+  onPriceMaxChange: (value: string) => void;
   ncRatioMin: string;
   onNcRatioMinChange: (value: string) => void;
   ncRatioMax: string;
@@ -96,6 +100,10 @@ export function FilterPanel({
   onToggleSegment,
   selectedCapSizes,
   onToggleCapSize,
+  priceMin,
+  onPriceMinChange,
+  priceMax,
+  onPriceMaxChange,
   ncRatioMin,
   onNcRatioMinChange,
   ncRatioMax,
@@ -241,6 +249,27 @@ export function FilterPanel({
 
       {/* 数値範囲フィルタ */}
       <div className="flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">株価</span>
+          <input
+            type="number"
+            step="100"
+            value={priceMin}
+            onChange={(e) => onPriceMinChange(e.target.value)}
+            placeholder=""
+            className="w-20 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">円〜</span>
+          <input
+            type="number"
+            step="100"
+            value={priceMax}
+            onChange={(e) => onPriceMaxChange(e.target.value)}
+            placeholder=""
+            className="w-20 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">円</span>
+        </div>
         <div className="flex items-center gap-1">
           <span className="text-xs font-medium text-gray-500 dark:text-slate-400">NC率</span>
           <input

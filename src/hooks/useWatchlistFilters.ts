@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import type { Stock } from "@/types";
 import type {
   FilterPreset,
+  StockQuote,
   StockStats,
   SignalSummary,
   NewHighInfo,
@@ -25,6 +26,7 @@ function savePresets(presets: FilterPreset[]) {
 
 interface UseWatchlistFiltersOptions {
   stocks: Stock[];
+  quotes: Record<string, StockQuote>;
   stats: Record<string, StockStats>;
   signals: Record<string, SignalSummary>;
   newHighsMap: Record<string, NewHighInfo>;
@@ -32,6 +34,7 @@ interface UseWatchlistFiltersOptions {
 
 export function useWatchlistFilters({
   stocks,
+  quotes,
   stats,
   signals,
   newHighsMap,
@@ -60,6 +63,8 @@ export function useWatchlistFilters({
   const [increaseMin, setIncreaseMin] = useState("");
   const [roeMin, setRoeMin] = useState("");
   const [roeMax, setRoeMax] = useState("");
+  const [priceMin, setPriceMin] = useState("");
+  const [priceMax, setPriceMax] = useState("");
 
   // 初期化: プリセット読み込み
   useEffect(() => {
@@ -88,6 +93,8 @@ export function useWatchlistFilters({
     increaseMin,
     roeMin,
     roeMax,
+    priceMin,
+    priceMax,
   ]);
 
   // トグル関数
@@ -155,7 +162,9 @@ export function useWatchlistFilters({
       sharpeMin !== "" ||
       increaseMin !== "" ||
       roeMin !== "" ||
-      roeMax !== "",
+      roeMax !== "" ||
+      priceMin !== "" ||
+      priceMax !== "",
     [
       searchQuery,
       selectedSectors,
@@ -175,6 +184,8 @@ export function useWatchlistFilters({
       increaseMin,
       roeMin,
       roeMax,
+      priceMin,
+      priceMax,
     ]
   );
 
@@ -197,6 +208,8 @@ export function useWatchlistFilters({
     setIncreaseMin("");
     setRoeMin("");
     setRoeMax("");
+    setPriceMin("");
+    setPriceMax("");
     setActivePresetName(null);
   }, []);
 
@@ -220,6 +233,8 @@ export function useWatchlistFilters({
       increaseMin: increaseMin || undefined,
       roeMin: roeMin || undefined,
       roeMax: roeMax || undefined,
+      priceMin: priceMin || undefined,
+      priceMax: priceMax || undefined,
     };
     const next = [...filterPresets.filter((p) => p.name !== preset.name), preset];
     setFilterPresets(next);
@@ -241,6 +256,8 @@ export function useWatchlistFilters({
     increaseMin,
     roeMin,
     roeMax,
+    priceMin,
+    priceMax,
     filterPresets,
   ]);
 
@@ -260,6 +277,8 @@ export function useWatchlistFilters({
     setIncreaseMin(preset.increaseMin ?? "");
     setRoeMin(preset.roeMin ?? "");
     setRoeMax(preset.roeMax ?? "");
+    setPriceMin(preset.priceMin ?? "");
+    setPriceMax(preset.priceMax ?? "");
     setActivePresetName(preset.name);
   }, []);
 
@@ -450,6 +469,15 @@ export function useWatchlistFilters({
         if (!isNaN(min) && roePct < min) return false;
         if (!isNaN(max) && roePct >= max) return false;
       }
+      // 株価フィルタ
+      if (priceMin !== "" || priceMax !== "") {
+        const price = quotes[stock.symbol]?.price;
+        if (price == null) return false;
+        const min = priceMin !== "" ? parseFloat(priceMin) : NaN;
+        const max = priceMax !== "" ? parseFloat(priceMax) : NaN;
+        if (!isNaN(min) && price < min) return false;
+        if (!isNaN(max) && price > max) return false;
+      }
       return true;
     });
   }, [
@@ -472,6 +500,9 @@ export function useWatchlistFilters({
     increaseMin,
     roeMin,
     roeMax,
+    priceMin,
+    priceMax,
+    quotes,
     stats,
     signals,
     newHighsMap,
@@ -505,7 +536,9 @@ export function useWatchlistFilters({
       sharpeMin !== "" ||
       increaseMin !== "" ||
       roeMin !== "" ||
-      roeMax !== "",
+      roeMax !== "" ||
+      priceMin !== "" ||
+      priceMax !== "",
     [
       selectedGroupIds,
       searchQuery,
@@ -524,6 +557,8 @@ export function useWatchlistFilters({
       increaseMin,
       roeMin,
       roeMax,
+      priceMin,
+      priceMax,
     ]
   );
 
@@ -575,6 +610,10 @@ export function useWatchlistFilters({
     setRoeMin,
     roeMax,
     setRoeMax,
+    priceMin,
+    setPriceMin,
+    priceMax,
+    setPriceMax,
 
     // Actions
     toggleSector,

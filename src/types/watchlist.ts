@@ -75,6 +75,8 @@ export interface FilterPreset {
   increaseMin?: string;
   roeMin?: string;
   roeMax?: string;
+  priceMin?: string;
+  priceMax?: string;
 }
 
 // ウォッチリストで非表示にする戦略（個別銘柄ページでは引き続き表示）

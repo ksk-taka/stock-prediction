@@ -63,6 +63,7 @@ export default function WatchList() {
   // Filters hook
   const filters = useWatchlistFilters({
     stocks,
+    quotes,
     stats,
     signals,
     newHighsMap,
@@ -70,6 +71,8 @@ export default function WatchList() {
 
   // 数値フィルタが有効になったら全銘柄statsをバッチ取得
   const hasNumericFilter =
+    filters.priceMin !== "" ||
+    filters.priceMax !== "" ||
     filters.ncRatioMin !== "" ||
     filters.ncRatioMax !== "" ||
     filters.sharpeMin !== "" ||
@@ -174,6 +177,10 @@ export default function WatchList() {
           onToggleSegment={filters.toggleSegment}
           selectedCapSizes={filters.selectedCapSizes}
           onToggleCapSize={filters.toggleCapSize}
+          priceMin={filters.priceMin}
+          onPriceMinChange={filters.setPriceMin}
+          priceMax={filters.priceMax}
+          onPriceMaxChange={filters.setPriceMax}
           ncRatioMin={filters.ncRatioMin}
           onNcRatioMinChange={filters.setNcRatioMin}
           ncRatioMax={filters.ncRatioMax}
@@ -187,6 +194,8 @@ export default function WatchList() {
           roeMax={filters.roeMax}
           onRoeMaxChange={filters.setRoeMax}
           onClearNumericFilters={() => {
+            filters.setPriceMin("");
+            filters.setPriceMax("");
             filters.setNcRatioMin("");
             filters.setNcRatioMax("");
             filters.setSharpeMin("");
