@@ -224,6 +224,54 @@ export function setCachedRoeOnly(symbol: string, roe: number | null): void {
 }
 
 /**
+ * 複数フィールドを一度に更新（1回のファイル読み書きで完了）
+ * 部分更新の重複読み書きを避けるための最適化関数
+ */
+export interface StatsPartialUpdate {
+  nc?: number | null;
+  dividend?: DividendSummary | null;
+  roe?: number | null;
+}
+
+export function setCachedStatsPartial(symbol: string, updates: StatsPartialUpdate): void {
+  try {
+    ensureDir();
+    const file = cacheFile(symbol);
+    const now = Date.now();
+
+    let entry: StatsCacheEntry;
+    try {
+      entry = JSON.parse(fs.readFileSync(file, "utf-8"));
+    } catch {
+      // ファイルが存在しない場合は新規作成
+      entry = {
+        per: null, forwardPer: null, pbr: null, eps: null,
+        roe: null, dividendYield: null,
+        cachedAt: now,
+      };
+    }
+
+    // 各フィールドを更新（undefinedでない場合のみ）
+    if (updates.nc !== undefined) {
+      entry.simpleNcRatio = updates.nc;
+      entry.ncCachedAt = now;
+    }
+    if (updates.dividend !== undefined) {
+      entry.dividendSummary = updates.dividend;
+      entry.dividendCachedAt = now;
+    }
+    if (updates.roe !== undefined) {
+      entry.roe = updates.roe;
+      entry.roeCachedAt = now;
+    }
+
+    fs.writeFileSync(file, JSON.stringify(entry), "utf-8");
+  } catch {
+    // ignore write errors
+  }
+}
+
+/**
  * 1回のファイル読み取りで全項目を取得（各項目ごとにTTL判定）
  * 重複読み取りを避けるための最適化関数
  */

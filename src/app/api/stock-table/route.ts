@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getQuoteBatch, getSimpleNetCashRatio, getDividendHistory, computeDividendSummary, getFinancialData } from "@/lib/api/yahooFinance";
-import { getCachedStatsAll, setCachedNcOnly, setCachedDividendOnly, setCachedRoeOnly } from "@/lib/cache/statsCache";
+import { getCachedStatsAll, setCachedStatsPartial, type StatsPartialUpdate } from "@/lib/cache/statsCache";
 import type { DividendSummary } from "@/types";
 import { calcSharpeRatioFromPrices } from "@/lib/utils/indicators";
 import type { PriceData } from "@/types";
@@ -147,14 +147,13 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 4. キャッシュミスの銘柄はYFから並列取得
+    // 4. キャッシュミスの銘柄はYFから並列取得（書き込みは後でまとめて行う）
     const [ncResults, divResults, roeResults] = await Promise.all([
       // NC率取得
       ncMissing.length > 0
         ? Promise.allSettled(
             ncMissing.map(async ({ sym, marketCap }) => {
               const nc = await getSimpleNetCashRatio(sym, marketCap);
-              setCachedNcOnly(sym, nc);
               return { sym, nc };
             })
           )
@@ -165,7 +164,6 @@ export async function GET(request: NextRequest) {
             divMissing.map(async (sym) => {
               const hist = await getDividendHistory(sym);
               const summary = hist.length > 0 ? computeDividendSummary(hist) : null;
-              setCachedDividendOnly(sym, summary);
               return { sym, summary };
             })
           )
@@ -175,28 +173,43 @@ export async function GET(request: NextRequest) {
         ? Promise.allSettled(
             roeMissing.map(async (sym) => {
               const fd = await getFinancialData(sym);
-              setCachedRoeOnly(sym, fd.roe);
               return { sym, roe: fd.roe };
             })
           )
         : [],
     ]);
 
-    // 結果をMapに追加
+    // 5. 結果をMapに追加 + キャッシュ更新をシンボルごとにまとめる
+    const cacheUpdates = new Map<string, StatsPartialUpdate>();
+
     for (const r of ncResults) {
       if (r.status === "fulfilled") {
         ncMap.set(r.value.sym, r.value.nc);
+        const update = cacheUpdates.get(r.value.sym) ?? {};
+        update.nc = r.value.nc;
+        cacheUpdates.set(r.value.sym, update);
       }
     }
     for (const r of divResults) {
       if (r.status === "fulfilled") {
         divMap.set(r.value.sym, r.value.summary);
+        const update = cacheUpdates.get(r.value.sym) ?? {};
+        update.dividend = r.value.summary;
+        cacheUpdates.set(r.value.sym, update);
       }
     }
     for (const r of roeResults) {
       if (r.status === "fulfilled") {
         roeMap.set(r.value.sym, r.value.roe);
+        const update = cacheUpdates.get(r.value.sym) ?? {};
+        update.roe = r.value.roe;
+        cacheUpdates.set(r.value.sym, update);
       }
+    }
+
+    // キャッシュをまとめて書き込み（1シンボル1回の読み書き）
+    for (const [sym, update] of cacheUpdates) {
+      setCachedStatsPartial(sym, update);
     }
 
     // 6. 結合
