@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getQuoteBatch, getSimpleNetCashRatio, getDividendHistory, computeDividendSummary } from "@/lib/api/yahooFinance";
-import { getCachedStats, getCachedNcRatio, setCachedNcOnly, getCachedDividendSummary, setCachedDividendOnly } from "@/lib/cache/statsCache";
+import { getQuoteBatch, getSimpleNetCashRatio, getDividendHistory, computeDividendSummary, getFinancialData } from "@/lib/api/yahooFinance";
+import { getCachedStats, getCachedNcRatio, setCachedNcOnly, getCachedDividendSummary, setCachedDividendOnly, getCachedRoe, setCachedRoeOnly } from "@/lib/cache/statsCache";
 import type { DividendSummary } from "@/types";
 import { calcSharpeRatioFromPrices } from "@/lib/utils/indicators";
 import type { PriceData } from "@/types";
@@ -179,7 +179,40 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 5. 結合
+    // 5. ROE取得: キャッシュ(30d) → YF quoteSummaryから取得
+    const roeMap = new Map<string, number | null>();
+    const roeMissing: string[] = [];
+
+    for (const sym of symbols) {
+      const cached = getCachedStats(sym);
+      if (cached?.roe !== undefined && cached.roe !== null) {
+        roeMap.set(sym, cached.roe);
+        continue;
+      }
+      const cachedRoe = getCachedRoe(sym);
+      if (cachedRoe !== undefined) {
+        roeMap.set(sym, cachedRoe);
+        continue;
+      }
+      roeMissing.push(sym);
+    }
+
+    if (roeMissing.length > 0) {
+      const roeResults = await Promise.allSettled(
+        roeMissing.map(async (sym) => {
+          const fd = await getFinancialData(sym);
+          setCachedRoeOnly(sym, fd.roe);
+          return { sym, roe: fd.roe };
+        })
+      );
+      for (const r of roeResults) {
+        if (r.status === "fulfilled") {
+          roeMap.set(r.value.sym, r.value.roe);
+        }
+      }
+    }
+
+    // 6. 結合
     const rows = symbols.map((sym) => {
       const q = quoteMap.get(sym);
       const r = rangeMap.get(sym);
@@ -206,6 +239,7 @@ export async function GET(request: NextRequest) {
         lastYearLow: r?.lastYearLow ?? null,
         earningsDate: q?.earningsDate ?? null,
         sharpe1y: sharpeMap.get(sym) ?? null,
+        roe: roeMap.get(sym) ?? null,
         latestDividend: divMap.get(sym)?.latestAmount ?? null,
         previousDividend: divMap.get(sym)?.previousAmount ?? null,
         latestIncrease: divMap.get(sym)?.latestIncrease ?? null,

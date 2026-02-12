@@ -48,6 +48,7 @@ interface StockTableRow {
   earningsDate: string | null;
   marketCap: number | null;
   sharpe1y: number | null;
+  roe: number | null;
   latestDividend: number | null;
   previousDividend: number | null;
   latestIncrease: number | null;
@@ -88,6 +89,7 @@ const COLUMNS: ColumnDef[] = [
   { key: "cnPer", label: "簡易CNPER", group: "指標", align: "right", defaultVisible: true },
   { key: "earningsDate", label: "決算日", group: "指標", align: "right", defaultVisible: true },
   { key: "sharpe1y", label: "Sharpe", group: "指標", align: "right", defaultVisible: false },
+  { key: "roe", label: "ROE", group: "指標", align: "right", defaultVisible: false },
   { key: "latestDividend", label: "配当額", group: "配当", align: "right", defaultVisible: true },
   { key: "previousDividend", label: "前回配当", group: "配当", align: "right", defaultVisible: false },
   { key: "latestIncrease", label: "増配額", group: "配当", align: "right", defaultVisible: true },
@@ -448,6 +450,7 @@ export default function StockTablePage() {
         earningsDate: td?.earningsDate ?? null,
         marketCap: td?.marketCap ?? null,
         sharpe1y: td?.sharpe1y ?? null,
+        roe: td?.roe ?? null,
         latestDividend: td?.latestDividend ?? null,
         previousDividend: td?.previousDividend ?? null,
         latestIncrease: td?.latestIncrease ?? null,
@@ -649,6 +652,17 @@ export default function StockTablePage() {
               : ""
           }>
             {row.sharpe1y > 0 ? "+" : ""}{row.sharpe1y.toFixed(2)}
+          </span>
+        );
+      case "roe":
+        if (row.roe == null) return "－";
+        return (
+          <span className={
+            row.roe > 0.15 ? "text-green-600 dark:text-green-400"
+              : row.roe < 0 ? "text-red-600 dark:text-red-400"
+              : ""
+          }>
+            {(row.roe * 100).toFixed(1)}%
           </span>
         );
       case "latestDividend":

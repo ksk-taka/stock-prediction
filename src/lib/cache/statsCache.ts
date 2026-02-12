@@ -7,6 +7,7 @@ const CACHE_DIR = path.join(getCacheBaseDir(), "stats");
 const TTL = 24 * 60 * 60 * 1000; // 24時間（1日1回更新）
 const NC_TTL = 7 * 24 * 60 * 60 * 1000; // 7日間（四半期データなので長め）
 const DIVIDEND_TTL = 7 * 24 * 60 * 60 * 1000; // 7日間（配当は年2回程度）
+const ROE_TTL = 30 * 24 * 60 * 60 * 1000; // 30日間（四半期決算ごとに更新）
 
 interface StatsCacheEntry {
   per: number | null;
@@ -23,6 +24,7 @@ interface StatsCacheEntry {
   cachedAt: number;
   ncCachedAt?: number; // NC率専用タイムスタンプ（cachedAtとは独立）
   dividendCachedAt?: number; // 配当専用タイムスタンプ
+  roeCachedAt?: number; // ROE専用タイムスタンプ（30日TTL）
 }
 
 function ensureDir() {
@@ -156,6 +158,53 @@ export function setCachedDividendOnly(symbol: string, summary: DividendSummary |
         dividendSummary: summary,
         cachedAt: Date.now(),
         dividendCachedAt: Date.now(),
+      };
+    }
+    fs.writeFileSync(file, JSON.stringify(entry), "utf-8");
+  } catch {
+    // ignore write errors
+  }
+}
+
+/**
+ * ROEをキャッシュから取得（30日TTL）
+ * undefined = キャッシュなし/期限切れ, null = データなし
+ */
+export function getCachedRoe(symbol: string): number | null | undefined {
+  try {
+    ensureDir();
+    const file = cacheFile(symbol);
+    if (!fs.existsSync(file)) return undefined;
+
+    const entry: StatsCacheEntry = JSON.parse(fs.readFileSync(file, "utf-8"));
+    const roeTs = entry.roeCachedAt ?? entry.cachedAt;
+    if (Date.now() - roeTs > ROE_TTL) return undefined;
+    if (entry.roe === undefined) return undefined;
+    return entry.roe ?? null;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * ROEのみをキャッシュに書き込む（既存エントリがあれば更新）
+ */
+export function setCachedRoeOnly(symbol: string, roe: number | null): void {
+  try {
+    ensureDir();
+    const file = cacheFile(symbol);
+    let entry: StatsCacheEntry;
+    try {
+      const existing: StatsCacheEntry = JSON.parse(fs.readFileSync(file, "utf-8"));
+      existing.roe = roe;
+      existing.roeCachedAt = Date.now();
+      entry = existing;
+    } catch {
+      entry = {
+        per: null, forwardPer: null, pbr: null, eps: null,
+        roe, dividendYield: null,
+        cachedAt: Date.now(),
+        roeCachedAt: Date.now(),
       };
     }
     fs.writeFileSync(file, JSON.stringify(entry), "utf-8");
