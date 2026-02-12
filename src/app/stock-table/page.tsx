@@ -306,6 +306,8 @@ export default function StockTablePage() {
   const [increaseMin, setIncreaseMin] = useState("");
   const [roeMin, setRoeMin] = useState("");
   const [roeMax, setRoeMax] = useState("");
+  const [priceMin, setPriceMin] = useState("");
+  const [priceMax, setPriceMax] = useState("");
 
   // 決算日フィルタ
   const [earningsPreset, setEarningsPreset] = useState("");
@@ -545,6 +547,17 @@ export default function StockTablePage() {
       });
     }
 
+    // 株価フィルタ
+    if (priceMin !== "" || priceMax !== "") {
+      const min = priceMin !== "" ? parseFloat(priceMin) : NaN;
+      const max = priceMax !== "" ? parseFloat(priceMax) : NaN;
+      rows = rows.filter((r) => {
+        if (!isNaN(min) && r.price < min) return false;
+        if (!isNaN(max) && r.price > max) return false;
+        return true;
+      });
+    }
+
     // 決算発表日フィルタ
     if (earningsFrom || earningsTo) {
       rows = rows.filter((r) => {
@@ -577,7 +590,7 @@ export default function StockTablePage() {
     });
 
     return rows;
-  }, [filteredStocks, tableData, sortKey, sortDir, capSizeFilter, ncRatioMin, ncRatioMax, sharpeMin, increaseMin, roeMin, roeMax, earningsFrom, earningsTo]);
+  }, [filteredStocks, tableData, sortKey, sortDir, capSizeFilter, ncRatioMin, ncRatioMax, sharpeMin, increaseMin, roeMin, roeMax, priceMin, priceMax, earningsFrom, earningsTo]);
 
   // ── ソート切り替え ──
   function handleSort(key: SortKey) {
@@ -1041,6 +1054,27 @@ export default function StockTablePage() {
           )}
         </div>
         <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">株価</span>
+          <input
+            type="number"
+            step="100"
+            value={priceMin}
+            onChange={(e) => setPriceMin(e.target.value)}
+            placeholder=""
+            className="w-20 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">円〜</span>
+          <input
+            type="number"
+            step="100"
+            value={priceMax}
+            onChange={(e) => setPriceMax(e.target.value)}
+            placeholder=""
+            className="w-20 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">円</span>
+        </div>
+        <div className="flex items-center gap-1">
           <span className="text-xs font-medium text-gray-500 dark:text-slate-400">NC率</span>
           <input
             type="number"
@@ -1122,9 +1156,9 @@ export default function StockTablePage() {
           />
           <span className="text-xs text-gray-400">%未満</span>
         </div>
-        {(ncRatioMin || ncRatioMax || sharpeMin || increaseMin || roeMin || roeMax) && (
+        {(priceMin || priceMax || ncRatioMin || ncRatioMax || sharpeMin || increaseMin || roeMin || roeMax) && (
           <button
-            onClick={() => { setNcRatioMin(""); setNcRatioMax(""); setSharpeMin(""); setIncreaseMin(""); setRoeMin(""); setRoeMax(""); }}
+            onClick={() => { setPriceMin(""); setPriceMax(""); setNcRatioMin(""); setNcRatioMax(""); setSharpeMin(""); setIncreaseMin(""); setRoeMin(""); setRoeMax(""); }}
             className="rounded-full px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
           >
             クリア
