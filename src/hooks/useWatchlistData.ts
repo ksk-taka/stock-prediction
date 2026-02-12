@@ -596,54 +596,105 @@ export function useWatchlistData(): UseWatchlistDataReturn {
     setBatchStatsLoading(true);
 
     try {
-      // 全銘柄を対象（数値フィルタは全データが揃っていないと正確にフィルタできない）
       const allSymbols = stocks.map((s) => s.symbol);
 
-      // stock-table API (Yahoo Finance取得あり) を使用
-      const CHUNK_SIZE = 50;
-      const FLUSH_INTERVAL = 5; // 5チャンクごとにstateに反映
+      // 1. 株式テーブルのlocalStorageキャッシュから一括読み出し
+      const cachedQuotes: Record<string, StockQuote> = {};
+      const cachedStats: Record<string, StockStats> = {};
+      const missingSymbols: string[] = [];
 
-      const pendingQuotes: Record<string, StockQuote> = {};
-      const pendingStats: Record<string, StockStats> = {};
-
-      for (let i = 0; i < allSymbols.length; i += CHUNK_SIZE) {
-        const chunk = allSymbols.slice(i, i + CHUNK_SIZE);
-        try {
-          const res = await fetch(`/api/stock-table?symbols=${chunk.join(",")}`);
-          if (res.ok) {
-            const data = await res.json();
-            for (const row of data.rows ?? []) {
-              pendingQuotes[row.symbol] = {
-                symbol: row.symbol,
-                price: row.price ?? 0,
-                changePercent: row.changePercent ?? 0,
-              };
-              pendingStats[row.symbol] = {
-                per: row.per ?? null,
-                pbr: row.pbr ?? null,
-                roe: row.roe ?? null,
-                eps: row.eps ?? null,
-                simpleNcRatio: row.simpleNcRatio ?? null,
-                marketCap: row.marketCap ?? null,
-                sharpe1y: row.sharpe1y ?? null,
-                latestDividend: row.latestDividend ?? null,
-                latestIncrease: row.latestIncrease ?? null,
-              };
+      try {
+        const saved = localStorage.getItem("stock-table-v1");
+        if (saved) {
+          const { version, data, timestamp } = JSON.parse(saved);
+          const ttl = (isJPMarketOpen() || isUSMarketOpen()) ? 15 * 60 * 1000 : 6 * 60 * 60 * 1000;
+          if (version === 1 && Date.now() - timestamp < ttl && data) {
+            for (const sym of allSymbols) {
+              const row = data[sym];
+              if (row && row.simpleNcRatio !== undefined) {
+                cachedQuotes[sym] = {
+                  symbol: sym,
+                  price: row.price ?? 0,
+                  changePercent: row.changePercent ?? 0,
+                };
+                cachedStats[sym] = {
+                  per: row.per ?? null,
+                  pbr: row.pbr ?? null,
+                  roe: row.roe ?? null,
+                  eps: row.eps ?? null,
+                  simpleNcRatio: row.simpleNcRatio ?? null,
+                  marketCap: row.marketCap ?? null,
+                  sharpe1y: row.sharpe1y ?? null,
+                  latestDividend: row.latestDividend ?? null,
+                  latestIncrease: row.latestIncrease ?? null,
+                };
+              } else {
+                missingSymbols.push(sym);
+              }
             }
+          } else {
+            missingSymbols.push(...allSymbols);
           }
-        } catch {
-          // ignore chunk errors
+        } else {
+          missingSymbols.push(...allSymbols);
         }
+      } catch {
+        missingSymbols.push(...allSymbols.filter((s) => !cachedStats[s]));
+      }
 
-        // 定期的にstateに反映（フィルタ結果がプログレッシブに更新される）
-        const chunkIndex = Math.floor(i / CHUNK_SIZE) + 1;
-        const isLastChunk = i + CHUNK_SIZE >= allSymbols.length;
-        if (isLastChunk || chunkIndex % FLUSH_INTERVAL === 0) {
-          if (Object.keys(pendingStats).length > 0) {
-            const flushQ = { ...pendingQuotes };
-            const flushS = { ...pendingStats };
-            setQuotes((prev) => ({ ...prev, ...flushQ }));
-            setStats((prev) => ({ ...prev, ...flushS }));
+      // キャッシュヒット分を即座に反映
+      if (Object.keys(cachedStats).length > 0) {
+        setQuotes((prev) => ({ ...prev, ...cachedQuotes }));
+        setStats((prev) => ({ ...prev, ...cachedStats }));
+      }
+
+      // 2. 不足分のみAPIで取得
+      if (missingSymbols.length > 0) {
+        const CHUNK_SIZE = 50;
+        const FLUSH_INTERVAL = 5;
+
+        const pendingQuotes: Record<string, StockQuote> = {};
+        const pendingStats: Record<string, StockStats> = {};
+
+        for (let i = 0; i < missingSymbols.length; i += CHUNK_SIZE) {
+          const chunk = missingSymbols.slice(i, i + CHUNK_SIZE);
+          try {
+            const res = await fetch(`/api/stock-table?symbols=${chunk.join(",")}`);
+            if (res.ok) {
+              const data = await res.json();
+              for (const row of data.rows ?? []) {
+                pendingQuotes[row.symbol] = {
+                  symbol: row.symbol,
+                  price: row.price ?? 0,
+                  changePercent: row.changePercent ?? 0,
+                };
+                pendingStats[row.symbol] = {
+                  per: row.per ?? null,
+                  pbr: row.pbr ?? null,
+                  roe: row.roe ?? null,
+                  eps: row.eps ?? null,
+                  simpleNcRatio: row.simpleNcRatio ?? null,
+                  marketCap: row.marketCap ?? null,
+                  sharpe1y: row.sharpe1y ?? null,
+                  latestDividend: row.latestDividend ?? null,
+                  latestIncrease: row.latestIncrease ?? null,
+                };
+              }
+            }
+          } catch {
+            // ignore chunk errors
+          }
+
+          // 定期的にstateに反映
+          const chunkIndex = Math.floor(i / CHUNK_SIZE) + 1;
+          const isLastChunk = i + CHUNK_SIZE >= missingSymbols.length;
+          if (isLastChunk || chunkIndex % FLUSH_INTERVAL === 0) {
+            if (Object.keys(pendingStats).length > 0) {
+              const flushQ = { ...pendingQuotes };
+              const flushS = { ...pendingStats };
+              setQuotes((prev) => ({ ...prev, ...flushQ }));
+              setStats((prev) => ({ ...prev, ...flushS }));
+            }
           }
         }
       }
