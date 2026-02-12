@@ -596,23 +596,16 @@ export function useWatchlistData(): UseWatchlistDataReturn {
     setBatchStatsLoading(true);
 
     try {
-      // stats未取得の銘柄のみ対象
-      const missing = stocks
-        .map((s) => s.symbol)
-        .filter((sym) => !stats[sym]);
-
-      if (missing.length === 0) {
-        setBatchStatsLoading(false);
-        return;
-      }
+      // 全銘柄を対象（数値フィルタは全データが揃っていないと正確にフィルタできない）
+      const allSymbols = stocks.map((s) => s.symbol);
 
       // stock-table API (Yahoo Finance取得あり) を使用
       const CHUNK_SIZE = 50;
       const newQuotes: Record<string, StockQuote> = {};
       const newStats: Record<string, StockStats> = {};
 
-      for (let i = 0; i < missing.length; i += CHUNK_SIZE) {
-        const chunk = missing.slice(i, i + CHUNK_SIZE);
+      for (let i = 0; i < allSymbols.length; i += CHUNK_SIZE) {
+        const chunk = allSymbols.slice(i, i + CHUNK_SIZE);
         try {
           const res = await fetch(`/api/stock-table?symbols=${chunk.join(",")}`);
           if (res.ok) {
@@ -648,7 +641,7 @@ export function useWatchlistData(): UseWatchlistDataReturn {
     } finally {
       setBatchStatsLoading(false);
     }
-  }, [stocks, stats]);
+  }, [stocks]);
 
   const handleCreateGroup = useCallback(async (name: string, color: string) => {
     try {
