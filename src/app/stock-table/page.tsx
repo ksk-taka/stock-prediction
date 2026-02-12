@@ -249,9 +249,9 @@ export default function StockTablePage() {
   // localStorageに保存するヘルパー（fetch完了時のみ呼ぶ）
   const saveToLocalStorage = useCallback((data: Map<string, StockTableRow>) => {
     if (data.size === 0) return;
+    const obj: Record<string, StockTableRow> = {};
+    data.forEach((v, k) => { obj[k] = v; });
     try {
-      const obj: Record<string, StockTableRow> = {};
-      data.forEach((v, k) => { obj[k] = v; });
       localStorage.setItem(TABLE_DATA_CACHE_KEY, JSON.stringify({
         version: TABLE_DATA_CACHE_VERSION,
         data: obj,
