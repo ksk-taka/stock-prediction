@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getQuoteBatch, getSimpleNetCashRatio, getDividendHistory, computeDividendSummary, getFinancialData } from "@/lib/api/yahooFinance";
-import { getCachedStats, getCachedNcRatio, setCachedNcOnly, getCachedDividendSummary, setCachedDividendOnly, getCachedRoe, setCachedRoeOnly } from "@/lib/cache/statsCache";
+import { getCachedStatsAll, setCachedNcOnly, setCachedDividendOnly, setCachedRoeOnly } from "@/lib/cache/statsCache";
 import type { DividendSummary } from "@/types";
 import { calcSharpeRatioFromPrices } from "@/lib/utils/indicators";
 import type { PriceData } from "@/types";
@@ -109,106 +109,93 @@ export async function GET(request: NextRequest) {
       // price_history が無い場合はスキップ
     }
 
-    // 3. NC率取得: キャッシュ(24h) → 長期キャッシュ(7d) → YFから取得
+    // 3. キャッシュ一括読み取り（1回の読み取りでNC率・配当・ROEを全て取得）
     const ncMap = new Map<string, number | null>();
-    const ncMissing: { sym: string; marketCap: number }[] = [];
-
-    for (const sym of symbols) {
-      const cached = getCachedStats(sym);
-      if (cached?.simpleNcRatio !== undefined && cached.simpleNcRatio !== null) {
-        ncMap.set(sym, cached.simpleNcRatio);
-        continue;
-      }
-      const cachedNc = getCachedNcRatio(sym);
-      if (cachedNc !== undefined) {
-        ncMap.set(sym, cachedNc);
-        continue;
-      }
-      const mc = quoteMap.get(sym)?.marketCap ?? 0;
-      if (mc > 0) {
-        ncMissing.push({ sym, marketCap: mc });
-      } else {
-        ncMap.set(sym, null);
-      }
-    }
-
-    // キャッシュにない銘柄はYFから並列取得（yfQueue内で10並列制限）
-    if (ncMissing.length > 0) {
-      const results = await Promise.allSettled(
-        ncMissing.map(async ({ sym, marketCap }) => {
-          const nc = await getSimpleNetCashRatio(sym, marketCap);
-          setCachedNcOnly(sym, nc);
-          return { sym, nc };
-        })
-      );
-      for (const r of results) {
-        if (r.status === "fulfilled") {
-          ncMap.set(r.value.sym, r.value.nc);
-        } else {
-          // エラー時はnull
-        }
-      }
-    }
-
-    // 4. 配当サマリー取得: キャッシュ(7d) → YFから取得
     const divMap = new Map<string, DividendSummary | null>();
-    const divMissing: string[] = [];
-
-    for (const sym of symbols) {
-      const cached = getCachedDividendSummary(sym);
-      if (cached !== undefined) {
-        divMap.set(sym, cached);
-      } else {
-        divMissing.push(sym);
-      }
-    }
-
-    if (divMissing.length > 0) {
-      const divResults = await Promise.allSettled(
-        divMissing.map(async (sym) => {
-          const hist = await getDividendHistory(sym);
-          const summary = hist.length > 0 ? computeDividendSummary(hist) : null;
-          setCachedDividendOnly(sym, summary);
-          return { sym, summary };
-        })
-      );
-      for (const r of divResults) {
-        if (r.status === "fulfilled") {
-          divMap.set(r.value.sym, r.value.summary);
-        }
-      }
-    }
-
-    // 5. ROE取得: キャッシュ(30d) → YF quoteSummaryから取得
     const roeMap = new Map<string, number | null>();
+    const ncMissing: { sym: string; marketCap: number }[] = [];
+    const divMissing: string[] = [];
     const roeMissing: string[] = [];
 
     for (const sym of symbols) {
-      const cached = getCachedStats(sym);
-      if (cached?.roe !== undefined && cached.roe !== null) {
+      const cached = getCachedStatsAll(sym);
+
+      // NC率
+      if (cached.nc !== undefined) {
+        ncMap.set(sym, cached.nc);
+      } else {
+        const mc = quoteMap.get(sym)?.marketCap ?? 0;
+        if (mc > 0) {
+          ncMissing.push({ sym, marketCap: mc });
+        } else {
+          ncMap.set(sym, null);
+        }
+      }
+
+      // 配当
+      if (cached.dividend !== undefined) {
+        divMap.set(sym, cached.dividend);
+      } else {
+        divMissing.push(sym);
+      }
+
+      // ROE
+      if (cached.roe !== undefined) {
         roeMap.set(sym, cached.roe);
-        continue;
+      } else {
+        roeMissing.push(sym);
       }
-      const cachedRoe = getCachedRoe(sym);
-      if (cachedRoe !== undefined) {
-        roeMap.set(sym, cachedRoe);
-        continue;
-      }
-      roeMissing.push(sym);
     }
 
-    if (roeMissing.length > 0) {
-      const roeResults = await Promise.allSettled(
-        roeMissing.map(async (sym) => {
-          const fd = await getFinancialData(sym);
-          setCachedRoeOnly(sym, fd.roe);
-          return { sym, roe: fd.roe };
-        })
-      );
-      for (const r of roeResults) {
-        if (r.status === "fulfilled") {
-          roeMap.set(r.value.sym, r.value.roe);
-        }
+    // 4. キャッシュミスの銘柄はYFから並列取得
+    const [ncResults, divResults, roeResults] = await Promise.all([
+      // NC率取得
+      ncMissing.length > 0
+        ? Promise.allSettled(
+            ncMissing.map(async ({ sym, marketCap }) => {
+              const nc = await getSimpleNetCashRatio(sym, marketCap);
+              setCachedNcOnly(sym, nc);
+              return { sym, nc };
+            })
+          )
+        : [],
+      // 配当取得
+      divMissing.length > 0
+        ? Promise.allSettled(
+            divMissing.map(async (sym) => {
+              const hist = await getDividendHistory(sym);
+              const summary = hist.length > 0 ? computeDividendSummary(hist) : null;
+              setCachedDividendOnly(sym, summary);
+              return { sym, summary };
+            })
+          )
+        : [],
+      // ROE取得
+      roeMissing.length > 0
+        ? Promise.allSettled(
+            roeMissing.map(async (sym) => {
+              const fd = await getFinancialData(sym);
+              setCachedRoeOnly(sym, fd.roe);
+              return { sym, roe: fd.roe };
+            })
+          )
+        : [],
+    ]);
+
+    // 結果をMapに追加
+    for (const r of ncResults) {
+      if (r.status === "fulfilled") {
+        ncMap.set(r.value.sym, r.value.nc);
+      }
+    }
+    for (const r of divResults) {
+      if (r.status === "fulfilled") {
+        divMap.set(r.value.sym, r.value.summary);
+      }
+    }
+    for (const r of roeResults) {
+      if (r.status === "fulfilled") {
+        roeMap.set(r.value.sym, r.value.roe);
       }
     }
 

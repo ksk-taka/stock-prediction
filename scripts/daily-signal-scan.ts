@@ -15,6 +15,7 @@ import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 
 import YahooFinance from "yahoo-finance2";
+import { cleanupOldNotifications } from "@/lib/cache/signalNotificationCache";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { strategies, getStrategyParams } from "@/lib/backtest/strategies";
 import { getExitLevels } from "@/lib/utils/exitLevels";
@@ -455,6 +456,12 @@ async function main() {
         progress: null,
       })
       .eq("id", scanId);
+  }
+
+  // 古い通知履歴をクリーンアップ（90日以上前を削除）
+  const cleanedUp = cleanupOldNotifications();
+  if (cleanedUp > 0) {
+    console.log(`\n古い通知履歴を ${cleanedUp} 件削除しました`);
   }
 
   // サマリー

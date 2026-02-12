@@ -9,6 +9,16 @@ const NC_TTL = 7 * 24 * 60 * 60 * 1000; // 7日間（四半期データなので
 const DIVIDEND_TTL = 7 * 24 * 60 * 60 * 1000; // 7日間（配当は年2回程度）
 const ROE_TTL = 30 * 24 * 60 * 60 * 1000; // 30日間（四半期決算ごとに更新）
 
+/**
+ * 1回の読み取りで全項目を返す（各項目ごとにTTL判定）
+ * undefined = キャッシュなし/期限切れ, null = データなし
+ */
+export interface CachedStatsAllResult {
+  nc: number | null | undefined;
+  dividend: DividendSummary | null | undefined;
+  roe: number | null | undefined;
+}
+
 interface StatsCacheEntry {
   per: number | null;
   forwardPer: number | null;
@@ -210,5 +220,48 @@ export function setCachedRoeOnly(symbol: string, roe: number | null): void {
     fs.writeFileSync(file, JSON.stringify(entry), "utf-8");
   } catch {
     // ignore write errors
+  }
+}
+
+/**
+ * 1回のファイル読み取りで全項目を取得（各項目ごとにTTL判定）
+ * 重複読み取りを避けるための最適化関数
+ */
+export function getCachedStatsAll(symbol: string): CachedStatsAllResult {
+  const result: CachedStatsAllResult = {
+    nc: undefined,
+    dividend: undefined,
+    roe: undefined,
+  };
+
+  try {
+    ensureDir();
+    const file = cacheFile(symbol);
+    if (!fs.existsSync(file)) return result;
+
+    const entry: StatsCacheEntry = JSON.parse(fs.readFileSync(file, "utf-8"));
+    const now = Date.now();
+
+    // NC率（7日TTL）
+    const ncTs = entry.ncCachedAt ?? entry.cachedAt;
+    if (now - ncTs <= NC_TTL && entry.simpleNcRatio !== undefined) {
+      result.nc = entry.simpleNcRatio;
+    }
+
+    // 配当（7日TTL）
+    const divTs = entry.dividendCachedAt ?? entry.cachedAt;
+    if (now - divTs <= DIVIDEND_TTL && entry.dividendSummary !== undefined) {
+      result.dividend = entry.dividendSummary;
+    }
+
+    // ROE（30日TTL）
+    const roeTs = entry.roeCachedAt ?? entry.cachedAt;
+    if (now - roeTs <= ROE_TTL && entry.roe !== undefined) {
+      result.roe = entry.roe;
+    }
+
+    return result;
+  } catch {
+    return result;
   }
 }
