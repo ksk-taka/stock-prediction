@@ -106,7 +106,8 @@ const COLUMNS: ColumnDef[] = [
 ];
 
 const BATCH_SIZE = 50;
-const TABLE_DATA_CACHE_KEY = "stock-table-data";
+const TABLE_DATA_CACHE_KEY = "stock-table-v1";
+const TABLE_DATA_CACHE_VERSION = 1;
 const TABLE_DATA_CACHE_TTL_MARKET = 15 * 60 * 1000; // 場中: 15分
 const TABLE_DATA_CACHE_TTL_CLOSED = 6 * 60 * 60 * 1000; // 場外: 6時間
 
@@ -227,36 +228,46 @@ export default function StockTablePage() {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [loadingStocks, setLoadingStocks] = useState(true);
 
-  // テーブルデータ (sessionStorageからリストア)
+  // テーブルデータ (localStorageからリストア - タブ間・再訪問で共有)
   const [tableData, setTableData] = useState<Map<string, StockTableRow>>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = sessionStorage.getItem(TABLE_DATA_CACHE_KEY);
-        if (saved) {
-          const { data, timestamp } = JSON.parse(saved);
-          if (Date.now() - timestamp < getTableCacheTTL()) {
-            return new Map(Object.entries(data) as [string, StockTableRow][]);
-          }
+    if (typeof window === "undefined") return new Map();
+    try {
+      const saved = localStorage.getItem(TABLE_DATA_CACHE_KEY);
+      if (saved) {
+        const { version, data, timestamp } = JSON.parse(saved);
+        if (version === TABLE_DATA_CACHE_VERSION && Date.now() - timestamp < getTableCacheTTL()) {
+          return new Map(Object.entries(data) as [string, StockTableRow][]);
         }
-      } catch { /* ignore */ }
-    }
+      }
+    } catch { /* ignore */ }
     return new Map();
   });
   const [loadingData, setLoadingData] = useState(false);
   const [loadedCount, setLoadedCount] = useState(0);
   const [fetchTotal, setFetchTotal] = useState(0); // 実際にフェッチする件数
 
-  // sessionStorageに保存するヘルパー（fetch完了時のみ呼ぶ）
-  const saveToSessionStorage = useCallback((data: Map<string, StockTableRow>) => {
+  // localStorageに保存するヘルパー（fetch完了時のみ呼ぶ）
+  const saveToLocalStorage = useCallback((data: Map<string, StockTableRow>) => {
     if (data.size === 0) return;
     try {
       const obj: Record<string, StockTableRow> = {};
       data.forEach((v, k) => { obj[k] = v; });
-      sessionStorage.setItem(TABLE_DATA_CACHE_KEY, JSON.stringify({
+      localStorage.setItem(TABLE_DATA_CACHE_KEY, JSON.stringify({
+        version: TABLE_DATA_CACHE_VERSION,
         data: obj,
         timestamp: Date.now(),
       }));
-    } catch { /* ignore */ }
+    } catch {
+      // 容量超過時: 古いキャッシュをクリアして再試行
+      try {
+        localStorage.removeItem(TABLE_DATA_CACHE_KEY);
+        localStorage.setItem(TABLE_DATA_CACHE_KEY, JSON.stringify({
+          version: TABLE_DATA_CACHE_VERSION,
+          data: obj,
+          timestamp: Date.now(),
+        }));
+      } catch { /* ignore */ }
+    }
   }, []);
 
   // フィルタ・ソート
@@ -424,10 +435,10 @@ export default function StockTablePage() {
       // 最終チェック: このfetchがまだ最新なら完了
       if (fetchGenRef.current === gen) {
         setLoadingData(false);
-        saveToSessionStorage(existing);
+        saveToLocalStorage(existing);
       }
     },
-    [saveToSessionStorage],
+    [saveToLocalStorage],
   );
 
   // フィルタが変わったらデータ取得（未取得分のみ）

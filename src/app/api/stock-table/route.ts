@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getQuoteBatch, getFinancialMetrics, getDividendHistory, computeDividendSummary } from "@/lib/api/yahooFinance";
-import { getCachedStatsAll, setCachedStatsPartial, type StatsPartialUpdate } from "@/lib/cache/statsCache";
+import { getCachedStatsAll, setCachedStatsPartial, getStatsCacheBatchFromSupabase, type StatsPartialUpdate } from "@/lib/cache/statsCache";
 import type { DividendSummary } from "@/types";
 import { calcSharpeRatioFromPrices } from "@/lib/utils/indicators";
 import type { PriceData } from "@/types";
-
-export const dynamic = "force-dynamic";
+import { isMarketOpen } from "@/lib/utils/date";
 
 interface PriceBar {
   date: string;
@@ -109,24 +108,55 @@ export async function GET(request: NextRequest) {
       // price_history が無い場合はスキップ
     }
 
-    // 3. キャッシュ一括読み取り（1回の読み取りでNC率・配当・ROEを全て取得）
+    // 3. キャッシュ一括読み取り（ファイルキャッシュ → Supabaseフォールバック）
     const ncMap = new Map<string, number | null>();
     const divMap = new Map<string, DividendSummary | null>();
     const roeMap = new Map<string, number | null>();
     const metricsMissing: { sym: string; marketCap: number }[] = []; // NC率またはROEがミス
     const divMissing: string[] = [];
+    const supabaseFallbackNeeded: string[] = []; // ファイルキャッシュミスのシンボル
 
+    // まずファイルキャッシュを確認
     for (const sym of symbols) {
       const quote = quoteMap.get(sym);
       const cached = getCachedStatsAll(sym, quote?.earningsDate);
 
-      // NC率・ROE（どちらかがミスなら両方再取得）
       const ncHit = cached.nc !== undefined;
       const roeHit = cached.roe !== undefined;
+      const divHit = cached.dividend !== undefined;
 
       if (ncHit) ncMap.set(sym, cached.nc ?? null);
       if (roeHit) roeMap.set(sym, cached.roe ?? null);
+      if (divHit) divMap.set(sym, cached.dividend);
 
+      // いずれかがファイルキャッシュミスならSupabaseフォールバック対象
+      if (!ncHit || !roeHit || !divHit) {
+        supabaseFallbackNeeded.push(sym);
+      }
+    }
+
+    // Supabaseフォールバック（ファイルキャッシュミス分のみ）
+    if (supabaseFallbackNeeded.length > 0) {
+      const supabaseCache = await getStatsCacheBatchFromSupabase(supabaseFallbackNeeded);
+
+      for (const sym of supabaseFallbackNeeded) {
+        const sbCache = supabaseCache.get(sym);
+        if (sbCache) {
+          if (!ncMap.has(sym) && sbCache.nc !== undefined) ncMap.set(sym, sbCache.nc ?? null);
+          if (!roeMap.has(sym) && sbCache.roe !== undefined) roeMap.set(sym, sbCache.roe ?? null);
+          if (!divMap.has(sym) && sbCache.dividend !== undefined) divMap.set(sym, sbCache.dividend);
+        }
+      }
+    }
+
+    // まだキャッシュがない銘柄をAPI取得対象に追加
+    for (const sym of symbols) {
+      const quote = quoteMap.get(sym);
+      const ncHit = ncMap.has(sym);
+      const roeHit = roeMap.has(sym);
+      const divHit = divMap.has(sym);
+
+      // NC率・ROE（どちらかがミスなら両方再取得）
       if (!ncHit || !roeHit) {
         const mc = quote?.marketCap ?? 0;
         if (mc > 0) {
@@ -138,9 +168,7 @@ export async function GET(request: NextRequest) {
       }
 
       // 配当
-      if (cached.dividend !== undefined) {
-        divMap.set(sym, cached.dividend);
-      } else {
+      if (!divHit) {
         divMissing.push(sym);
       }
     }
@@ -230,7 +258,15 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json({ rows });
+    const response = NextResponse.json({ rows });
+    const isOpen = isMarketOpen("JP");
+    response.headers.set(
+      "Cache-Control",
+      isOpen
+        ? "public, s-maxage=60, stale-while-revalidate=300"   // 場中: 1分+5分SWR
+        : "public, s-maxage=3600, stale-while-revalidate=7200" // 場外: 1時間+2時間SWR
+    );
+    return response;
   } catch (error) {
     console.error("stock-table API error:", error);
     return NextResponse.json(

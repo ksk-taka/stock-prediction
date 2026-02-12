@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { getCacheBaseDir } from "./cacheDir";
+import { createServiceClient } from "@/lib/supabase/service";
 import type { DividendSummary } from "@/types";
 
 const CACHE_DIR = path.join(getCacheBaseDir(), "stats");
@@ -9,6 +10,25 @@ const NC_TTL = 7 * 24 * 60 * 60 * 1000; // 7日間（四半期データなので
 const DIVIDEND_TTL = 30 * 24 * 60 * 60 * 1000; // 30日間（配当は年2回程度なので長めに）
 const ROE_TTL = 30 * 24 * 60 * 60 * 1000; // 30日間（四半期決算ごとに更新）
 const EARNINGS_INVALIDATION_DAYS = 3; // 決算日前後N日以内はキャッシュ無効化
+
+// Supabase stats_cache テーブルの行型
+interface SupabaseStatsCacheRow {
+  symbol: string;
+  nc_ratio: number | null;
+  nc_cached_at: string | null;
+  roe: number | null;
+  roe_cached_at: string | null;
+  dividend_summary: DividendSummary | null;
+  dividend_cached_at: string | null;
+  sharpe_1y: number | null;
+  sharpe_cached_at: string | null;
+  week_high: number | null;
+  week_low: number | null;
+  month_high: number | null;
+  month_low: number | null;
+  range_cached_at: string | null;
+  updated_at: string;
+}
 
 /**
  * 1回の読み取りで全項目を返す（各項目ごとにTTL判定）
@@ -301,6 +321,9 @@ export function setCachedStatsPartial(symbol: string, updates: StatsPartialUpdat
     }
 
     fs.writeFileSync(file, JSON.stringify(entry), "utf-8");
+
+    // Supabaseにもバックグラウンドで保存（失敗しても無視）
+    setStatsCacheToSupabase(symbol, updates).catch(() => {});
   } catch {
     // ignore write errors
   }
@@ -410,5 +433,149 @@ export function getCachedStatsAll(
     return result;
   } catch {
     return result;
+  }
+}
+
+// ====================================
+// Supabase フォールバック関連
+// ====================================
+
+/**
+ * Supabaseからキャッシュを取得（ファイルキャッシュのフォールバック）
+ * ファイルキャッシュがない場合にのみ呼び出される
+ */
+export async function getStatsCacheFromSupabase(symbol: string): Promise<CachedStatsAllResult> {
+  const result: CachedStatsAllResult = { nc: undefined, dividend: undefined, roe: undefined };
+
+  try {
+    const supabase = createServiceClient();
+    const { data, error } = await supabase
+      .from("stats_cache")
+      .select("*")
+      .eq("symbol", symbol)
+      .single();
+
+    if (error || !data) return result;
+
+    const row = data as SupabaseStatsCacheRow;
+    const now = Date.now();
+
+    // NC率（7日TTL）
+    if (row.nc_cached_at && row.nc_ratio !== null) {
+      const ncTs = new Date(row.nc_cached_at).getTime();
+      if (now - ncTs <= NC_TTL) {
+        result.nc = row.nc_ratio;
+      }
+    }
+
+    // 配当（30日TTL）
+    if (row.dividend_cached_at && row.dividend_summary !== null) {
+      const divTs = new Date(row.dividend_cached_at).getTime();
+      if (now - divTs <= DIVIDEND_TTL) {
+        result.dividend = row.dividend_summary;
+      }
+    }
+
+    // ROE（30日TTL）
+    if (row.roe_cached_at && row.roe !== null) {
+      const roeTs = new Date(row.roe_cached_at).getTime();
+      if (now - roeTs <= ROE_TTL) {
+        result.roe = row.roe;
+      }
+    }
+
+    return result;
+  } catch {
+    return result;
+  }
+}
+
+/**
+ * Supabaseにキャッシュを保存（ファイルキャッシュと同時に呼び出す）
+ * バックグラウンドで実行、失敗しても無視
+ */
+export async function setStatsCacheToSupabase(symbol: string, updates: StatsPartialUpdate): Promise<void> {
+  try {
+    const supabase = createServiceClient();
+    const now = new Date().toISOString();
+
+    const upsertData: Partial<SupabaseStatsCacheRow> & { symbol: string } = { symbol };
+
+    if (updates.nc !== undefined) {
+      upsertData.nc_ratio = updates.nc;
+      upsertData.nc_cached_at = now;
+    }
+    if (updates.dividend !== undefined) {
+      upsertData.dividend_summary = updates.dividend;
+      upsertData.dividend_cached_at = now;
+    }
+    if (updates.roe !== undefined) {
+      upsertData.roe = updates.roe;
+      upsertData.roe_cached_at = now;
+    }
+
+    await supabase
+      .from("stats_cache")
+      .upsert(upsertData, { onConflict: "symbol" });
+  } catch {
+    // ignore errors - Supabase cache is best-effort
+  }
+}
+
+/**
+ * バッチでSupabaseからキャッシュを取得
+ * デプロイ後のコールドスタート時に使用
+ */
+export async function getStatsCacheBatchFromSupabase(
+  symbols: string[]
+): Promise<Map<string, CachedStatsAllResult>> {
+  const resultMap = new Map<string, CachedStatsAllResult>();
+
+  if (symbols.length === 0) return resultMap;
+
+  try {
+    const supabase = createServiceClient();
+    const { data, error } = await supabase
+      .from("stats_cache")
+      .select("*")
+      .in("symbol", symbols);
+
+    if (error || !data) return resultMap;
+
+    const now = Date.now();
+
+    for (const row of data as SupabaseStatsCacheRow[]) {
+      const result: CachedStatsAllResult = { nc: undefined, dividend: undefined, roe: undefined };
+
+      // NC率（7日TTL）
+      if (row.nc_cached_at && row.nc_ratio !== null) {
+        const ncTs = new Date(row.nc_cached_at).getTime();
+        if (now - ncTs <= NC_TTL) {
+          result.nc = row.nc_ratio;
+        }
+      }
+
+      // 配当（30日TTL）
+      if (row.dividend_cached_at && row.dividend_summary !== null) {
+        const divTs = new Date(row.dividend_cached_at).getTime();
+        if (now - divTs <= DIVIDEND_TTL) {
+          result.dividend = row.dividend_summary;
+        }
+      }
+
+      // ROE（30日TTL）
+      if (row.roe_cached_at && row.roe !== null) {
+        const roeTs = new Date(row.roe_cached_at).getTime();
+        if (now - roeTs <= ROE_TTL) {
+          result.roe = row.roe;
+        }
+      }
+
+      resultMap.set(row.symbol, result);
+    }
+
+    return resultMap;
+  } catch {
+    return resultMap;
   }
 }
