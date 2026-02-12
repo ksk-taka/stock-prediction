@@ -6,14 +6,18 @@ import { isJPMarketOpen, isUSMarketOpen } from "@/lib/utils/date";
 const BATCH_CHUNK = 200; // URL長制限を考慮
 
 // ── localStorage キャッシュ設定 ──
-const CACHE_KEY = "watchlist-cache-v1";
-const CACHE_VERSION = 1;
-const CACHE_TTL_MARKET = 5 * 60 * 1000;      // 場中: 5分
-const CACHE_TTL_CLOSED = 6 * 60 * 60 * 1000; // 場外: 6時間
+const CACHE_KEY = "watchlist-cache-v2";
+const CACHE_VERSION = 2;
+
+// TTL設定（データ種別ごと）
+const TTL_QUOTES_MARKET = 5 * 60 * 1000;       // 株価: 場中5分
+const TTL_QUOTES_CLOSED = 6 * 60 * 60 * 1000;  // 株価: 場外6時間
+const TTL_STATIC = 24 * 60 * 60 * 1000;        // 銘柄リスト/指標/シグナル: 24時間
 
 interface WatchlistCache {
   version: number;
-  timestamp: number;
+  quotesTimestamp: number;  // 株価の更新時刻
+  staticTimestamp: number;  // その他データの更新時刻
   stocks: Stock[];
   quotes: Record<string, StockQuote>;
   stats: Record<string, StockStats>;
@@ -22,42 +26,66 @@ interface WatchlistCache {
   newHighsMap: Record<string, NewHighInfo>;
 }
 
-function getCacheTTL(): number {
-  return isJPMarketOpen() || isUSMarketOpen() ? CACHE_TTL_MARKET : CACHE_TTL_CLOSED;
+function getQuotesTTL(): number {
+  return isJPMarketOpen() || isUSMarketOpen() ? TTL_QUOTES_MARKET : TTL_QUOTES_CLOSED;
 }
 
-function loadCache(): Partial<WatchlistCache> | null {
+function loadCache(): { cache: Partial<WatchlistCache>; quotesExpired: boolean } | null {
   if (typeof window === "undefined") return null;
   try {
     const saved = localStorage.getItem(CACHE_KEY);
     if (!saved) return null;
     const cache: WatchlistCache = JSON.parse(saved);
     if (cache.version !== CACHE_VERSION) return null;
-    if (Date.now() - cache.timestamp > getCacheTTL()) return null;
-    return cache;
+
+    const now = Date.now();
+    const staticExpired = now - cache.staticTimestamp > TTL_STATIC;
+    const quotesExpired = now - cache.quotesTimestamp > getQuotesTTL();
+
+    // 静的データも期限切れなら全キャッシュ無効
+    if (staticExpired) return null;
+
+    return { cache, quotesExpired };
   } catch {
     return null;
   }
 }
 
-function saveCache(data: Omit<WatchlistCache, "version" | "timestamp">): void {
+function saveCache(
+  data: Omit<WatchlistCache, "version" | "quotesTimestamp" | "staticTimestamp">,
+  updateQuotes: boolean = true
+): void {
   if (typeof window === "undefined") return;
   try {
+    // 既存キャッシュのタイムスタンプを保持
+    let prevQuotesTs = Date.now();
+    let prevStaticTs = Date.now();
+    try {
+      const prev = localStorage.getItem(CACHE_KEY);
+      if (prev) {
+        const parsed = JSON.parse(prev) as WatchlistCache;
+        prevQuotesTs = parsed.quotesTimestamp ?? prevQuotesTs;
+        prevStaticTs = parsed.staticTimestamp ?? prevStaticTs;
+      }
+    } catch { /* ignore */ }
+
     const cache: WatchlistCache = {
       ...data,
       version: CACHE_VERSION,
-      timestamp: Date.now(),
+      quotesTimestamp: updateQuotes ? Date.now() : prevQuotesTs,
+      staticTimestamp: Date.now(),
     };
     localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
   } catch {
-    // 容量超過時はクリアして再試行
     try {
       localStorage.removeItem(CACHE_KEY);
-      localStorage.setItem(CACHE_KEY, JSON.stringify({
+      const cache: WatchlistCache = {
         ...data,
         version: CACHE_VERSION,
-        timestamp: Date.now(),
-      }));
+        quotesTimestamp: Date.now(),
+        staticTimestamp: Date.now(),
+      };
+      localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
     } catch { /* ignore */ }
   }
 }
@@ -114,21 +142,30 @@ export function useWatchlistData(): UseWatchlistDataReturn {
   // シグナルデータ取得済み追跡
   const signalsFetchedRef = useRef<Set<string>>(new Set());
 
+  // 株価のみ再取得が必要かどうか
+  const quotesNeedRefreshRef = useRef(false);
+
   // マウント時にlocalStorageから復元
   useEffect(() => {
-    const cache = loadCache();
-    if (cache) {
+    const result = loadCache();
+    if (result) {
+      const { cache, quotesExpired } = result;
       if (cache.stocks) setStocks(cache.stocks);
-      if (cache.quotes) setQuotes(cache.quotes);
       if (cache.stats) setStats(cache.stats);
       if (cache.signals) {
         setSignals(cache.signals);
-        // キャッシュから復元したシグナルはfetched扱い
         Object.keys(cache.signals).forEach((sym) => signalsFetchedRef.current.add(sym));
       }
       if (cache.allGroups) setAllGroups(cache.allGroups);
       if (cache.newHighsMap) setNewHighsMap(cache.newHighsMap);
-      // キャッシュがあればローディング完了
+
+      // 株価: 期限切れでなければ復元、期限切れなら再取得フラグ
+      if (!quotesExpired && cache.quotes) {
+        setQuotes(cache.quotes);
+      } else {
+        quotesNeedRefreshRef.current = true;
+      }
+
       if (cache.stocks && cache.stocks.length > 0) {
         setLoading(false);
       }
@@ -168,6 +205,49 @@ export function useWatchlistData(): UseWatchlistDataReturn {
     if (!cacheRestored) return;
     fetchWatchlist();
   }, [cacheRestored, fetchWatchlist]);
+
+  // 株価キャッシュ期限切れ時にバッチ更新（stock-table APIを使用）
+  useEffect(() => {
+    if (!cacheRestored || !quotesNeedRefreshRef.current || stocks.length === 0) return;
+    quotesNeedRefreshRef.current = false;
+
+    const refreshQuotes = async () => {
+      const symbols = stocks.map((s) => s.symbol);
+      const CHUNK_SIZE = 50; // stock-table APIの上限
+      for (let i = 0; i < symbols.length; i += CHUNK_SIZE) {
+        const chunk = symbols.slice(i, i + CHUNK_SIZE);
+        try {
+          const res = await fetch(`/api/stock-table?symbols=${chunk.join(",")}`);
+          if (res.ok) {
+            const data = await res.json();
+            const newQuotes: Record<string, StockQuote> = {};
+            const newStats: Record<string, StockStats> = {};
+            for (const row of data.rows ?? []) {
+              newQuotes[row.symbol] = {
+                symbol: row.symbol,
+                price: row.price ?? 0,
+                changePercent: row.changePercent ?? 0,
+              };
+              newStats[row.symbol] = {
+                per: row.per ?? null,
+                pbr: row.pbr ?? null,
+                roe: row.roe ?? null,
+                eps: row.eps ?? null,
+                simpleNcRatio: row.simpleNcRatio ?? null,
+                marketCap: row.marketCap ?? null,
+                sharpe1y: row.sharpe1y ?? null,
+                latestDividend: row.latestDividend ?? null,
+                latestIncrease: row.latestIncrease ?? null,
+              };
+            }
+            setQuotes((prev) => ({ ...prev, ...newQuotes }));
+            setStats((prev) => ({ ...prev, ...newStats }));
+          }
+        } catch { /* ignore */ }
+      }
+    };
+    refreshQuotes();
+  }, [cacheRestored, stocks]);
 
   // 新高値スキャンデータを読み込み
   const loadNewHighs = useCallback(async () => {
