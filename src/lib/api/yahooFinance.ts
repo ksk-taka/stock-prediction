@@ -256,7 +256,7 @@ export async function getFinancialMetrics(symbol: string, marketCap: number): Pr
         const recentQuarters = statements.slice(0, 4); // 新しい順に並んでいる
         let annualNetIncome = 0;
         for (const q of recentQuarters) {
-          const netIncome = (q as Record<string, unknown>).netIncome as number | undefined;
+          const netIncome = (q as unknown as Record<string, unknown>).netIncome as number | undefined;
           if (netIncome != null) {
             annualNetIncome += netIncome;
           }

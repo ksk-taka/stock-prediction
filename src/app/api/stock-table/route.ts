@@ -124,8 +124,8 @@ export async function GET(request: NextRequest) {
       const ncHit = cached.nc !== undefined;
       const roeHit = cached.roe !== undefined;
 
-      if (ncHit) ncMap.set(sym, cached.nc);
-      if (roeHit) roeMap.set(sym, cached.roe);
+      if (ncHit) ncMap.set(sym, cached.nc ?? null);
+      if (roeHit) roeMap.set(sym, cached.roe ?? null);
 
       if (!ncHit || !roeHit) {
         const mc = quote?.marketCap ?? 0;
