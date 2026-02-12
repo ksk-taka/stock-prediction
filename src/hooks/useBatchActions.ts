@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import type { Stock } from "@/types";
 import type { SignalSummary, ActiveSignalInfo } from "@/types/watchlist";
 import { WL_EXCLUDE_STRATEGIES } from "@/types/watchlist";
@@ -82,18 +82,20 @@ export function useBatchActions({
     [selectedStrategies, signalPeriodFilter]
   );
 
-  // フィルタ中銘柄のシグナル数・銘柄数を計算
-  const { filteredSignalCount, filteredSignalStockCount } = filteredStocks.reduce(
-    (acc, stock) => {
-      const count = getFilteredSignals(signals[stock.symbol]).length;
-      if (count > 0) {
-        acc.filteredSignalCount += count;
-        acc.filteredSignalStockCount += 1;
-      }
-      return acc;
-    },
-    { filteredSignalCount: 0, filteredSignalStockCount: 0 }
-  );
+  // フィルタ中銘柄のシグナル数・銘柄数を計算（メモ化）
+  const { filteredSignalCount, filteredSignalStockCount } = useMemo(() => {
+    return filteredStocks.reduce(
+      (acc, stock) => {
+        const count = getFilteredSignals(signals[stock.symbol]).length;
+        if (count > 0) {
+          acc.filteredSignalCount += count;
+          acc.filteredSignalStockCount += 1;
+        }
+        return acc;
+      },
+      { filteredSignalCount: 0, filteredSignalStockCount: 0 }
+    );
+  }, [filteredStocks, signals, getFilteredSignals]);
 
   const handleBatchExecute = useCallback(async () => {
     if (!batchAnalysis && !batchSlack) return;
