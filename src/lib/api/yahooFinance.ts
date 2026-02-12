@@ -196,6 +196,32 @@ export async function getSimpleNetCashRatio(symbol: string, marketCap: number): 
 }
 
 /**
+ * 四半期EPS履歴を取得（earningsHistory経由）
+ */
+export async function getEarningsHistory(symbol: string) {
+  try {
+    const result = await yfQueue.add(() =>
+      yf.quoteSummary(symbol, { modules: ["earningsHistory"] })
+    );
+    const eh = result.earningsHistory;
+    if (!eh?.history) return [];
+    return eh.history
+      .filter((h) => h.quarter != null)
+      .map((h) => ({
+        quarter:
+          h.quarter instanceof Date
+            ? h.quarter.toISOString().split("T")[0]
+            : String(h.quarter),
+        epsActual: h.epsActual ?? null,
+        epsEstimate: h.epsEstimate ?? null,
+      }))
+      .sort((a, b) => a.quarter.localeCompare(b.quarter));
+  } catch {
+    return [];
+  }
+}
+
+/**
  * 複数銘柄の株価情報をバッチ取得（テーブル表示用）
  */
 export async function getQuoteBatch(symbols: string[]) {

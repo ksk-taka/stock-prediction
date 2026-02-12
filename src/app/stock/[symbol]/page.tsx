@@ -10,6 +10,7 @@ import AnalysisCard from "@/components/AnalysisCard";
 import BacktestPanel from "@/components/BacktestPanel";
 import FundamentalPanel from "@/components/FundamentalPanel";
 import MarketSentiment from "@/components/MarketSentiment";
+import PerEpsChart from "@/components/PerEpsChart";
 import { formatChange, formatMarketCap } from "@/lib/utils/format";
 import { isMarketOpen } from "@/lib/utils/date";
 import GroupAssignPopup from "@/components/GroupAssignPopup";
@@ -827,6 +828,11 @@ export default function StockDetailPage() {
             />
           )
         )}
+      </div>
+
+      {/* PER/EPSチャート */}
+      <div className="mb-6">
+        <PerEpsChart symbol={symbol} />
       </div>
 
       {/* センチメント・AI分析エリア */}
