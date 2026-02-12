@@ -586,7 +586,7 @@ export function useWatchlistData(): UseWatchlistDataReturn {
     [allGroups, fetchWatchlist]
   );
 
-  // バッチstats取得（数値フィルタ用: キャッシュのみ読み取り）
+  // バッチstats取得（数値フィルタ用: stock-table APIで取得）
   const [batchStatsLoading, setBatchStatsLoading] = useState(false);
   const batchStatsFetchedRef = useRef(false);
 
@@ -606,27 +606,33 @@ export function useWatchlistData(): UseWatchlistDataReturn {
         return;
       }
 
-      // チャンク分割してバッチ取得
-      const allResults: Record<string, StockStats> = {};
-      for (let i = 0; i < missing.length; i += BATCH_CHUNK) {
-        const chunk = missing.slice(i, i + BATCH_CHUNK);
+      // stock-table API (Yahoo Finance取得あり) を使用
+      const CHUNK_SIZE = 50;
+      const newQuotes: Record<string, StockQuote> = {};
+      const newStats: Record<string, StockStats> = {};
+
+      for (let i = 0; i < missing.length; i += CHUNK_SIZE) {
+        const chunk = missing.slice(i, i + CHUNK_SIZE);
         try {
-          const res = await fetch(
-            `/api/stats/batch?symbols=${chunk.map(encodeURIComponent).join(",")}`
-          );
+          const res = await fetch(`/api/stock-table?symbols=${chunk.join(",")}`);
           if (res.ok) {
             const data = await res.json();
-            for (const [sym, s] of Object.entries(data.stats) as [string, Record<string, unknown>][]) {
-              allResults[sym] = {
-                per: (s.per as number | null) ?? null,
-                pbr: (s.pbr as number | null) ?? null,
-                roe: (s.roe as number | null) ?? null,
-                eps: null,
-                simpleNcRatio: (s.simpleNcRatio as number | null) ?? null,
-                marketCap: (s.marketCap as number | null) ?? null,
-                sharpe1y: (s.sharpe1y as number | null) ?? null,
-                latestDividend: (s.latestDividend as number | null) ?? null,
-                latestIncrease: (s.latestIncrease as number | null) ?? null,
+            for (const row of data.rows ?? []) {
+              newQuotes[row.symbol] = {
+                symbol: row.symbol,
+                price: row.price ?? 0,
+                changePercent: row.changePercent ?? 0,
+              };
+              newStats[row.symbol] = {
+                per: row.per ?? null,
+                pbr: row.pbr ?? null,
+                roe: row.roe ?? null,
+                eps: row.eps ?? null,
+                simpleNcRatio: row.simpleNcRatio ?? null,
+                marketCap: row.marketCap ?? null,
+                sharpe1y: row.sharpe1y ?? null,
+                latestDividend: row.latestDividend ?? null,
+                latestIncrease: row.latestIncrease ?? null,
               };
             }
           }
@@ -635,8 +641,9 @@ export function useWatchlistData(): UseWatchlistDataReturn {
         }
       }
 
-      if (Object.keys(allResults).length > 0) {
-        setStats((prev) => ({ ...prev, ...allResults }));
+      if (Object.keys(newStats).length > 0) {
+        setQuotes((prev) => ({ ...prev, ...newQuotes }));
+        setStats((prev) => ({ ...prev, ...newStats }));
       }
     } finally {
       setBatchStatsLoading(false);
