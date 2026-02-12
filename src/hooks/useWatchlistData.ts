@@ -5,6 +5,7 @@ import { isJPMarketOpen, isUSMarketOpen } from "@/lib/utils/date";
 
 const BATCH_CHUNK = 200; // URL長制限を考慮
 
+
 // ── localStorage キャッシュ設定 ──
 const CACHE_KEY = "watchlist-cache-v2";
 const CACHE_VERSION = 2;
@@ -51,6 +52,26 @@ function loadCache(): { cache: Partial<WatchlistCache>; quotesExpired: boolean }
   }
 }
 
+/** signals を軽量化: weekly除去 + validations除去 + 6ヶ月以内に絞る */
+function slimSignals(signals: Record<string, SignalSummary>): Record<string, SignalSummary> {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 183); // 6ヶ月
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+
+  const result: Record<string, SignalSummary> = {};
+  for (const [symbol, sig] of Object.entries(signals)) {
+    const activeDaily = (sig.activeSignals?.daily ?? []).filter((a) => a.buyDate >= cutoffStr);
+    const recentDaily = (sig.recentSignals?.daily ?? []).filter((r) => r.date >= cutoffStr);
+    if (activeDaily.length === 0 && recentDaily.length === 0) continue;
+    result[symbol] = {
+      activeSignals: { daily: activeDaily, weekly: [] },
+      recentSignals: { daily: recentDaily, weekly: [] },
+      // validations は除外（LLM分析テキストが大きい）
+    };
+  }
+  return result;
+}
+
 function saveCache(
   data: Omit<WatchlistCache, "version" | "quotesTimestamp" | "staticTimestamp">,
   updateQuotes: boolean = true
@@ -71,16 +92,21 @@ function saveCache(
 
     const cache: WatchlistCache = {
       ...data,
+      signals: slimSignals(data.signals),
       version: CACHE_VERSION,
       quotesTimestamp: updateQuotes ? Date.now() : prevQuotesTs,
       staticTimestamp: Date.now(),
     };
-    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-  } catch {
+    const json = JSON.stringify(cache);
+
+    localStorage.setItem(CACHE_KEY, json);
+  } catch (e) {
+
     try {
       localStorage.removeItem(CACHE_KEY);
       const cache: WatchlistCache = {
         ...data,
+        signals: slimSignals(data.signals),
         version: CACHE_VERSION,
         quotesTimestamp: Date.now(),
         staticTimestamp: Date.now(),
@@ -155,14 +181,11 @@ export function useWatchlistData(): UseWatchlistDataReturn {
       if (cache.signals) {
         setSignals(cache.signals);
         Object.keys(cache.signals).forEach((sym) => signalsFetchedRef.current.add(sym));
-        // キャッシュにシグナルがあればバッチアクションバーを即表示
-        // （API取得はバックグラウンドで更新される）
         setInitialSignalLoadComplete(true);
       }
       if (cache.allGroups) setAllGroups(cache.allGroups);
       if (cache.newHighsMap) setNewHighsMap(cache.newHighsMap);
 
-      // 株価: 期限切れでなければ復元、期限切れなら再取得フラグ
       if (!quotesExpired && cache.quotes) {
         setQuotes(cache.quotes);
       } else {
