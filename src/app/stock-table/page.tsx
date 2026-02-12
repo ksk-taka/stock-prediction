@@ -105,13 +105,6 @@ const COLUMNS: ColumnDef[] = [
   { key: "lastYearLow", label: "昨年安値", group: "昨年", align: "right", defaultVisible: false },
 ];
 
-const MARKET_FILTERS = [
-  { label: "全て", value: "" },
-  { label: "プライム", value: "プライム" },
-  { label: "スタンダード", value: "スタンダード" },
-  { label: "グロース", value: "グロース" },
-];
-
 const BATCH_SIZE = 50;
 const TABLE_DATA_CACHE_KEY = "stock-table-data";
 const TABLE_DATA_CACHE_TTL_MARKET = 15 * 60 * 1000; // 場中: 15分
@@ -269,7 +262,7 @@ export default function StockTablePage() {
   // フィルタ・ソート
   const [allGroups, setAllGroups] = useState<WatchlistGroup[]>([]);
   const [selectedGroupIds, setSelectedGroupIds] = useState<Set<number>>(new Set());
-  const [marketFilter, setMarketFilter] = useState("");
+  const [marketFilter, setMarketFilter] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("code");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -277,11 +270,24 @@ export default function StockTablePage() {
   // 時価総額フィルタ
   const [capSizeFilter, setCapSizeFilter] = useState<Set<string>>(new Set());
 
-  // NC率フィルタ
-  const [ncRatioFilter, setNcRatioFilter] = useState(false);
+  // ドロップダウン
+  const [showGroupDropdown, setShowGroupDropdown] = useState(false);
+  const groupDropdownRef = useRef<HTMLDivElement>(null);
+  const [showMarketDropdown, setShowMarketDropdown] = useState(false);
+  const marketDropdownRef = useRef<HTMLDivElement>(null);
+  const [showCapDropdown, setShowCapDropdown] = useState(false);
+  const capDropdownRef = useRef<HTMLDivElement>(null);
 
   // グループポップアップ
   const [groupPopup, setGroupPopup] = useState<{ symbol: string; anchor: DOMRect } | null>(null);
+
+  // 数値範囲フィルタ
+  const [ncRatioMin, setNcRatioMin] = useState("");
+  const [ncRatioMax, setNcRatioMax] = useState("");
+  const [sharpeMin, setSharpeMin] = useState("");
+  const [increaseMin, setIncreaseMin] = useState("");
+  const [roeMin, setRoeMin] = useState("");
+  const [roeMax, setRoeMax] = useState("");
 
   // 決算日フィルタ
   const [earningsPreset, setEarningsPreset] = useState("");
@@ -313,6 +319,19 @@ export default function StockTablePage() {
     } catch { /* ignore */ }
   }, [visibleColumns]);
 
+  // ドロップダウン: 外側クリックで閉じる
+  useEffect(() => {
+    if (!showGroupDropdown && !showMarketDropdown && !showCapDropdown) return;
+    function handleClick(e: MouseEvent) {
+      const t = e.target as Node;
+      if (showGroupDropdown && groupDropdownRef.current && !groupDropdownRef.current.contains(t)) setShowGroupDropdown(false);
+      if (showMarketDropdown && marketDropdownRef.current && !marketDropdownRef.current.contains(t)) setShowMarketDropdown(false);
+      if (showCapDropdown && capDropdownRef.current && !capDropdownRef.current.contains(t)) setShowCapDropdown(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showGroupDropdown, showMarketDropdown, showCapDropdown]);
+
   // ── ウォッチリスト読み込み ──
   useEffect(() => {
     (async () => {
@@ -337,8 +356,8 @@ export default function StockTablePage() {
   const filteredStocks = useMemo(() => {
     let list = stocks;
     if (selectedGroupIds.size > 0) list = list.filter((s) => s.groupIds?.some((id) => selectedGroupIds.has(id)));
-    if (marketFilter) {
-      list = list.filter((s) => s.marketSegment?.includes(marketFilter));
+    if (marketFilter.size > 0) {
+      list = list.filter((s) => s.marketSegment != null && marketFilter.has(s.marketSegment));
     }
     if (search) {
       const q = search.toLowerCase();
@@ -465,9 +484,45 @@ export default function StockTablePage() {
       });
     }
 
-    // NC率フィルタ
-    if (ncRatioFilter) {
-      rows = rows.filter((r) => r.simpleNcRatio != null && r.simpleNcRatio <= 100);
+    // NC率フィルタ (x以上y未満)
+    if (ncRatioMin !== "" || ncRatioMax !== "") {
+      const min = ncRatioMin !== "" ? parseFloat(ncRatioMin) : NaN;
+      const max = ncRatioMax !== "" ? parseFloat(ncRatioMax) : NaN;
+      rows = rows.filter((r) => {
+        if (r.simpleNcRatio == null) return false;
+        if (!isNaN(min) && r.simpleNcRatio < min) return false;
+        if (!isNaN(max) && r.simpleNcRatio >= max) return false;
+        return true;
+      });
+    }
+
+    // シャープレシオ フィルタ
+    if (sharpeMin !== "") {
+      const min = parseFloat(sharpeMin);
+      if (!isNaN(min)) {
+        rows = rows.filter((r) => r.sharpe1y != null && r.sharpe1y >= min);
+      }
+    }
+
+    // 増配額フィルタ
+    if (increaseMin !== "") {
+      const min = parseFloat(increaseMin);
+      if (!isNaN(min)) {
+        rows = rows.filter((r) => r.latestIncrease != null && r.latestIncrease >= min);
+      }
+    }
+
+    // ROEフィルタ (入力は%、データは小数 e.g. 0.15 = 15%)
+    if (roeMin !== "" || roeMax !== "") {
+      const min = roeMin !== "" ? parseFloat(roeMin) : NaN;
+      const max = roeMax !== "" ? parseFloat(roeMax) : NaN;
+      rows = rows.filter((r) => {
+        if (r.roe == null) return false;
+        const roePct = r.roe * 100;
+        if (!isNaN(min) && roePct < min) return false;
+        if (!isNaN(max) && roePct >= max) return false;
+        return true;
+      });
     }
 
     // 決算日フィルタ
@@ -502,7 +557,7 @@ export default function StockTablePage() {
     });
 
     return rows;
-  }, [filteredStocks, tableData, sortKey, sortDir, capSizeFilter, ncRatioFilter, earningsFrom, earningsTo]);
+  }, [filteredStocks, tableData, sortKey, sortDir, capSizeFilter, ncRatioMin, ncRatioMax, sharpeMin, increaseMin, roeMin, roeMax, earningsFrom, earningsTo]);
 
   // ── ソート切り替え ──
   function handleSort(key: SortKey) {
@@ -769,74 +824,193 @@ export default function StockTablePage() {
           className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white dark:focus:border-blue-400"
         />
         {allGroups.length > 0 && (
-          <div className="flex gap-1">
-            {allGroups.map((g) => (
-              <button
-                key={g.id}
-                onClick={() => setSelectedGroupIds((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(g.id)) next.delete(g.id);
-                  else next.add(g.id);
-                  return next;
-                })}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                  selectedGroupIds.has(g.id)
-                    ? "text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
-                }`}
-                style={selectedGroupIds.has(g.id) ? { backgroundColor: g.color } : undefined}
-              >
-                <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: selectedGroupIds.has(g.id) ? "#fff" : g.color }} />
-                {g.name}
-              </button>
-            ))}
+          <div className="relative" ref={groupDropdownRef}>
+            <button
+              onClick={() => setShowGroupDropdown((v) => !v)}
+              className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
+                selectedGroupIds.size > 0
+                  ? "border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-300"
+                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+              }`}
+            >
+              グループ
+              {selectedGroupIds.size > 0 && (
+                <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-bold text-white">
+                  {selectedGroupIds.size}
+                </span>
+              )}
+              <svg className="ml-1 inline h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+              </svg>
+            </button>
+            {showGroupDropdown && (
+              <div className="absolute left-0 top-full z-50 mt-1 min-w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-slate-600 dark:bg-slate-800">
+                {allGroups.map((g) => (
+                  <label
+                    key={g.id}
+                    className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-50 dark:hover:bg-slate-700"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedGroupIds.has(g.id)}
+                      onChange={() => setSelectedGroupIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(g.id)) next.delete(g.id);
+                        else next.add(g.id);
+                        return next;
+                      })}
+                      className="h-3.5 w-3.5 rounded"
+                    />
+                    <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: g.color }} />
+                    <span className="text-gray-700 dark:text-slate-300">{g.name}</span>
+                  </label>
+                ))}
+                {selectedGroupIds.size > 0 && (
+                  <>
+                    <div className="my-1 border-t border-gray-100 dark:border-slate-700" />
+                    <button
+                      onClick={() => setSelectedGroupIds(new Set())}
+                      className="w-full px-3 py-1.5 text-left text-xs text-gray-500 hover:bg-gray-50 dark:text-slate-400 dark:hover:bg-slate-700"
+                    >
+                      選択解除
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         )}
-        <div className="flex gap-1">
-          {MARKET_FILTERS.map((m) => (
-            <button
-              key={m.value}
-              onClick={() => setMarketFilter(m.value)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                marketFilter === m.value
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
-              }`}
-            >
-              {m.label}
-            </button>
-          ))}
+        <div className="relative" ref={marketDropdownRef}>
+          <button
+            onClick={() => setShowMarketDropdown((v) => !v)}
+            className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
+              marketFilter.size > 0
+                ? "border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-300"
+                : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            }`}
+          >
+            市場区分
+            {marketFilter.size > 0 && (
+              <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-bold text-white">
+                {marketFilter.size}
+              </span>
+            )}
+            <svg className="ml-1 inline h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+            </svg>
+          </button>
+          {showMarketDropdown && (
+            <div className="absolute left-0 top-full z-50 mt-1 min-w-36 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-slate-600 dark:bg-slate-800">
+              {(["プライム", "スタンダード", "グロース"] as const).map((seg) => (
+                <label
+                  key={seg}
+                  className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-50 dark:hover:bg-slate-700"
+                >
+                  <input
+                    type="checkbox"
+                    checked={marketFilter.has(seg)}
+                    onChange={() => setMarketFilter((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(seg)) next.delete(seg);
+                      else next.add(seg);
+                      return next;
+                    })}
+                    className="h-3.5 w-3.5 rounded"
+                  />
+                  <span className="text-gray-700 dark:text-slate-300">{seg}</span>
+                </label>
+              ))}
+              {marketFilter.size > 0 && (
+                <>
+                  <div className="my-1 border-t border-gray-100 dark:border-slate-700" />
+                  <button
+                    onClick={() => setMarketFilter(new Set())}
+                    className="w-full px-3 py-1.5 text-left text-xs text-gray-500 hover:bg-gray-50 dark:text-slate-400 dark:hover:bg-slate-700"
+                  >
+                    選択解除
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </div>
-        <div className="flex gap-1">
-          {([["small", "小型株"], ["mid", "中型株"], ["large", "大型株"]] as const).map(([value, label]) => (
-            <button
-              key={value}
-              onClick={() => setCapSizeFilter((prev) => {
-                const next = new Set(prev);
-                if (next.has(value)) next.delete(value);
-                else next.add(value);
-                return next;
-              })}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                capSizeFilter.has(value)
-                  ? "bg-teal-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+        <div className="relative" ref={capDropdownRef}>
+          <button
+            onClick={() => setShowCapDropdown((v) => !v)}
+            className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
+              capSizeFilter.size > 0
+                ? "border-teal-500 bg-teal-50 text-teal-700 dark:border-teal-400 dark:bg-teal-900/30 dark:text-teal-300"
+                : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            }`}
+          >
+            時価総額
+            {capSizeFilter.size > 0 && (
+              <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-teal-600 px-1 text-[10px] font-bold text-white">
+                {capSizeFilter.size}
+              </span>
+            )}
+            <svg className="ml-1 inline h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+            </svg>
+          </button>
+          {showCapDropdown && (
+            <div className="absolute left-0 top-full z-50 mt-1 min-w-36 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-slate-600 dark:bg-slate-800">
+              {([["small", "小型株", "500億未満"], ["mid", "中型株", "500〜3000億"], ["large", "大型株", "3000億以上"]] as const).map(([value, label, desc]) => (
+                <label
+                  key={value}
+                  className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-50 dark:hover:bg-slate-700"
+                >
+                  <input
+                    type="checkbox"
+                    checked={capSizeFilter.has(value)}
+                    onChange={() => setCapSizeFilter((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(value)) next.delete(value);
+                      else next.add(value);
+                      return next;
+                    })}
+                    className="h-3.5 w-3.5 rounded"
+                  />
+                  <span className="text-gray-700 dark:text-slate-300">{label}</span>
+                  <span className="ml-auto text-[10px] text-gray-400 dark:text-slate-500">{desc}</span>
+                </label>
+              ))}
+              {capSizeFilter.size > 0 && (
+                <>
+                  <div className="my-1 border-t border-gray-100 dark:border-slate-700" />
+                  <button
+                    onClick={() => setCapSizeFilter(new Set())}
+                    className="w-full px-3 py-1.5 text-left text-xs text-gray-500 hover:bg-gray-50 dark:text-slate-400 dark:hover:bg-slate-700"
+                  >
+                    選択解除
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </div>
-        <button
-          onClick={() => setNcRatioFilter((v) => !v)}
-          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-            ncRatioFilter
-              ? "bg-emerald-600 text-white"
-              : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
-          }`}
-        >
-          NC率≦100%
-        </button>
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">NC率</span>
+          <input
+            type="number"
+            step="10"
+            value={ncRatioMin}
+            onChange={(e) => setNcRatioMin(e.target.value)}
+            placeholder=""
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">%以上</span>
+          <span className="text-xs text-gray-400">〜</span>
+          <input
+            type="number"
+            step="10"
+            value={ncRatioMax}
+            onChange={(e) => setNcRatioMax(e.target.value)}
+            placeholder="100"
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">%未満</span>
+        </div>
         <button
           onClick={() => setShowColumnPicker((v) => !v)}
           className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
@@ -847,6 +1021,64 @@ export default function StockTablePage() {
         >
           カラム設定
         </button>
+      </div>
+
+      {/* 数値範囲フィルタ */}
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">Sharpe</span>
+          <input
+            type="number"
+            step="0.1"
+            value={sharpeMin}
+            onChange={(e) => setSharpeMin(e.target.value)}
+            placeholder="0.5"
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">以上</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">増配額</span>
+          <input
+            type="number"
+            step="1"
+            value={increaseMin}
+            onChange={(e) => setIncreaseMin(e.target.value)}
+            placeholder="0"
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">以上</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">ROE</span>
+          <input
+            type="number"
+            step="1"
+            value={roeMin}
+            onChange={(e) => setRoeMin(e.target.value)}
+            placeholder="10"
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">%以上</span>
+          <span className="text-xs text-gray-400">〜</span>
+          <input
+            type="number"
+            step="1"
+            value={roeMax}
+            onChange={(e) => setRoeMax(e.target.value)}
+            placeholder=""
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">%未満</span>
+        </div>
+        {(ncRatioMin || ncRatioMax || sharpeMin || increaseMin || roeMin || roeMax) && (
+          <button
+            onClick={() => { setNcRatioMin(""); setNcRatioMax(""); setSharpeMin(""); setIncreaseMin(""); setRoeMin(""); setRoeMax(""); }}
+            className="rounded-full px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+          >
+            クリア
+          </button>
+        )}
       </div>
 
       {/* 決算日フィルタ */}
