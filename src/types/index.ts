@@ -110,6 +110,23 @@ export interface FundamentalAnalysis {
   analyzedAt: string;
 }
 
+// 配当サマリー（ウォッチリスト・テーブル表示用）
+export interface DividendSummary {
+  latestAmount: number | null;      // 配当額（直近）
+  previousAmount: number | null;    // 前回配当額
+  twoPrevAmount: number | null;     // 前々回配当額
+  latestIncrease: number | null;    // 直近増配額 = latest - previous
+  latestDate: string | null;        // 最新配当日
+}
+
+// 配当履歴エントリ（個別銘柄ページ用）
+export interface DividendHistoryEntry {
+  date: string;           // YYYY-MM-DD（配当権利落ち日）
+  amount: number;         // 配当額（1株あたり）
+  change: number | null;  // 前回比増減額
+  changePct: number | null; // 前回比増減率%
+}
+
 // Ollama シグナル検証結果（Go/No Go判定）
 export interface SignalValidation {
   decision: "entry" | "wait" | "avoid";

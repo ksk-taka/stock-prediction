@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getQuoteBatch, getSimpleNetCashRatio } from "@/lib/api/yahooFinance";
-import { getCachedStats, getCachedNcRatio, setCachedNcOnly } from "@/lib/cache/statsCache";
+import { getQuoteBatch, getSimpleNetCashRatio, getDividendHistory, computeDividendSummary } from "@/lib/api/yahooFinance";
+import { getCachedStats, getCachedNcRatio, setCachedNcOnly, getCachedDividendSummary, setCachedDividendOnly } from "@/lib/cache/statsCache";
+import type { DividendSummary } from "@/types";
 import { calcSharpeRatioFromPrices } from "@/lib/utils/indicators";
 import type { PriceData } from "@/types";
 
@@ -149,7 +150,36 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 4. 結合
+    // 4. 配当サマリー取得: キャッシュ(7d) → YFから取得
+    const divMap = new Map<string, DividendSummary | null>();
+    const divMissing: string[] = [];
+
+    for (const sym of symbols) {
+      const cached = getCachedDividendSummary(sym);
+      if (cached !== undefined) {
+        divMap.set(sym, cached);
+      } else {
+        divMissing.push(sym);
+      }
+    }
+
+    if (divMissing.length > 0) {
+      const divResults = await Promise.allSettled(
+        divMissing.map(async (sym) => {
+          const hist = await getDividendHistory(sym);
+          const summary = hist.length > 0 ? computeDividendSummary(hist) : null;
+          setCachedDividendOnly(sym, summary);
+          return { sym, summary };
+        })
+      );
+      for (const r of divResults) {
+        if (r.status === "fulfilled") {
+          divMap.set(r.value.sym, r.value.summary);
+        }
+      }
+    }
+
+    // 5. 結合
     const rows = symbols.map((sym) => {
       const q = quoteMap.get(sym);
       const r = rangeMap.get(sym);
@@ -176,6 +206,9 @@ export async function GET(request: NextRequest) {
         lastYearLow: r?.lastYearLow ?? null,
         earningsDate: q?.earningsDate ?? null,
         sharpe1y: sharpeMap.get(sym) ?? null,
+        latestDividend: divMap.get(sym)?.latestAmount ?? null,
+        previousDividend: divMap.get(sym)?.previousAmount ?? null,
+        latestIncrease: divMap.get(sym)?.latestIncrease ?? null,
       };
     });
 

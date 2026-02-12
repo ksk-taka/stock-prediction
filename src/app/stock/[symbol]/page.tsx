@@ -14,7 +14,7 @@ import PerEpsChart from "@/components/PerEpsChart";
 import { formatChange, formatMarketCap } from "@/lib/utils/format";
 import { isMarketOpen } from "@/lib/utils/date";
 import GroupAssignPopup from "@/components/GroupAssignPopup";
-import type { PriceData, NewsItem, SentimentData, LLMAnalysis, FundamentalResearchData, FundamentalAnalysis, SignalValidation, WatchlistGroup } from "@/types";
+import type { PriceData, NewsItem, SentimentData, LLMAnalysis, FundamentalResearchData, FundamentalAnalysis, SignalValidation, WatchlistGroup, DividendHistoryEntry } from "@/types";
 import type { Period } from "@/lib/utils/date";
 
 type Tab = "chart" | "news" | "sentiment" | "analysis" | "fundamental" | "backtest";
@@ -49,6 +49,7 @@ export default function StockDetailPage() {
   const [marketCap, setMarketCap] = useState<number | null>(null);
   const [sharpe1y, setSharpe1y] = useState<number | null>(null);
   const [sharpe3y, setSharpe3y] = useState<number | null>(null);
+  const [dividendHistory, setDividendHistory] = useState<DividendHistoryEntry[]>([]);
   const [tenYearHigh, setTenYearHigh] = useState<number | null>(null);
   const [activeSignals, setActiveSignals] = useState<{
     daily: { strategyId: string; strategyName: string; buyDate: string; buyPrice: number; currentPrice: number; pnlPct: number; takeProfitPrice?: number; takeProfitLabel?: string; stopLossPrice?: number; stopLossLabel?: string }[];
@@ -310,6 +311,13 @@ export default function StockDetailPage() {
         // skip
       }
     };
+    const fetchDividends = async () => {
+      try {
+        const res = await fetch(`/api/dividends?symbol=${encodeURIComponent(symbol)}`);
+        const data = await res.json();
+        if (data.dividends) setDividendHistory(data.dividends);
+      } catch { /* skip */ }
+    };
     const fetchSignals = async () => {
       try {
         const res = await fetch(`/api/signals?symbol=${encodeURIComponent(symbol)}`);
@@ -346,6 +354,7 @@ export default function StockDetailPage() {
     };
     fetchStats();
     fetchSignals();
+    fetchDividends();
     fetchPriceHighs();
   }, [symbol]);
 
@@ -497,6 +506,16 @@ export default function StockDetailPage() {
                   : "text-gray-700 dark:text-slate-300"
               }>{sharpe3y > 0 ? "+" : ""}{sharpe3y.toFixed(2)}</b></span>
             )}
+            {dividendHistory.length > 0 && (
+              <span>配当 <b className="text-gray-700 dark:text-slate-300">{dividendHistory[0].amount.toLocaleString()}</b></span>
+            )}
+            {dividendHistory.length > 0 && dividendHistory[0].change != null && (
+              <span>増配額 <b className={
+                dividendHistory[0].change > 0 ? "text-green-600 dark:text-green-400"
+                  : dividendHistory[0].change < 0 ? "text-red-600 dark:text-red-400"
+                  : "text-gray-700 dark:text-slate-300"
+              }>{dividendHistory[0].change > 0 ? "+" : ""}{dividendHistory[0].change.toLocaleString()}</b></span>
+            )}
           </div>
         )}
         <div className="ml-auto flex items-center gap-2">
@@ -531,6 +550,49 @@ export default function StockDetailPage() {
       <div className="mb-4">
         <MarketSentiment />
       </div>
+
+      {/* 配当履歴テーブル */}
+      {dividendHistory.length > 0 && (
+        <div className="mb-4 rounded-lg bg-white dark:bg-slate-800 p-4 shadow dark:shadow-slate-900/50">
+          <h3 className="mb-3 text-sm font-semibold text-gray-700 dark:text-slate-300">
+            配当履歴（直近{dividendHistory.length}回）
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-slate-600 text-left text-gray-500 dark:text-slate-400">
+                  <th className="px-2 py-2">日付</th>
+                  <th className="px-2 py-2 text-right">配当額</th>
+                  <th className="px-2 py-2 text-right">増減額</th>
+                  <th className="px-2 py-2 text-right">増減率</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dividendHistory.map((d) => (
+                  <tr key={d.date} className="border-b border-gray-50 dark:border-slate-700">
+                    <td className="px-2 py-1.5 text-gray-700 dark:text-slate-300">{d.date}</td>
+                    <td className="px-2 py-1.5 text-right font-medium text-gray-700 dark:text-slate-300">{d.amount.toLocaleString()}</td>
+                    <td className={`px-2 py-1.5 text-right ${
+                      d.change != null && d.change > 0 ? "text-green-600 dark:text-green-400"
+                        : d.change != null && d.change < 0 ? "text-red-600 dark:text-red-400"
+                        : "text-gray-400 dark:text-slate-500"
+                    }`}>
+                      {d.change != null ? `${d.change > 0 ? "+" : ""}${d.change.toLocaleString()}` : "－"}
+                    </td>
+                    <td className={`px-2 py-1.5 text-right ${
+                      d.changePct != null && d.changePct > 0 ? "text-green-600 dark:text-green-400"
+                        : d.changePct != null && d.changePct < 0 ? "text-red-600 dark:text-red-400"
+                        : "text-gray-400 dark:text-slate-500"
+                    }`}>
+                      {d.changePct != null ? `${d.changePct > 0 ? "+" : ""}${d.changePct.toFixed(1)}%` : "－"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* アクティブシグナル（保有中ポジション） */}
       {activeSignals && (activeSignals.daily.length > 0 || activeSignals.weekly.length > 0) && (() => {

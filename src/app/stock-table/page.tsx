@@ -48,6 +48,9 @@ interface StockTableRow {
   earningsDate: string | null;
   marketCap: number | null;
   sharpe1y: number | null;
+  latestDividend: number | null;
+  previousDividend: number | null;
+  latestIncrease: number | null;
 }
 
 interface MergedRow extends StockTableRow {
@@ -85,6 +88,9 @@ const COLUMNS: ColumnDef[] = [
   { key: "cnPer", label: "簡易CNPER", group: "指標", align: "right", defaultVisible: true },
   { key: "earningsDate", label: "決算日", group: "指標", align: "right", defaultVisible: true },
   { key: "sharpe1y", label: "Sharpe", group: "指標", align: "right", defaultVisible: false },
+  { key: "latestDividend", label: "配当額", group: "配当", align: "right", defaultVisible: true },
+  { key: "previousDividend", label: "前回配当", group: "配当", align: "right", defaultVisible: false },
+  { key: "latestIncrease", label: "増配額", group: "配当", align: "right", defaultVisible: true },
   { key: "dayHigh", label: "日高値", group: "日", align: "right", defaultVisible: false },
   { key: "dayLow", label: "日安値", group: "日", align: "right", defaultVisible: false },
   { key: "weekHigh", label: "週高値", group: "週", align: "right", defaultVisible: false },
@@ -442,6 +448,9 @@ export default function StockTablePage() {
         earningsDate: td?.earningsDate ?? null,
         marketCap: td?.marketCap ?? null,
         sharpe1y: td?.sharpe1y ?? null,
+        latestDividend: td?.latestDividend ?? null,
+        previousDividend: td?.previousDividend ?? null,
+        latestIncrease: td?.latestIncrease ?? null,
       };
     });
 
@@ -642,6 +651,23 @@ export default function StockTablePage() {
             {row.sharpe1y > 0 ? "+" : ""}{row.sharpe1y.toFixed(2)}
           </span>
         );
+      case "latestDividend":
+      case "previousDividend":
+        if (v == null) return "－";
+        return (v as number).toLocaleString();
+      case "latestIncrease": {
+        if (v == null) return "－";
+        const inc = v as number;
+        return (
+          <span className={
+            inc > 0 ? "text-green-600 dark:text-green-400"
+              : inc < 0 ? "text-red-600 dark:text-red-400"
+              : ""
+          }>
+            {inc > 0 ? "+" : ""}{inc.toLocaleString()}
+          </span>
+        );
+      }
       case "earningsDate":
         return row.earningsDate ? (
           <span className="inline-flex items-center gap-1 text-xs">

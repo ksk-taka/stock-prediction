@@ -1,5 +1,5 @@
 import YahooFinance from "yahoo-finance2";
-import type { PriceData } from "@/types";
+import type { PriceData, DividendSummary } from "@/types";
 import { getStartDate, type Period } from "@/lib/utils/date";
 import { yfQueue } from "@/lib/utils/requestQueue";
 
@@ -219,6 +219,65 @@ export async function getEarningsHistory(symbol: string) {
   } catch {
     return [];
   }
+}
+
+/**
+ * 配当履歴を取得（直近maxCount回分）
+ * 日本株は年2回配当が一般的なので5年で最大10件
+ */
+export async function getDividendHistory(
+  symbol: string,
+  maxCount = 10
+): Promise<{ date: string; amount: number }[]> {
+  try {
+    const period1 = new Date();
+    period1.setFullYear(period1.getFullYear() - 6);
+
+    const result = await yfQueue.add(() =>
+      yf.historical(symbol, {
+        period1,
+        period2: new Date(),
+        events: "dividends" as "dividends",
+      })
+    );
+
+    const rows = result as unknown as { date: Date; dividends: number }[];
+    if (!Array.isArray(rows)) return [];
+
+    return rows
+      .filter((r) => r.dividends > 0)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, maxCount)
+      .map((row) => ({
+        date:
+          row.date instanceof Date
+            ? row.date.toISOString().split("T")[0]
+            : String(row.date),
+        amount: row.dividends,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 配当履歴からサマリーを算出（StockCard・テーブル用）
+ */
+export function computeDividendSummary(
+  history: { date: string; amount: number }[]
+): DividendSummary {
+  const latest = history[0]?.amount ?? null;
+  const previous = history[1]?.amount ?? null;
+  const twoPrev = history[2]?.amount ?? null;
+  const latestIncrease =
+    latest !== null && previous !== null ? Math.round((latest - previous) * 100) / 100 : null;
+  return {
+    latestAmount: latest,
+    previousAmount: previous,
+    twoPrevAmount: twoPrev,
+    latestIncrease,
+    latestDate: history[0]?.date ?? null,
+  };
 }
 
 /**

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getQuote, getFinancialData, getSimpleNetCashRatio, getHistoricalPrices } from "@/lib/api/yahooFinance";
-import { getCachedStats, setCachedStats, getCachedNcRatio } from "@/lib/cache/statsCache";
+import { getQuote, getFinancialData, getSimpleNetCashRatio, getHistoricalPrices, getDividendHistory, computeDividendSummary } from "@/lib/api/yahooFinance";
+import { getCachedStats, setCachedStats, getCachedNcRatio, getCachedDividendSummary, setCachedDividendOnly } from "@/lib/cache/statsCache";
 import { calcSharpeRatioFromPrices } from "@/lib/utils/indicators";
 import { yfQueue } from "@/lib/utils/requestQueue";
 import YahooFinance from "yahoo-finance2";
@@ -22,6 +22,22 @@ export async function GET(request: NextRequest) {
   // キャッシュチェック（24時間TTL）— NC率・時価総額が揃っている場合のみ返す
   const cached = getCachedStats(symbol);
   if (cached && cached.simpleNcRatio !== undefined && cached.marketCap !== undefined) {
+    // 配当サマリーがキャッシュにない場合は独立して取得して補完
+    if (cached.dividendSummary === undefined) {
+      const cachedDiv = getCachedDividendSummary(symbol);
+      if (cachedDiv !== undefined) {
+        cached.dividendSummary = cachedDiv;
+      } else {
+        try {
+          const divHistory = await getDividendHistory(symbol);
+          const divSummary = divHistory.length > 0 ? computeDividendSummary(divHistory) : null;
+          setCachedDividendOnly(symbol, divSummary);
+          cached.dividendSummary = divSummary;
+        } catch {
+          cached.dividendSummary = null;
+        }
+      }
+    }
     return NextResponse.json({ symbol, ...cached });
   }
 
@@ -64,6 +80,19 @@ export async function GET(request: NextRequest) {
       sharpe3y = calcSharpeRatioFromPrices(daily3y);
     } catch { /* skip */ }
 
+    // 配当サマリー（7日キャッシュ）
+    const cachedDiv = getCachedDividendSummary(symbol);
+    let dividendSummary = cachedDiv !== undefined ? cachedDiv : undefined;
+    if (dividendSummary === undefined) {
+      try {
+        const divHistory = await getDividendHistory(symbol);
+        dividendSummary = divHistory.length > 0 ? computeDividendSummary(divHistory) : null;
+        setCachedDividendOnly(symbol, dividendSummary);
+      } catch {
+        dividendSummary = null;
+      }
+    }
+
     const result = {
       per: quote.per,
       forwardPer: quote.forwardPer,
@@ -75,6 +104,7 @@ export async function GET(request: NextRequest) {
       marketCap: quote.marketCap || null,
       sharpe1y,
       sharpe3y,
+      dividendSummary,
     };
 
     // キャッシュ保存

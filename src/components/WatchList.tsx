@@ -22,6 +22,8 @@ interface StockStats {
   simpleNcRatio?: number | null;
   marketCap?: number | null;
   sharpe1y?: number | null;
+  latestDividend?: number | null;
+  latestIncrease?: number | null;
 }
 
 export interface ActiveSignalInfo {
@@ -583,6 +585,8 @@ export default function WatchList() {
           simpleNcRatio: data.simpleNcRatio ?? null,
           marketCap: data.marketCap ?? null,
           sharpe1y: data.sharpe1y ?? null,
+          latestDividend: data.dividendSummary?.latestAmount ?? null,
+          latestIncrease: data.dividendSummary?.latestIncrease ?? null,
         },
       }));
     }
@@ -1634,6 +1638,8 @@ export default function WatchList() {
                     simpleNcRatio={s?.simpleNcRatio ?? undefined}
                     marketCap={s?.marketCap ?? undefined}
                     sharpe1y={s?.sharpe1y ?? undefined}
+                    latestDividend={s?.latestDividend ?? undefined}
+                    latestIncrease={s?.latestIncrease ?? undefined}
                     signals={sig}
                     signalPeriodFilter={signalPeriodFilter}
                     fundamentalJudgment={stock.fundamental?.judgment}

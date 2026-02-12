@@ -31,6 +31,8 @@ interface StockCardProps {
   simpleNcRatio?: number;
   marketCap?: number;
   sharpe1y?: number;
+  latestDividend?: number;
+  latestIncrease?: number;
   signals?: SignalSummary;
   signalPeriodFilter?: string;
   fundamentalJudgment?: "bullish" | "neutral" | "bearish";
@@ -51,6 +53,8 @@ export default function StockCard({
   simpleNcRatio,
   marketCap,
   sharpe1y,
+  latestDividend,
+  latestIncrease,
   signals,
   signalPeriodFilter = "all",
   fundamentalJudgment,
@@ -259,7 +263,7 @@ export default function StockCard({
         )}
       </div>
       {/* 時価総額 / PER / PBR / ROE / 簡易NC率 / ファンダ判定 */}
-      {(marketCap !== undefined || per !== undefined || pbr !== undefined || roe !== undefined || simpleNcRatio !== undefined || sharpe1y !== undefined || fundamentalJudgment) && (
+      {(marketCap !== undefined || per !== undefined || pbr !== undefined || roe !== undefined || simpleNcRatio !== undefined || sharpe1y !== undefined || latestDividend !== undefined || fundamentalJudgment) && (
         <div className="mt-2 flex items-center gap-3 border-t border-gray-100 dark:border-slate-700 pt-2">
           {marketCap !== undefined && marketCap > 0 && (
             <div className="text-center">
@@ -312,6 +316,22 @@ export default function StockCard({
                   : sharpe1y < 0 ? "text-red-600 dark:text-red-400"
                   : "text-gray-700 dark:text-slate-300"
               }`}>{sharpe1y > 0 ? "+" : ""}{sharpe1y.toFixed(2)}</span>
+            </div>
+          )}
+          {latestDividend !== undefined && latestDividend !== null && (
+            <div className="text-center">
+              <span className="block text-[10px] text-gray-400 dark:text-slate-500">配当</span>
+              <span className="text-xs font-semibold text-gray-700 dark:text-slate-300">{latestDividend.toLocaleString()}</span>
+            </div>
+          )}
+          {latestIncrease !== undefined && latestIncrease !== null && (
+            <div className="text-center">
+              <span className="block text-[10px] text-gray-400 dark:text-slate-500">増配額</span>
+              <span className={`text-xs font-semibold ${
+                latestIncrease > 0 ? "text-green-600 dark:text-green-400"
+                  : latestIncrease < 0 ? "text-red-600 dark:text-red-400"
+                  : "text-gray-700 dark:text-slate-300"
+              }`}>{latestIncrease > 0 ? "+" : ""}{latestIncrease.toLocaleString()}</span>
             </div>
           )}
           {fundamentalJudgment && (
