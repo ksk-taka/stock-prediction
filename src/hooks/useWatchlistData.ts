@@ -139,7 +139,8 @@ interface UseWatchlistDataReturn {
   handleAddStock: (stock: Stock) => void;
   handleDeleteStock: (symbol: string) => Promise<void>;
   handleSaveGroups: (symbol: string, groupIds: number[]) => Promise<void>;
-  handleCreateGroup: (name: string, color: string) => Promise<void>;
+  handleCreateGroup: (name: string, color: string) => Promise<WatchlistGroup>;
+  handleBatchAddToGroup: (symbols: string[], groupId: number) => Promise<{ updated: number; alreadyInGroup: number }>;
   signalsFetchedRef: React.MutableRefObject<Set<string>>;
   initialSignalLoadComplete: boolean;
   fetchBatchStats: () => Promise<void>;
@@ -738,10 +739,42 @@ export function useWatchlistData(): UseWatchlistDataReturn {
       });
       const newGroup: WatchlistGroup = await res.json();
       setAllGroups((prev) => [...prev, newGroup]);
+      return newGroup;
     } catch {
       console.error("Failed to create group");
+      throw new Error("Failed to create group");
     }
   }, []);
+
+  const handleBatchAddToGroup = useCallback(
+    async (symbols: string[], groupId: number) => {
+      // 楽観的更新
+      const group = allGroups.find((g) => g.id === groupId);
+      if (group) {
+        setStocks((prev) =>
+          prev.map((s) => {
+            if (!symbols.includes(s.symbol)) return s;
+            const currentGroups = s.groups ?? [];
+            if (currentGroups.some((g) => g.id === groupId)) return s;
+            return { ...s, groups: [...currentGroups, group], favorite: true };
+          })
+        );
+      }
+      try {
+        const res = await fetch("/api/watchlist/batch-groups", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ symbols, groupId }),
+        });
+        if (!res.ok) throw new Error("batch group add failed");
+        return (await res.json()) as { updated: number; alreadyInGroup: number };
+      } catch {
+        fetchWatchlist();
+        return { updated: 0, alreadyInGroup: 0 };
+      }
+    },
+    [allGroups, fetchWatchlist]
+  );
 
   return {
     stocks,
@@ -767,6 +800,7 @@ export function useWatchlistData(): UseWatchlistDataReturn {
     handleDeleteStock,
     handleSaveGroups,
     handleCreateGroup,
+    handleBatchAddToGroup,
     signalsFetchedRef,
     initialSignalLoadComplete,
     fetchBatchStats,

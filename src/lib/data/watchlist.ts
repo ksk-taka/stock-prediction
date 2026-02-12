@@ -206,6 +206,55 @@ export async function setStockGroups(
 }
 
 /**
+ * 複数銘柄を指定グループに一括追加（追加的: 既存メンバーシップは維持）
+ */
+export async function addStocksToGroup(
+  userId: string,
+  symbols: string[],
+  groupId: number
+): Promise<{ updated: number; alreadyInGroup: number }> {
+  const supabase = await createServerSupabaseClient();
+  const CHUNK = 500;
+
+  // 既存メンバーシップを確認（チャンク処理）
+  const alreadySet = new Set<string>();
+  for (let i = 0; i < symbols.length; i += CHUNK) {
+    const chunk = symbols.slice(i, i + CHUNK);
+    const { data } = await supabase
+      .from("stock_group_memberships")
+      .select("symbol")
+      .eq("user_id", userId)
+      .eq("group_id", groupId)
+      .in("symbol", chunk);
+    for (const row of data ?? []) alreadySet.add(row.symbol);
+  }
+
+  const toInsert = symbols.filter((s) => !alreadySet.has(s));
+
+  // 未登録分のみINSERT
+  for (let i = 0; i < toInsert.length; i += CHUNK) {
+    const chunk = toInsert.slice(i, i + CHUNK);
+    await supabase.from("stock_group_memberships").insert(
+      chunk.map((symbol) => ({ user_id: userId, symbol, group_id: groupId }))
+    );
+  }
+
+  // favorite = true を一括更新
+  for (let i = 0; i < toInsert.length; i += CHUNK) {
+    const chunk = toInsert.slice(i, i + CHUNK);
+    await supabase
+      .from("stocks")
+      .update({ favorite: true, updated_at: new Date().toISOString() })
+      .eq("user_id", userId)
+      .in("symbol", chunk);
+  }
+
+  if (toInsert.length > 0) await touchMeta(userId);
+
+  return { updated: toInsert.length, alreadyInGroup: alreadySet.size };
+}
+
+/**
  * グループ一覧取得
  */
 export async function getGroups(userId: string): Promise<WatchlistGroup[]> {

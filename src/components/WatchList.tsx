@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import AddStockModal from "./AddStockModal";
 import GroupAssignPopup from "./GroupAssignPopup";
+import BatchGroupAssignPopup from "./BatchGroupAssignPopup";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useWatchlistData } from "@/hooks/useWatchlistData";
 import { useWatchlistFilters } from "@/hooks/useWatchlistFilters";
@@ -20,6 +21,7 @@ export type { ActiveSignalInfo, RecentSignalInfo, SignalSummary } from "@/types/
 export default function WatchList() {
   const [modalOpen, setModalOpen] = useState(false);
   const [groupPopup, setGroupPopup] = useState<{ symbol: string; anchor: DOMRect } | null>(null);
+  const [showBatchGroupPopup, setShowBatchGroupPopup] = useState(false);
 
   // Data hook
   const {
@@ -44,6 +46,7 @@ export default function WatchList() {
     handleDeleteStock,
     handleSaveGroups,
     handleCreateGroup,
+    handleBatchAddToGroup,
     signalsFetchedRef,
     initialSignalLoadComplete,
     fetchBatchStats,
@@ -246,6 +249,7 @@ export default function WatchList() {
           totalCount={stocks.length}
           onClearFilters={filters.clearAllFilters}
           onSavePreset={filters.handleSavePreset}
+          onBatchAddToGroup={() => setShowBatchGroupPopup(true)}
         />
       )}
 
@@ -300,6 +304,19 @@ export default function WatchList() {
           }}
           onCreateGroup={handleCreateGroup}
           onClose={() => setGroupPopup(null)}
+        />
+      )}
+
+      {showBatchGroupPopup && (
+        <BatchGroupAssignPopup
+          stockCount={filters.filteredStocks.length}
+          allGroups={allGroups}
+          onConfirm={async (groupId) => {
+            const symbols = filters.filteredStocks.map((s) => s.symbol);
+            return handleBatchAddToGroup(symbols, groupId);
+          }}
+          onCreateGroup={handleCreateGroup}
+          onClose={() => setShowBatchGroupPopup(false)}
         />
       )}
     </div>

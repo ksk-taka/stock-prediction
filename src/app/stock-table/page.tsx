@@ -5,6 +5,7 @@ import Link from "next/link";
 import { formatMarketCap, getCapSize } from "@/lib/utils/format";
 import { isMarketOpen } from "@/lib/utils/date";
 import GroupAssignPopup from "@/components/GroupAssignPopup";
+import BatchGroupAssignPopup from "@/components/BatchGroupAssignPopup";
 
 // ── 型定義 ──
 
@@ -296,6 +297,7 @@ export default function StockTablePage() {
 
   // グループポップアップ
   const [groupPopup, setGroupPopup] = useState<{ symbol: string; anchor: DOMRect } | null>(null);
+  const [showBatchGroupPopup, setShowBatchGroupPopup] = useState(false);
 
   // 数値範囲フィルタ
   const [ncRatioMin, setNcRatioMin] = useState("");
@@ -644,18 +646,35 @@ export default function StockTablePage() {
     } catch { /* ignore */ }
   }, []);
 
-  const handleCreateGroup = useCallback(async (name: string) => {
-    try {
-      const res = await fetch("/api/watchlist/groups", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
-      });
-      if (res.ok) {
-        const group = await res.json() as WatchlistGroup;
-        setAllGroups((prev) => [...prev, group]);
-      }
-    } catch { /* ignore */ }
+  const handleCreateGroup = useCallback(async (name: string, color?: string) => {
+    const res = await fetch("/api/watchlist/groups", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, color }),
+    });
+    if (!res.ok) throw new Error("Failed to create group");
+    const group = await res.json() as WatchlistGroup;
+    setAllGroups((prev) => [...prev, group]);
+    return group;
+  }, []);
+
+  const handleBatchAddToGroup = useCallback(async (symbols: string[], groupId: number) => {
+    // 楽観的更新
+    setStocks((prev) =>
+      prev.map((s) => {
+        if (!symbols.includes(s.symbol)) return s;
+        const currentIds = s.groupIds ?? [];
+        if (currentIds.includes(groupId)) return s;
+        return { ...s, groupIds: [...currentIds, groupId], favorite: true };
+      })
+    );
+    const res = await fetch("/api/watchlist/batch-groups", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbols, groupId }),
+    });
+    if (!res.ok) throw new Error("batch group add failed");
+    return (await res.json()) as { updated: number; alreadyInGroup: number };
   }, []);
 
   // ── セル描画 ──
@@ -814,6 +833,14 @@ export default function StockTablePage() {
             {mergedRows.length} 銘柄
             {loadingData && ` (${loadedCount}/${fetchTotal} 取得中...)`}
           </span>
+          {mergedRows.length > 0 && mergedRows.length < stocks.length && (
+            <button
+              onClick={() => setShowBatchGroupPopup(true)}
+              className="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 dark:border-emerald-600 dark:bg-slate-800 dark:text-emerald-400 dark:hover:bg-slate-700"
+            >
+              グループに追加
+            </button>
+          )}
           {loadingData && (
             <svg
               className="h-4 w-4 animate-spin text-blue-500"
@@ -1311,6 +1338,19 @@ export default function StockTablePage() {
           }}
           onCreateGroup={handleCreateGroup}
           onClose={() => setGroupPopup(null)}
+        />
+      )}
+
+      {showBatchGroupPopup && (
+        <BatchGroupAssignPopup
+          stockCount={mergedRows.length}
+          allGroups={allGroups}
+          onConfirm={async (groupId) => {
+            const symbols = mergedRows.map((r) => r.symbol);
+            return handleBatchAddToGroup(symbols, groupId);
+          }}
+          onCreateGroup={handleCreateGroup}
+          onClose={() => setShowBatchGroupPopup(false)}
         />
       )}
     </div>

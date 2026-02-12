@@ -90,6 +90,7 @@ interface FilterPanelProps {
   totalCount: number;
   onClearFilters: () => void;
   onSavePreset: () => void;
+  onBatchAddToGroup?: () => void;
 }
 
 export function FilterPanel({
@@ -158,6 +159,7 @@ export function FilterPanel({
   totalCount,
   onClearFilters,
   onSavePreset,
+  onBatchAddToGroup,
 }: FilterPanelProps) {
   const hasValidations = Object.values(signals).some(
     (s) => s.validations && Object.keys(s.validations).length > 0
@@ -484,6 +486,14 @@ export function FilterPanel({
             >
               保存
             </button>
+            {onBatchAddToGroup && (
+              <button
+                onClick={onBatchAddToGroup}
+                className="text-xs text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300"
+              >
+                グループに追加
+              </button>
+            )}
             <span className="text-xs text-gray-400 dark:text-slate-500">
               {filteredCount}/{totalCount}件
             </span>
