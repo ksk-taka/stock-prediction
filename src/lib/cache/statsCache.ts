@@ -9,7 +9,7 @@ const TTL = 24 * 60 * 60 * 1000; // 24時間（1日1回更新）
 const NC_TTL = 7 * 24 * 60 * 60 * 1000; // 7日間（四半期データなので長め）
 const DIVIDEND_TTL = 30 * 24 * 60 * 60 * 1000; // 30日間（配当は年2回程度なので長めに）
 const ROE_TTL = 30 * 24 * 60 * 60 * 1000; // 30日間（四半期決算ごとに更新）
-const EARNINGS_INVALIDATION_DAYS = 3; // 決算日前後N日以内はキャッシュ無効化
+const EARNINGS_INVALIDATION_DAYS = 3; // 決算発表日前後N日以内はキャッシュ無効化
 
 // Supabase stats_cache テーブルの行型
 interface SupabaseStatsCacheRow {
@@ -38,6 +38,7 @@ export interface CachedStatsAllResult {
   nc: number | null | undefined;
   dividend: DividendSummary | null | undefined;
   roe: number | null | undefined;
+  fiscalYearEnd: string | null | undefined;
 }
 
 interface StatsCacheEntry {
@@ -52,6 +53,7 @@ interface StatsCacheEntry {
   sharpe1y?: number | null;
   sharpe3y?: number | null;
   dividendSummary?: DividendSummary | null;
+  fiscalYearEnd?: string | null;
   cachedAt: number;
   ncCachedAt?: number; // NC率専用タイムスタンプ（cachedAtとは独立）
   dividendCachedAt?: number; // 配当専用タイムスタンプ
@@ -69,9 +71,9 @@ function cacheFile(symbol: string): string {
 }
 
 /**
- * 決算日が直近かどうかをチェック
- * @param earningsDate 決算日（Date, string, number, null）
- * @returns 決算日が前後N日以内ならtrue
+ * 決算発表日が直近かどうかをチェック
+ * @param earningsDate 決算発表日（Date, string, number, null）
+ * @returns 決算発表日が前後N日以内ならtrue
  */
 export function isNearEarningsDate(earningsDate: Date | string | number | null | undefined): boolean {
   if (!earningsDate) return false;
@@ -286,6 +288,7 @@ export interface StatsPartialUpdate {
   nc?: number | null;
   dividend?: DividendSummary | null;
   roe?: number | null;
+  fiscalYearEnd?: string | null;
 }
 
 export function setCachedStatsPartial(symbol: string, updates: StatsPartialUpdate): void {
@@ -319,6 +322,9 @@ export function setCachedStatsPartial(symbol: string, updates: StatsPartialUpdat
       entry.roe = updates.roe;
       entry.roeCachedAt = now;
     }
+    if (updates.fiscalYearEnd !== undefined) {
+      entry.fiscalYearEnd = updates.fiscalYearEnd;
+    }
 
     fs.writeFileSync(file, JSON.stringify(entry), "utf-8");
 
@@ -332,7 +338,7 @@ export function setCachedStatsPartial(symbol: string, updates: StatsPartialUpdat
 /**
  * 1回のファイル読み取りで全項目を取得（各項目ごとにTTL判定）
  * 重複読み取りを避けるための最適化関数
- * @param earningsDate 決算日（直近ならROEキャッシュを無効化）
+ * @param earningsDate 決算発表日（直近ならROEキャッシュを無効化）
  */
 /**
  * バッチ用: キャッシュから全指標を読み取り (NC/ROE/Sharpe/配当/PER/PBR/時価総額)
@@ -397,6 +403,7 @@ export function getCachedStatsAll(
     nc: undefined,
     dividend: undefined,
     roe: undefined,
+    fiscalYearEnd: undefined,
   };
 
   // 決算日が直近の場合、ROEは常に再取得（PER/EPS/ROEが更新される可能性）
@@ -430,6 +437,11 @@ export function getCachedStatsAll(
       }
     }
 
+    // 決算日（fiscalYearEnd）- キャッシュにあればそのまま返す
+    if (entry.fiscalYearEnd !== undefined) {
+      result.fiscalYearEnd = entry.fiscalYearEnd;
+    }
+
     return result;
   } catch {
     return result;
@@ -445,7 +457,7 @@ export function getCachedStatsAll(
  * ファイルキャッシュがない場合にのみ呼び出される
  */
 export async function getStatsCacheFromSupabase(symbol: string): Promise<CachedStatsAllResult> {
-  const result: CachedStatsAllResult = { nc: undefined, dividend: undefined, roe: undefined };
+  const result: CachedStatsAllResult = { nc: undefined, dividend: undefined, roe: undefined, fiscalYearEnd: undefined };
 
   try {
     const supabase = createServiceClient();
@@ -545,7 +557,7 @@ export async function getStatsCacheBatchFromSupabase(
     const now = Date.now();
 
     for (const row of data as SupabaseStatsCacheRow[]) {
-      const result: CachedStatsAllResult = { nc: undefined, dividend: undefined, roe: undefined };
+      const result: CachedStatsAllResult = { nc: undefined, dividend: undefined, roe: undefined, fiscalYearEnd: undefined };
 
       // NC率（7日TTL）
       if (row.nc_cached_at && row.nc_ratio !== null) {

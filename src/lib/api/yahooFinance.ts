@@ -202,10 +202,11 @@ export async function getSimpleNetCashRatio(symbol: string, marketCap: number): 
 export interface FinancialMetrics {
   ncRatio: number | null;
   roe: number | null;
+  fiscalYearEnd: string | null;
 }
 
 export async function getFinancialMetrics(symbol: string, marketCap: number): Promise<FinancialMetrics> {
-  const result: FinancialMetrics = { ncRatio: null, roe: null };
+  const result: FinancialMetrics = { ncRatio: null, roe: null, fiscalYearEnd: null };
 
   try {
     const period1 = new Date();
@@ -221,7 +222,7 @@ export async function getFinancialMetrics(symbol: string, marketCap: number): Pr
         })
       ),
       yfQueue.add(() =>
-        yf.quoteSummary(symbol, { modules: ["incomeStatementHistoryQuarterly"] })
+        yf.quoteSummary(symbol, { modules: ["incomeStatementHistoryQuarterly", "defaultKeyStatistics"] })
       ),
     ]);
 
@@ -267,6 +268,13 @@ export async function getFinancialMetrics(symbol: string, marketCap: number): Pr
           result.roe = Math.round((annualNetIncome / equity) * 10000) / 10000;
         }
       }
+    }
+
+    // 決算日（nextFiscalYearEnd）
+    const ks = isResult?.defaultKeyStatistics;
+    const nextFYE = (ks as Record<string, unknown> | undefined)?.nextFiscalYearEnd;
+    if (nextFYE instanceof Date) {
+      result.fiscalYearEnd = nextFYE.toISOString().split("T")[0];
     }
   } catch {
     // エラー時はnullのまま返す
@@ -358,6 +366,60 @@ export function computeDividendSummary(
     latestIncrease,
     latestDate: history[0]?.date ?? null,
   };
+}
+
+/**
+ * 配当履歴から増配傾向を算出（LLM分析用）
+ * 日本株は年2回配当が多いので、年ごとに合算して比較
+ */
+export function computeDividendTrend(
+  history: { date: string; amount: number }[]
+): { consecutiveYears: number; latestGrowthPct: number | null; summary: string } {
+  if (history.length < 2) {
+    return { consecutiveYears: 0, latestGrowthPct: null, summary: "配当データ不足" };
+  }
+
+  // 年ごとに合算（日本株は中間+期末の年2回）
+  const byYear = new Map<number, number>();
+  for (const h of history) {
+    const year = new Date(h.date).getFullYear();
+    byYear.set(year, (byYear.get(year) ?? 0) + h.amount);
+  }
+
+  // 年降順でソート
+  const years = [...byYear.entries()].sort((a, b) => b[0] - a[0]);
+  if (years.length < 2) {
+    return { consecutiveYears: 0, latestGrowthPct: null, summary: "年次比較データ不足" };
+  }
+
+  // 連続増配年数（最新年から遡る）
+  let consecutive = 0;
+  for (let i = 0; i < years.length - 1; i++) {
+    if (years[i][1] > years[i + 1][1]) {
+      consecutive++;
+    } else {
+      break;
+    }
+  }
+
+  // 直近の増配率
+  const latestGrowthPct = years[1][1] > 0
+    ? Math.round(((years[0][1] - years[1][1]) / years[1][1]) * 1000) / 10
+    : null;
+
+  // サマリー文生成
+  let summary: string;
+  if (consecutive >= 3) {
+    summary = `${consecutive}年連続増配 (直近${latestGrowthPct != null ? latestGrowthPct > 0 ? "+" : "" : ""}${latestGrowthPct ?? "N/A"}%)`;
+  } else if (consecutive >= 1) {
+    summary = `${consecutive}年連続増配 (直近${latestGrowthPct != null ? latestGrowthPct > 0 ? "+" : "" : ""}${latestGrowthPct ?? "N/A"}%)`;
+  } else if (latestGrowthPct != null && latestGrowthPct < 0) {
+    summary = `直近減配 (${latestGrowthPct}%)`;
+  } else {
+    summary = "横ばいまたは不定期配当";
+  }
+
+  return { consecutiveYears: consecutive, latestGrowthPct, summary };
 }
 
 /**

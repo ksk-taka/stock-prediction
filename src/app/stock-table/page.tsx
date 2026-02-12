@@ -46,6 +46,7 @@ interface StockTableRow {
   lastYearHigh: number | null;
   lastYearLow: number | null;
   earningsDate: string | null;
+  fiscalYearEnd: string | null;
   marketCap: number | null;
   sharpe1y: number | null;
   roe: number | null;
@@ -87,7 +88,8 @@ const COLUMNS: ColumnDef[] = [
   { key: "marketCap", label: "時価総額", group: "指標", align: "right", defaultVisible: true },
   { key: "simpleNcRatio", label: "簡易NC率", group: "指標", align: "right", defaultVisible: false },
   { key: "cnPer", label: "簡易CNPER", group: "指標", align: "right", defaultVisible: true },
-  { key: "earningsDate", label: "決算日", group: "指標", align: "right", defaultVisible: true },
+  { key: "earningsDate", label: "決算発表日", group: "指標", align: "right", defaultVisible: true },
+  { key: "fiscalYearEnd", label: "決算日", group: "指標", align: "right", defaultVisible: false },
   { key: "sharpe1y", label: "Sharpe", group: "指標", align: "right", defaultVisible: false },
   { key: "roe", label: "ROE", group: "指標", align: "right", defaultVisible: false },
   { key: "latestDividend", label: "配当額", group: "配当", align: "right", defaultVisible: true },
@@ -115,7 +117,7 @@ function getTableCacheTTL(): number {
   return isMarketOpen("JP") ? TABLE_DATA_CACHE_TTL_MARKET : TABLE_DATA_CACHE_TTL_CLOSED;
 }
 
-// ── 決算日フィルタ プリセット ──
+// ── 決算発表日フィルタ プリセット ──
 
 interface EarningsPreset {
   label: string;
@@ -482,6 +484,7 @@ export default function StockTablePage() {
         lastYearHigh: td?.lastYearHigh ?? null,
         lastYearLow: td?.lastYearLow ?? null,
         earningsDate: td?.earningsDate ?? null,
+        fiscalYearEnd: td?.fiscalYearEnd ?? null,
         marketCap: td?.marketCap ?? null,
         sharpe1y: td?.sharpe1y ?? null,
         roe: td?.roe ?? null,
@@ -540,7 +543,7 @@ export default function StockTablePage() {
       });
     }
 
-    // 決算日フィルタ
+    // 決算発表日フィルタ
     if (earningsFrom || earningsTo) {
       rows = rows.filter((r) => {
         if (!r.earningsDate) return false;
@@ -769,6 +772,12 @@ export default function StockTablePage() {
               </svg>
             </a>
           </span>
+        ) : (
+          "－"
+        );
+      case "fiscalYearEnd":
+        return row.fiscalYearEnd ? (
+          <span className="text-xs">{row.fiscalYearEnd}</span>
         ) : (
           "－"
         );
@@ -1096,10 +1105,10 @@ export default function StockTablePage() {
         )}
       </div>
 
-      {/* 決算日フィルタ */}
+      {/* 決算発表日フィルタ */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-medium text-gray-500 dark:text-slate-400">
-          決算日:
+          決算発表日:
         </span>
         {EARNINGS_PRESETS.map((p) => (
           <button

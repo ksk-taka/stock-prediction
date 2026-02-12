@@ -112,6 +112,7 @@ export async function GET(request: NextRequest) {
     const ncMap = new Map<string, number | null>();
     const divMap = new Map<string, DividendSummary | null>();
     const roeMap = new Map<string, number | null>();
+    const fyeMap = new Map<string, string | null>();
     const metricsMissing: { sym: string; marketCap: number }[] = []; // NC率またはROEがミス
     const divMissing: string[] = [];
     const supabaseFallbackNeeded: string[] = []; // ファイルキャッシュミスのシンボル
@@ -125,9 +126,12 @@ export async function GET(request: NextRequest) {
       const roeHit = cached.roe !== undefined;
       const divHit = cached.dividend !== undefined;
 
+      const fyeHit = cached.fiscalYearEnd !== undefined;
+
       if (ncHit) ncMap.set(sym, cached.nc ?? null);
       if (roeHit) roeMap.set(sym, cached.roe ?? null);
       if (divHit) divMap.set(sym, cached.dividend ?? null);
+      if (fyeHit) fyeMap.set(sym, cached.fiscalYearEnd ?? null);
 
       // いずれかがファイルキャッシュミスならSupabaseフォールバック対象
       if (!ncHit || !roeHit || !divHit) {
@@ -180,7 +184,7 @@ export async function GET(request: NextRequest) {
         ? Promise.allSettled(
             metricsMissing.map(async ({ sym, marketCap }) => {
               const metrics = await getFinancialMetrics(sym, marketCap);
-              return { sym, ncRatio: metrics.ncRatio, roe: metrics.roe };
+              return { sym, ncRatio: metrics.ncRatio, roe: metrics.roe, fiscalYearEnd: metrics.fiscalYearEnd };
             })
           )
         : [],
@@ -201,12 +205,14 @@ export async function GET(request: NextRequest) {
 
     for (const r of metricsResults) {
       if (r.status === "fulfilled") {
-        const { sym, ncRatio, roe } = r.value;
+        const { sym, ncRatio, roe, fiscalYearEnd } = r.value;
         ncMap.set(sym, ncRatio);
         roeMap.set(sym, roe);
+        fyeMap.set(sym, fiscalYearEnd);
         const update = cacheUpdates.get(sym) ?? {};
         update.nc = ncRatio;
         update.roe = roe;
+        update.fiscalYearEnd = fiscalYearEnd;
         cacheUpdates.set(sym, update);
       }
     }
@@ -250,6 +256,7 @@ export async function GET(request: NextRequest) {
         lastYearHigh: r?.lastYearHigh ?? null,
         lastYearLow: r?.lastYearLow ?? null,
         earningsDate: q?.earningsDate ?? null,
+        fiscalYearEnd: fyeMap.get(sym) ?? null,
         sharpe1y: sharpeMap.get(sym) ?? null,
         roe: roeMap.get(sym) ?? null,
         latestDividend: divMap.get(sym)?.latestAmount ?? null,
