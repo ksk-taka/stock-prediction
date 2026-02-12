@@ -5,6 +5,63 @@ import { isJPMarketOpen, isUSMarketOpen } from "@/lib/utils/date";
 
 const BATCH_CHUNK = 200; // URL長制限を考慮
 
+// ── localStorage キャッシュ設定 ──
+const CACHE_KEY = "watchlist-cache-v1";
+const CACHE_VERSION = 1;
+const CACHE_TTL_MARKET = 5 * 60 * 1000;      // 場中: 5分
+const CACHE_TTL_CLOSED = 6 * 60 * 60 * 1000; // 場外: 6時間
+
+interface WatchlistCache {
+  version: number;
+  timestamp: number;
+  stocks: Stock[];
+  quotes: Record<string, StockQuote>;
+  stats: Record<string, StockStats>;
+  signals: Record<string, SignalSummary>;
+  allGroups: WatchlistGroup[];
+  newHighsMap: Record<string, NewHighInfo>;
+}
+
+function getCacheTTL(): number {
+  return isJPMarketOpen() || isUSMarketOpen() ? CACHE_TTL_MARKET : CACHE_TTL_CLOSED;
+}
+
+function loadCache(): Partial<WatchlistCache> | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const saved = localStorage.getItem(CACHE_KEY);
+    if (!saved) return null;
+    const cache: WatchlistCache = JSON.parse(saved);
+    if (cache.version !== CACHE_VERSION) return null;
+    if (Date.now() - cache.timestamp > getCacheTTL()) return null;
+    return cache;
+  } catch {
+    return null;
+  }
+}
+
+function saveCache(data: Omit<WatchlistCache, "version" | "timestamp">): void {
+  if (typeof window === "undefined") return;
+  try {
+    const cache: WatchlistCache = {
+      ...data,
+      version: CACHE_VERSION,
+      timestamp: Date.now(),
+    };
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // 容量超過時はクリアして再試行
+    try {
+      localStorage.removeItem(CACHE_KEY);
+      localStorage.setItem(CACHE_KEY, JSON.stringify({
+        ...data,
+        version: CACHE_VERSION,
+        timestamp: Date.now(),
+      }));
+    } catch { /* ignore */ }
+  }
+}
+
 interface UseWatchlistDataReturn {
   stocks: Stock[];
   setStocks: React.Dispatch<React.SetStateAction<Stock[]>>;
@@ -48,6 +105,7 @@ export function useWatchlistData(): UseWatchlistDataReturn {
   const [initialSignalLoadComplete, setInitialSignalLoadComplete] = useState(false);
   const [signalScannedCount, setSignalScannedCount] = useState(0);
   const [signalLastScannedAt, setSignalLastScannedAt] = useState<string | null>(null);
+  const [cacheRestored, setCacheRestored] = useState(false);
 
   // 可視カード追跡（自動更新用）
   const visibleSymbolsRef = useRef<Set<string>>(new Set());
@@ -55,6 +113,42 @@ export function useWatchlistData(): UseWatchlistDataReturn {
   const fetchedSymbolsRef = useRef<Set<string>>(new Set());
   // シグナルデータ取得済み追跡
   const signalsFetchedRef = useRef<Set<string>>(new Set());
+
+  // マウント時にlocalStorageから復元
+  useEffect(() => {
+    const cache = loadCache();
+    if (cache) {
+      if (cache.stocks) setStocks(cache.stocks);
+      if (cache.quotes) setQuotes(cache.quotes);
+      if (cache.stats) setStats(cache.stats);
+      if (cache.signals) {
+        setSignals(cache.signals);
+        // キャッシュから復元したシグナルはfetched扱い
+        Object.keys(cache.signals).forEach((sym) => signalsFetchedRef.current.add(sym));
+      }
+      if (cache.allGroups) setAllGroups(cache.allGroups);
+      if (cache.newHighsMap) setNewHighsMap(cache.newHighsMap);
+      // キャッシュがあればローディング完了
+      if (cache.stocks && cache.stocks.length > 0) {
+        setLoading(false);
+      }
+    }
+    setCacheRestored(true);
+  }, []);
+
+  // データ変更時にlocalStorageに保存
+  const saveCacheRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!cacheRestored) return;
+    // デバウンス: 100ms後に保存（連続更新時の負荷軽減）
+    if (saveCacheRef.current) clearTimeout(saveCacheRef.current);
+    saveCacheRef.current = setTimeout(() => {
+      saveCache({ stocks, quotes, stats, signals, allGroups, newHighsMap });
+    }, 100);
+    return () => {
+      if (saveCacheRef.current) clearTimeout(saveCacheRef.current);
+    };
+  }, [cacheRestored, stocks, quotes, stats, signals, allGroups, newHighsMap]);
 
   const fetchWatchlist = useCallback(async () => {
     try {
@@ -69,9 +163,11 @@ export function useWatchlistData(): UseWatchlistDataReturn {
     }
   }, []);
 
+  // キャッシュ復元後にAPI取得（最新データで上書き）
   useEffect(() => {
+    if (!cacheRestored) return;
     fetchWatchlist();
-  }, [fetchWatchlist]);
+  }, [cacheRestored, fetchWatchlist]);
 
   // 新高値スキャンデータを読み込み
   const loadNewHighs = useCallback(async () => {
