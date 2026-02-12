@@ -6,7 +6,7 @@ import type { DividendSummary } from "@/types";
 const CACHE_DIR = path.join(getCacheBaseDir(), "stats");
 const TTL = 24 * 60 * 60 * 1000; // 24時間（1日1回更新）
 const NC_TTL = 7 * 24 * 60 * 60 * 1000; // 7日間（四半期データなので長め）
-const DIVIDEND_TTL = 7 * 24 * 60 * 60 * 1000; // 7日間（配当は年2回程度）
+const DIVIDEND_TTL = 30 * 24 * 60 * 60 * 1000; // 30日間（配当は年2回程度なので長めに）
 const ROE_TTL = 30 * 24 * 60 * 60 * 1000; // 30日間（四半期決算ごとに更新）
 
 /**
