@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getQuoteBatch, getSimpleNetCashRatio, getDividendHistory, computeDividendSummary, getFinancialData } from "@/lib/api/yahooFinance";
+import { getQuoteBatch, getFinancialMetrics, getDividendHistory, computeDividendSummary } from "@/lib/api/yahooFinance";
 import { getCachedStatsAll, setCachedStatsPartial, type StatsPartialUpdate } from "@/lib/cache/statsCache";
 import type { DividendSummary } from "@/types";
 import { calcSharpeRatioFromPrices } from "@/lib/utils/indicators";
@@ -113,23 +113,27 @@ export async function GET(request: NextRequest) {
     const ncMap = new Map<string, number | null>();
     const divMap = new Map<string, DividendSummary | null>();
     const roeMap = new Map<string, number | null>();
-    const ncMissing: { sym: string; marketCap: number }[] = [];
+    const metricsMissing: { sym: string; marketCap: number }[] = []; // NC率またはROEがミス
     const divMissing: string[] = [];
-    const roeMissing: string[] = [];
 
     for (const sym of symbols) {
       const quote = quoteMap.get(sym);
       const cached = getCachedStatsAll(sym, quote?.earningsDate);
 
-      // NC率
-      if (cached.nc !== undefined) {
-        ncMap.set(sym, cached.nc);
-      } else {
-        const mc = quoteMap.get(sym)?.marketCap ?? 0;
+      // NC率・ROE（どちらかがミスなら両方再取得）
+      const ncHit = cached.nc !== undefined;
+      const roeHit = cached.roe !== undefined;
+
+      if (ncHit) ncMap.set(sym, cached.nc);
+      if (roeHit) roeMap.set(sym, cached.roe);
+
+      if (!ncHit || !roeHit) {
+        const mc = quote?.marketCap ?? 0;
         if (mc > 0) {
-          ncMissing.push({ sym, marketCap: mc });
+          metricsMissing.push({ sym, marketCap: mc });
         } else {
-          ncMap.set(sym, null);
+          if (!ncHit) ncMap.set(sym, null);
+          if (!roeHit) roeMap.set(sym, null);
         }
       }
 
@@ -139,23 +143,16 @@ export async function GET(request: NextRequest) {
       } else {
         divMissing.push(sym);
       }
-
-      // ROE
-      if (cached.roe !== undefined) {
-        roeMap.set(sym, cached.roe);
-      } else {
-        roeMissing.push(sym);
-      }
     }
 
-    // 4. キャッシュミスの銘柄はYFから並列取得（書き込みは後でまとめて行う）
-    const [ncResults, divResults, roeResults] = await Promise.all([
-      // NC率取得
-      ncMissing.length > 0
+    // 4. キャッシュミスの銘柄はYFから並列取得（NC率+ROEを一括取得）
+    const [metricsResults, divResults] = await Promise.all([
+      // NC率 + ROE 一括取得
+      metricsMissing.length > 0
         ? Promise.allSettled(
-            ncMissing.map(async ({ sym, marketCap }) => {
-              const nc = await getSimpleNetCashRatio(sym, marketCap);
-              return { sym, nc };
+            metricsMissing.map(async ({ sym, marketCap }) => {
+              const metrics = await getFinancialMetrics(sym, marketCap);
+              return { sym, ncRatio: metrics.ncRatio, roe: metrics.roe };
             })
           )
         : [],
@@ -169,26 +166,20 @@ export async function GET(request: NextRequest) {
             })
           )
         : [],
-      // ROE取得
-      roeMissing.length > 0
-        ? Promise.allSettled(
-            roeMissing.map(async (sym) => {
-              const fd = await getFinancialData(sym);
-              return { sym, roe: fd.roe };
-            })
-          )
-        : [],
     ]);
 
     // 5. 結果をMapに追加 + キャッシュ更新をシンボルごとにまとめる
     const cacheUpdates = new Map<string, StatsPartialUpdate>();
 
-    for (const r of ncResults) {
+    for (const r of metricsResults) {
       if (r.status === "fulfilled") {
-        ncMap.set(r.value.sym, r.value.nc);
-        const update = cacheUpdates.get(r.value.sym) ?? {};
-        update.nc = r.value.nc;
-        cacheUpdates.set(r.value.sym, update);
+        const { sym, ncRatio, roe } = r.value;
+        ncMap.set(sym, ncRatio);
+        roeMap.set(sym, roe);
+        const update = cacheUpdates.get(sym) ?? {};
+        update.nc = ncRatio;
+        update.roe = roe;
+        cacheUpdates.set(sym, update);
       }
     }
     for (const r of divResults) {
@@ -196,14 +187,6 @@ export async function GET(request: NextRequest) {
         divMap.set(r.value.sym, r.value.summary);
         const update = cacheUpdates.get(r.value.sym) ?? {};
         update.dividend = r.value.summary;
-        cacheUpdates.set(r.value.sym, update);
-      }
-    }
-    for (const r of roeResults) {
-      if (r.status === "fulfilled") {
-        roeMap.set(r.value.sym, r.value.roe);
-        const update = cacheUpdates.get(r.value.sym) ?? {};
-        update.roe = r.value.roe;
         cacheUpdates.set(r.value.sym, update);
       }
     }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getQuote, getFinancialData, getSimpleNetCashRatio, getHistoricalPrices, getDividendHistory, computeDividendSummary } from "@/lib/api/yahooFinance";
-import { getCachedStats, setCachedStats, getCachedNcRatio, getCachedDividendSummary, setCachedDividendOnly } from "@/lib/cache/statsCache";
+import { getQuote, getFinancialMetrics, getHistoricalPrices, getDividendHistory, computeDividendSummary } from "@/lib/api/yahooFinance";
+import { getCachedStats, setCachedStats, getCachedStatsAll, getCachedDividendSummary, setCachedDividendOnly } from "@/lib/cache/statsCache";
 import { calcSharpeRatioFromPrices } from "@/lib/utils/indicators";
 import { yfQueue } from "@/lib/utils/requestQueue";
 import YahooFinance from "yahoo-finance2";
@@ -42,16 +42,19 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const [quote, financial] = await Promise.all([
-      getQuote(symbol),
-      getFinancialData(symbol),
-    ]);
+    const quote = await getQuote(symbol);
 
-    // NC率は7日キャッシュ（四半期データ）→ 有効ならAPI呼出しスキップ
-    const cachedNc = getCachedNcRatio(symbol);
-    const simpleNcRatio = cachedNc !== undefined
-      ? cachedNc
-      : await getSimpleNetCashRatio(symbol, quote.marketCap);
+    // NC率・ROEは一括取得（キャッシュがあればスキップ）
+    const cachedMetrics = getCachedStatsAll(symbol);
+    let simpleNcRatio = cachedMetrics.nc !== undefined ? cachedMetrics.nc : null;
+    let roe = cachedMetrics.roe !== undefined ? cachedMetrics.roe : null;
+
+    // どちらかがキャッシュミスなら両方再取得
+    if (cachedMetrics.nc === undefined || cachedMetrics.roe === undefined) {
+      const metrics = await getFinancialMetrics(symbol, quote.marketCap);
+      simpleNcRatio = metrics.ncRatio;
+      roe = metrics.roe;
+    }
 
     // シャープレシオ算出（1年 + 3年）を並列実行
     const [sharpe1yResult, sharpe3yResult] = await Promise.all([
@@ -110,7 +113,7 @@ export async function GET(request: NextRequest) {
       forwardPer: quote.forwardPer,
       pbr: quote.pbr,
       eps: quote.eps,
-      roe: financial.roe,
+      roe,
       dividendYield: quote.dividendYield,
       simpleNcRatio,
       marketCap: quote.marketCap || null,

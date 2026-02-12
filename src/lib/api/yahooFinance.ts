@@ -196,6 +196,86 @@ export async function getSimpleNetCashRatio(symbol: string, marketCap: number): 
 }
 
 /**
+ * 財務指標を一括取得（NC比率 + ROE）
+ * balance-sheet（fundamentalsTimeSeries）と incomeStatementHistoryQuarterly（quoteSummary）を使用
+ */
+export interface FinancialMetrics {
+  ncRatio: number | null;
+  roe: number | null;
+}
+
+export async function getFinancialMetrics(symbol: string, marketCap: number): Promise<FinancialMetrics> {
+  const result: FinancialMetrics = { ncRatio: null, roe: null };
+
+  try {
+    const period1 = new Date();
+    period1.setFullYear(period1.getFullYear() - 2);
+
+    // balance-sheet と incomeStatementHistoryQuarterly を並列取得
+    const [bsResult, isResult] = await Promise.all([
+      yfQueue.add(() =>
+        yf.fundamentalsTimeSeries(symbol, {
+          period1,
+          type: "quarterly",
+          module: "balance-sheet",
+        })
+      ),
+      yfQueue.add(() =>
+        yf.quoteSummary(symbol, { modules: ["incomeStatementHistoryQuarterly"] })
+      ),
+    ]);
+
+    // NC比率の計算
+    if (bsResult && bsResult.length > 0 && marketCap > 0) {
+      const bs = bsResult[bsResult.length - 1] as Record<string, unknown>;
+      const currentAssets = (bs.currentAssets as number) ?? 0;
+      const investmentInFA =
+        (bs.investmentinFinancialAssets as number) ??
+        (bs.availableForSaleSecurities as number) ??
+        (bs.investmentsAndAdvances as number) ??
+        0;
+      const totalLiabilities = (bs.totalLiabilitiesNetMinorityInterest as number) ?? 0;
+
+      if (currentAssets !== 0 || totalLiabilities !== 0) {
+        const netCash = currentAssets + investmentInFA * 0.7 - totalLiabilities;
+        result.ncRatio = Math.round((netCash / marketCap) * 1000) / 10;
+      }
+    }
+
+    // ROEの計算: 直近4四半期の純利益合計 / 自己資本
+    const statements = isResult?.incomeStatementHistoryQuarterly?.incomeStatementHistory;
+    if (bsResult && bsResult.length > 0 && statements && statements.length > 0) {
+      const latestBs = bsResult[bsResult.length - 1] as Record<string, unknown>;
+      const equity =
+        (latestBs.stockholdersEquity as number) ??
+        (latestBs.totalEquityGrossMinorityInterest as number) ??
+        0;
+
+      if (equity > 0) {
+        // 直近4四半期の純利益を合計（年間純利益の推定）
+        const recentQuarters = statements.slice(0, 4); // 新しい順に並んでいる
+        let annualNetIncome = 0;
+        for (const q of recentQuarters) {
+          const netIncome = (q as Record<string, unknown>).netIncome as number | undefined;
+          if (netIncome != null) {
+            annualNetIncome += netIncome;
+          }
+        }
+
+        if (annualNetIncome !== 0) {
+          // ROE = 純利益 / 自己資本（小数で返す、例: 0.15 = 15%）
+          result.roe = Math.round((annualNetIncome / equity) * 10000) / 10000;
+        }
+      }
+    }
+  } catch {
+    // エラー時はnullのまま返す
+  }
+
+  return result;
+}
+
+/**
  * 四半期EPS履歴を取得（earningsHistory経由）
  */
 export async function getEarningsHistory(symbol: string) {
