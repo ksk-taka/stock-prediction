@@ -155,6 +155,9 @@ export function useWatchlistData(): UseWatchlistDataReturn {
       if (cache.signals) {
         setSignals(cache.signals);
         Object.keys(cache.signals).forEach((sym) => signalsFetchedRef.current.add(sym));
+        // キャッシュにシグナルがあればバッチアクションバーを即表示
+        // （API取得はバックグラウンドで更新される）
+        setInitialSignalLoadComplete(true);
       }
       if (cache.allGroups) setAllGroups(cache.allGroups);
       if (cache.newHighsMap) setNewHighsMap(cache.newHighsMap);
