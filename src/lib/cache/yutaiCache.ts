@@ -1,15 +1,16 @@
 /**
- * 株主優待キャッシュ（ファイルベース、30日TTL）
+ * 株主優待キャッシュ（ファイルベース + Supabaseフォールバック、180日TTL）
  * statsCacheと同パターン
  */
 
 import fs from "fs";
 import path from "path";
 import { getCacheBaseDir } from "./cacheDir";
+import { createServiceClient } from "@/lib/supabase/service";
 import type { YutaiInfo } from "@/types/yutai";
 
 const CACHE_DIR = path.join(getCacheBaseDir(), "yutai");
-const YUTAI_TTL = 30 * 24 * 60 * 60 * 1000; // 30日
+const YUTAI_TTL = 180 * 24 * 60 * 60 * 1000; // 180日
 
 interface YutaiCacheEntry {
   data: YutaiInfo;
@@ -71,4 +72,69 @@ export function getCachedYutaiBatch(symbols: string[]): Map<string, YutaiInfo> {
     }
   }
   return result;
+}
+
+// ── Supabase 読み書き ─────────────────────────────────────
+
+/**
+ * Supabaseからバッチで優待情報を取得（ファイルキャッシュのフォールバック）
+ */
+export async function getYutaiFromSupabase(
+  symbols: string[]
+): Promise<Map<string, YutaiInfo>> {
+  const result = new Map<string, YutaiInfo>();
+  if (symbols.length === 0) return result;
+
+  try {
+    const supabase = createServiceClient();
+    const { data, error } = await supabase
+      .from("yutai_cache")
+      .select("symbol, data, cached_at")
+      .in("symbol", symbols);
+
+    if (error || !data) return result;
+
+    const now = Date.now();
+    for (const row of data) {
+      const cachedAt = new Date(row.cached_at).getTime();
+      if (now - cachedAt <= YUTAI_TTL) {
+        result.set(row.symbol, row.data as YutaiInfo);
+      }
+    }
+  } catch {
+    // Supabaseエラーは無視
+  }
+
+  return result;
+}
+
+/**
+ * Supabaseに優待情報をバッチ保存（upsert）
+ */
+export async function setYutaiToSupabase(
+  entries: Map<string, YutaiInfo>
+): Promise<void> {
+  if (entries.size === 0) return;
+
+  try {
+    const supabase = createServiceClient();
+    const rows = Array.from(entries).map(([symbol, data]) => ({
+      symbol,
+      data,
+      cached_at: new Date().toISOString(),
+    }));
+
+    // 50件ずつバッチupsert
+    for (let i = 0; i < rows.length; i += 50) {
+      const batch = rows.slice(i, i + 50);
+      const { error } = await supabase
+        .from("yutai_cache")
+        .upsert(batch, { onConflict: "symbol" });
+      if (error) {
+        console.error("[yutai] Supabase upsert error:", error.message);
+      }
+    }
+  } catch (err) {
+    console.error("[yutai] Supabase write error:", err);
+  }
 }

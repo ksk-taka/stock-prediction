@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getQuoteBatch, getFinancialMetrics, getDividendHistory, computeDividendSummary } from "@/lib/api/yahooFinance";
 import { getCachedStatsAll, setCachedStatsPartial, getStatsCacheBatchFromSupabase, type StatsPartialUpdate } from "@/lib/cache/statsCache";
-import { getCachedYutaiBatch } from "@/lib/cache/yutaiCache";
+import { getCachedYutaiBatch, getYutaiFromSupabase } from "@/lib/cache/yutaiCache";
 import { getRoeHistory } from "@/lib/api/roeHistory";
 import type { DividendSummary } from "@/types";
 import { calcSharpeRatioFromPrices } from "@/lib/utils/indicators";
@@ -263,8 +263,15 @@ export async function GET(request: NextRequest) {
       setCachedStatsPartial(sym, update);
     }
 
-    // 5b. 優待キャッシュ一括読み取り（キャッシュのみ、ライブスクレイピングなし）
+    // 5b. 優待キャッシュ一括読み取り（ファイル → Supabaseフォールバック）
     const yutaiMap = getCachedYutaiBatch(symbols);
+    const yutaiMissing = symbols.filter((s) => !yutaiMap.has(s));
+    if (yutaiMissing.length > 0) {
+      const sbYutai = await getYutaiFromSupabase(yutaiMissing);
+      for (const [sym, info] of sbYutai) {
+        yutaiMap.set(sym, info);
+      }
+    }
 
     // 5c. ROE推移: キャッシュチェック → ミスならYFから取得
     const roeHistoryMap = new Map<string, { year: number; roe: number }[] | null>();

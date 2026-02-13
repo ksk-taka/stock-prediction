@@ -20,7 +20,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import type { Stock } from "@/types";
 import { fetchYutaiBatch } from "@/lib/api/kabutan";
-import { getCachedYutai, setCachedYutai } from "@/lib/cache/yutaiCache";
+import { getCachedYutai, setCachedYutai, setYutaiToSupabase } from "@/lib/cache/yutaiCache";
 
 const WL_PATH = join(process.cwd(), "data", "watchlist.json");
 
@@ -96,7 +96,7 @@ async function main() {
 
   console.log(""); // newline after progress
 
-  // キャッシュに保存
+  // ファイルキャッシュに保存
   let yutaiCount = 0;
   let noYutaiCount = 0;
   for (const [symbol, info] of results) {
@@ -107,6 +107,10 @@ async function main() {
       noYutaiCount++;
     }
   }
+
+  // Supabaseにも保存（Vercel対応）
+  console.log("Supabaseに保存中...");
+  await setYutaiToSupabase(results);
 
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log(`\n完了 (${elapsed}秒)`);
