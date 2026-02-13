@@ -14,3 +14,11 @@ export interface RoeHistoryEntry {
   year: number;
   roe: number; // 小数 (0.152 = 15.2%)
 }
+
+/** FCF推移（年次） */
+export interface FcfHistoryEntry {
+  year: number;
+  fcf: number; // 円建て（正=プラス, 負=マイナス）
+  ocf: number; // 営業CF
+  capex: number; // 設備投資（負の値）
+}

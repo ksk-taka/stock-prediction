@@ -60,8 +60,12 @@ interface StockTableRow {
   recordDate: string | null;
   sellRecommendDate: string | null;
   daysUntilSell: number | null;
+  // 配当利回り
+  dividendYield: number | null;
   // ROE推移
   roeHistory: { year: number; roe: number }[] | null;
+  // FCF推移
+  fcfHistory: { year: number; fcf: number; ocf: number; capex: number }[] | null;
   // 流動比率
   currentRatio: number | null;
 }
@@ -104,7 +108,8 @@ const COLUMNS: ColumnDef[] = [
   { key: "sharpe1y", label: "Sharpe", group: "指標", align: "right", defaultVisible: false },
   { key: "roe", label: "ROE", group: "指標", align: "right", defaultVisible: false },
   { key: "currentRatio", label: "流動比率", group: "指標", align: "right", defaultVisible: false },
-  { key: "latestDividend", label: "配当額", group: "配当", align: "right", defaultVisible: true },
+  { key: "dividendYield", label: "配当利回り", group: "配当", align: "right", defaultVisible: true },
+  { key: "latestDividend", label: "配当額", group: "配当", align: "right", defaultVisible: false },
   { key: "previousDividend", label: "前回配当", group: "配当", align: "right", defaultVisible: false },
   { key: "latestIncrease", label: "増配額", group: "配当", align: "right", defaultVisible: true },
   { key: "hasYutai", label: "優待", group: "優待", align: "left", defaultVisible: true },
@@ -113,6 +118,7 @@ const COLUMNS: ColumnDef[] = [
   { key: "sellRecommendDate", label: "売り推奨日", group: "優待", align: "right", defaultVisible: true },
   { key: "daysUntilSell", label: "残日数", group: "優待", align: "right", defaultVisible: false },
   { key: "roeHistory", label: "ROE推移", group: "指標", align: "left", defaultVisible: false },
+  { key: "fcfHistory", label: "FCF推移", group: "指標", align: "left", defaultVisible: false },
   { key: "dayHigh", label: "日高値", group: "日", align: "right", defaultVisible: false },
   { key: "dayLow", label: "日安値", group: "日", align: "right", defaultVisible: false },
   { key: "weekHigh", label: "週高値", group: "週", align: "right", defaultVisible: false },
@@ -520,7 +526,9 @@ export default function StockTablePage() {
         recordDate: td?.recordDate ?? null,
         sellRecommendDate: td?.sellRecommendDate ?? null,
         daysUntilSell: td?.daysUntilSell ?? null,
+        dividendYield: td?.dividendYield ?? null,
         roeHistory: td?.roeHistory ?? null,
+        fcfHistory: td?.fcfHistory ?? null,
         currentRatio: td?.currentRatio ?? null,
       };
     });
@@ -825,6 +833,20 @@ export default function StockTablePage() {
             {row.currentRatio.toFixed(2)}
           </span>
         );
+      case "dividendYield": {
+        if (row.dividendYield == null) return "－";
+        const yieldPct = Math.round(row.dividendYield * 1000) / 10; // 小数→%変換
+        const CPI = 3.0; // 日本CPI（目安）
+        return (
+          <span className={
+            yieldPct >= CPI ? "text-green-600 dark:text-green-400 font-bold"
+              : yieldPct > 0 ? ""
+              : "text-gray-400 dark:text-slate-500"
+          } title={yieldPct >= CPI ? `CPI(${CPI}%)超` : `CPI(${CPI}%)未満`}>
+            {yieldPct.toFixed(1)}%
+          </span>
+        );
+      }
       case "latestDividend":
       case "previousDividend":
         if (v == null) return "－";
@@ -915,6 +937,24 @@ export default function StockTablePage() {
             {row.roeHistory.slice(0, 4).map((r) =>
               `${r.year}: ${(r.roe * 100).toFixed(1)}%`
             ).join(", ")}
+          </span>
+        );
+      }
+      case "fcfHistory": {
+        if (!row.fcfHistory || row.fcfHistory.length === 0) return "－";
+        const allPositive = row.fcfHistory.every((f) => f.fcf > 0);
+        return (
+          <span className="text-xs whitespace-nowrap" title={row.fcfHistory.map((f) => `${f.year}: OCF ${(f.ocf / 1e8).toFixed(0)}億 CAPEX ${(f.capex / 1e8).toFixed(0)}億 → FCF ${(f.fcf / 1e8).toFixed(0)}億`).join("\n")}>
+            {row.fcfHistory.slice(0, 5).map((f, i) => (
+              <span key={f.year}>
+                {i > 0 && " "}
+                <span className={f.fcf > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
+                  {f.fcf > 0 ? "+" : ""}{(f.fcf / 1e8).toFixed(0)}
+                </span>
+              </span>
+            ))}
+            <span className="text-gray-400 dark:text-slate-500 ml-0.5">億</span>
+            {allPositive && <span className="ml-1 text-green-600 dark:text-green-400" title="全年度FCFプラス">◎</span>}
           </span>
         );
       }

@@ -463,6 +463,7 @@ export async function getQuoteBatch(symbols: string[]) {
       yearHigh: (r.fiftyTwoWeekHigh as number) ?? null,
       yearLow: (r.fiftyTwoWeekLow as number) ?? null,
       marketCap: (r.marketCap as number) ?? 0,
+      dividendYield: (r.trailingAnnualDividendYield as number) ?? null,
       earningsDate:
         earningsTs instanceof Date
           ? earningsTs.toISOString().split("T")[0]

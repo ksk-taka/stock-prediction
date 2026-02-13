@@ -4,6 +4,7 @@ import { getQuoteBatch, getFinancialMetrics, getDividendHistory, computeDividend
 import { getCachedStatsAll, setCachedStatsPartial, getStatsCacheBatchFromSupabase, type StatsPartialUpdate } from "@/lib/cache/statsCache";
 import { getCachedYutaiBatch, getYutaiFromSupabase } from "@/lib/cache/yutaiCache";
 import { getRoeHistory } from "@/lib/api/roeHistory";
+import { getFcfHistory } from "@/lib/api/fcfHistory";
 import type { DividendSummary } from "@/types";
 import { calcSharpeRatioFromPrices } from "@/lib/utils/indicators";
 import type { PriceData } from "@/types";
@@ -279,9 +280,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 5c. ROE推移: キャッシュチェック → ミスならYFから取得
+    // 5c. ROE推移 + FCF推移: キャッシュチェック → ミスならYFから取得
     const roeHistoryMap = new Map<string, { year: number; roe: number }[] | null>();
+    const fcfHistoryMap = new Map<string, { year: number; fcf: number; ocf: number; capex: number }[] | null>();
     const roeHistMissing: string[] = [];
+    const fcfHistMissing: string[] = [];
 
     for (const sym of symbols) {
       const quote = quoteMap.get(sym);
@@ -291,26 +294,51 @@ export async function GET(request: NextRequest) {
       } else {
         roeHistMissing.push(sym);
       }
+      if (cached.fcfHistory !== undefined) {
+        fcfHistoryMap.set(sym, cached.fcfHistory);
+      } else {
+        fcfHistMissing.push(sym);
+      }
     }
 
-    // ROE推移のキャッシュミス分をYFから並列取得
-    if (roeHistMissing.length > 0) {
-      const roeHistResults = await Promise.allSettled(
-        roeHistMissing.map(async (sym) => {
-          const history = await getRoeHistory(sym);
-          return { sym, history: history.length > 0 ? history : null };
-        })
-      );
-      for (const r of roeHistResults) {
-        if (r.status === "fulfilled") {
-          const { sym, history } = r.value;
-          roeHistoryMap.set(sym, history);
-          // キャッシュに書き込み
-          const update = cacheUpdates.get(sym) ?? {};
-          update.roeHistory = history;
-          cacheUpdates.set(sym, update);
-          setCachedStatsPartial(sym, { roeHistory: history });
-        }
+    // ROE推移・FCF推移のキャッシュミス分をYFから並列取得
+    const [roeHistSettled, fcfHistSettled] = await Promise.all([
+      roeHistMissing.length > 0
+        ? Promise.allSettled(
+            roeHistMissing.map(async (sym) => {
+              const history = await getRoeHistory(sym);
+              return { sym, history: history.length > 0 ? history : null };
+            })
+          )
+        : [],
+      fcfHistMissing.length > 0
+        ? Promise.allSettled(
+            fcfHistMissing.map(async (sym) => {
+              const history = await getFcfHistory(sym);
+              return { sym, history: history.length > 0 ? history : null };
+            })
+          )
+        : [],
+    ]);
+
+    for (const r of roeHistSettled) {
+      if (r.status === "fulfilled") {
+        const { sym, history } = r.value;
+        roeHistoryMap.set(sym, history);
+        const update = cacheUpdates.get(sym) ?? {};
+        update.roeHistory = history;
+        cacheUpdates.set(sym, update);
+        setCachedStatsPartial(sym, { roeHistory: history });
+      }
+    }
+    for (const r of fcfHistSettled) {
+      if (r.status === "fulfilled") {
+        const { sym, history } = r.value;
+        fcfHistoryMap.set(sym, history);
+        const update = cacheUpdates.get(sym) ?? {};
+        update.fcfHistory = history;
+        cacheUpdates.set(sym, update);
+        setCachedStatsPartial(sym, { fcfHistory: history });
       }
     }
 
@@ -364,8 +392,12 @@ export async function GET(request: NextRequest) {
         recordDate: yutai?.recordDate ?? null,
         sellRecommendDate,
         daysUntilSell: daysUntilSellVal,
+        // 配当利回り
+        dividendYield: q?.dividendYield ?? null,
         // ROE推移
         roeHistory: roeHistoryMap.get(sym) ?? null,
+        // FCF推移
+        fcfHistory: fcfHistoryMap.get(sym) ?? null,
         // 流動比率
         currentRatio: currentRatioMap.get(sym) ?? null,
       };
