@@ -31,13 +31,6 @@ interface Stock {
 type SortKey = keyof Stock;
 type SortDir = "asc" | "desc";
 
-const MARKET_FILTERS = [
-  { label: "全て", value: "" },
-  { label: "プライム", value: "東Ｐ" },
-  { label: "スタンダード", value: "東Ｓ" },
-  { label: "グロース", value: "東Ｇ" },
-];
-
 const COLUMNS: { key: SortKey; label: string; align: "left" | "right"; width?: string }[] = [
   { key: "code", label: "コード", align: "left" },
   { key: "name", label: "銘柄名", align: "left", width: "min-w-[120px]" },
@@ -75,11 +68,16 @@ export default function NewHighsPage() {
 
   const [sortKey, setSortKey] = useState<SortKey>("pctAbove52wHigh");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
-  const [marketFilter, setMarketFilter] = useState("");
+  const [marketFilter, setMarketFilter] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [breakoutOnly, setBreakoutOnly] = useState(true);
   const [consolidationOnly, setConsolidationOnly] = useState(false);
   const [capSizeFilter, setCapSizeFilter] = useState<Set<string>>(new Set());
+  // 数値範囲フィルタ
+  const [priceMin, setPriceMin] = useState("");
+  const [priceMax, setPriceMax] = useState("");
+  const [consolidationMin, setConsolidationMin] = useState("");
+  const [consolidationMax, setConsolidationMax] = useState("");
   // グループ関連
   const [allGroups, setAllGroups] = useState<WatchlistGroup[]>([]);
   const [selectedGroupIds, setSelectedGroupIds] = useState<Set<number>>(new Set());
@@ -89,6 +87,26 @@ export default function NewHighsPage() {
   const [scanStatus, setScanStatus] = useState<string | null>(null);
   const [scanProgress, setScanProgress] = useState<{ stage: string; current: number; total: number; message: string } | null>(null);
   const pollingRef = useRef<{ interval: ReturnType<typeof setInterval>; timeout: ReturnType<typeof setTimeout> } | null>(null);
+  // ドロップダウン
+  const [showGroupDropdown, setShowGroupDropdown] = useState(false);
+  const groupDropdownRef = useRef<HTMLDivElement>(null);
+  const [showMarketDropdown, setShowMarketDropdown] = useState(false);
+  const marketDropdownRef = useRef<HTMLDivElement>(null);
+  const [showCapDropdown, setShowCapDropdown] = useState(false);
+  const capDropdownRef = useRef<HTMLDivElement>(null);
+
+  // ドロップダウン: 外側クリックで閉じる
+  useEffect(() => {
+    if (!showGroupDropdown && !showMarketDropdown && !showCapDropdown) return;
+    function handleClick(e: MouseEvent) {
+      const t = e.target as Node;
+      if (showGroupDropdown && groupDropdownRef.current && !groupDropdownRef.current.contains(t)) setShowGroupDropdown(false);
+      if (showMarketDropdown && marketDropdownRef.current && !marketDropdownRef.current.contains(t)) setShowMarketDropdown(false);
+      if (showCapDropdown && capDropdownRef.current && !capDropdownRef.current.contains(t)) setShowCapDropdown(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showGroupDropdown, showMarketDropdown, showCapDropdown]);
 
   const loadData = useCallback(async () => {
     try {
@@ -238,12 +256,35 @@ export default function NewHighsPage() {
       const cs = getCapSize(s.marketCap);
       return cs !== null && capSizeFilter.has(cs);
     });
-    if (marketFilter) list = list.filter((s) => s.market.includes(marketFilter));
+    if (marketFilter.size > 0) list = list.filter((s) => {
+      const seg = s.market.includes("東Ｐ") ? "プライム" : s.market.includes("東Ｓ") ? "スタンダード" : s.market.includes("東Ｇ") ? "グロース" : "";
+      return marketFilter.has(seg);
+    });
     if (search) {
       const q = search.toLowerCase();
       list = list.filter(
         (s) => s.code.includes(q) || s.name.toLowerCase().includes(q) || s.symbol.toLowerCase().includes(q),
       );
+    }
+    // 株価フィルタ
+    if (priceMin !== "" || priceMax !== "") {
+      const min = priceMin !== "" ? parseFloat(priceMin) : NaN;
+      const max = priceMax !== "" ? parseFloat(priceMax) : NaN;
+      list = list.filter((s) => {
+        if (!isNaN(min) && s.currentYfPrice < min) return false;
+        if (!isNaN(max) && s.currentYfPrice > max) return false;
+        return true;
+      });
+    }
+    // もみ合い日数フィルタ
+    if (consolidationMin !== "" || consolidationMax !== "") {
+      const min = consolidationMin !== "" ? parseInt(consolidationMin) : NaN;
+      const max = consolidationMax !== "" ? parseInt(consolidationMax) : NaN;
+      list = list.filter((s) => {
+        if (!isNaN(min) && s.consolidationDays < min) return false;
+        if (!isNaN(max) && s.consolidationDays > max) return false;
+        return true;
+      });
     }
     // Sort
     list = [...list].sort((a, b) => {
@@ -261,7 +302,7 @@ export default function NewHighsPage() {
       return 0;
     });
     return list;
-  }, [stocks, sortKey, sortDir, marketFilter, search, breakoutOnly, consolidationOnly, capSizeFilter, selectedGroupIds, watchlistGroupMap]);
+  }, [stocks, sortKey, sortDir, marketFilter, search, breakoutOnly, consolidationOnly, capSizeFilter, selectedGroupIds, watchlistGroupMap, priceMin, priceMax, consolidationMin, consolidationMax]);
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -428,7 +469,7 @@ export default function NewHighsPage() {
         </div>
       )}
 
-      {/* Filters */}
+      {/* フィルタ Row 1 */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <input
           type="text"
@@ -437,84 +478,243 @@ export default function NewHighsPage() {
           onChange={(e) => setSearch(e.target.value)}
           className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white dark:focus:border-blue-400"
         />
-        <div className="flex gap-1">
-          {MARKET_FILTERS.map((m) => (
-            <button
-              key={m.value}
-              onClick={() => setMarketFilter(m.value)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                marketFilter === m.value
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
-              }`}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
-        <button
-          onClick={() => setBreakoutOnly((v) => !v)}
-          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-            breakoutOnly
-              ? "bg-emerald-600 text-white"
-              : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
-          }`}
-        >
-          52w突破のみ
-        </button>
-        <button
-          onClick={() => setConsolidationOnly((v) => !v)}
-          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-            consolidationOnly
-              ? "bg-amber-600 text-white"
-              : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
-          }`}
-        >
-          もみ合いあり
-        </button>
-        <div className="flex gap-1">
-          {([["small", "小型株"], ["mid", "中型株"], ["large", "大型株"]] as const).map(([value, label]) => (
-            <button
-              key={value}
-              onClick={() => setCapSizeFilter((prev) => {
-                const next = new Set(prev);
-                if (next.has(value)) next.delete(value);
-                else next.add(value);
-                return next;
-              })}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                capSizeFilter.has(value)
-                  ? "bg-teal-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
         {allGroups.length > 0 && (
-          <div className="flex gap-1">
-            {allGroups.map((g) => (
-              <button
-                key={g.id}
-                onClick={() => setSelectedGroupIds((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(g.id)) next.delete(g.id);
-                  else next.add(g.id);
-                  return next;
-                })}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                  selectedGroupIds.has(g.id)
-                    ? "text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
-                }`}
-                style={selectedGroupIds.has(g.id) ? { backgroundColor: g.color } : undefined}
-              >
-                <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: selectedGroupIds.has(g.id) ? "#fff" : g.color }} />
-                {g.name}
-              </button>
-            ))}
+          <div className="relative" ref={groupDropdownRef}>
+            <button
+              onClick={() => setShowGroupDropdown((v) => !v)}
+              className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
+                selectedGroupIds.size > 0
+                  ? "border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-300"
+                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+              }`}
+            >
+              グループ
+              {selectedGroupIds.size > 0 && (
+                <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-bold text-white">
+                  {selectedGroupIds.size}
+                </span>
+              )}
+              <svg className="ml-1 inline h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+              </svg>
+            </button>
+            {showGroupDropdown && (
+              <div className="absolute left-0 top-full z-50 mt-1 min-w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-slate-600 dark:bg-slate-800">
+                {allGroups.map((g) => (
+                  <label
+                    key={g.id}
+                    className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-50 dark:hover:bg-slate-700"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedGroupIds.has(g.id)}
+                      onChange={() => setSelectedGroupIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(g.id)) next.delete(g.id);
+                        else next.add(g.id);
+                        return next;
+                      })}
+                      className="h-3.5 w-3.5 rounded"
+                    />
+                    <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: g.color }} />
+                    <span className="text-gray-700 dark:text-slate-300">{g.name}</span>
+                  </label>
+                ))}
+                {selectedGroupIds.size > 0 && (
+                  <>
+                    <div className="my-1 border-t border-gray-100 dark:border-slate-700" />
+                    <button
+                      onClick={() => setSelectedGroupIds(new Set())}
+                      className="w-full px-3 py-1.5 text-left text-xs text-gray-500 hover:bg-gray-50 dark:text-slate-400 dark:hover:bg-slate-700"
+                    >
+                      選択解除
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
           </div>
+        )}
+        <div className="relative" ref={marketDropdownRef}>
+          <button
+            onClick={() => setShowMarketDropdown((v) => !v)}
+            className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
+              marketFilter.size > 0
+                ? "border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-300"
+                : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            }`}
+          >
+            市場区分
+            {marketFilter.size > 0 && (
+              <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-bold text-white">
+                {marketFilter.size}
+              </span>
+            )}
+            <svg className="ml-1 inline h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+            </svg>
+          </button>
+          {showMarketDropdown && (
+            <div className="absolute left-0 top-full z-50 mt-1 min-w-36 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-slate-600 dark:bg-slate-800">
+              {(["プライム", "スタンダード", "グロース"] as const).map((seg) => (
+                <label
+                  key={seg}
+                  className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-50 dark:hover:bg-slate-700"
+                >
+                  <input
+                    type="checkbox"
+                    checked={marketFilter.has(seg)}
+                    onChange={() => setMarketFilter((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(seg)) next.delete(seg);
+                      else next.add(seg);
+                      return next;
+                    })}
+                    className="h-3.5 w-3.5 rounded"
+                  />
+                  <span className="text-gray-700 dark:text-slate-300">{seg}</span>
+                </label>
+              ))}
+              {marketFilter.size > 0 && (
+                <>
+                  <div className="my-1 border-t border-gray-100 dark:border-slate-700" />
+                  <button
+                    onClick={() => setMarketFilter(new Set())}
+                    className="w-full px-3 py-1.5 text-left text-xs text-gray-500 hover:bg-gray-50 dark:text-slate-400 dark:hover:bg-slate-700"
+                  >
+                    選択解除
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="relative" ref={capDropdownRef}>
+          <button
+            onClick={() => setShowCapDropdown((v) => !v)}
+            className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
+              capSizeFilter.size > 0
+                ? "border-teal-500 bg-teal-50 text-teal-700 dark:border-teal-400 dark:bg-teal-900/30 dark:text-teal-300"
+                : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            }`}
+          >
+            時価総額
+            {capSizeFilter.size > 0 && (
+              <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-teal-600 px-1 text-[10px] font-bold text-white">
+                {capSizeFilter.size}
+              </span>
+            )}
+            <svg className="ml-1 inline h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+            </svg>
+          </button>
+          {showCapDropdown && (
+            <div className="absolute left-0 top-full z-50 mt-1 min-w-36 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-slate-600 dark:bg-slate-800">
+              {([["small", "小型株", "500億未満"], ["mid", "中型株", "500〜3000億"], ["large", "大型株", "3000億以上"]] as const).map(([value, label, desc]) => (
+                <label
+                  key={value}
+                  className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-50 dark:hover:bg-slate-700"
+                >
+                  <input
+                    type="checkbox"
+                    checked={capSizeFilter.has(value)}
+                    onChange={() => setCapSizeFilter((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(value)) next.delete(value);
+                      else next.add(value);
+                      return next;
+                    })}
+                    className="h-3.5 w-3.5 rounded"
+                  />
+                  <span className="text-gray-700 dark:text-slate-300">{label}</span>
+                  <span className="ml-auto text-[10px] text-gray-400 dark:text-slate-500">{desc}</span>
+                </label>
+              ))}
+              {capSizeFilter.size > 0 && (
+                <>
+                  <div className="my-1 border-t border-gray-100 dark:border-slate-700" />
+                  <button
+                    onClick={() => setCapSizeFilter(new Set())}
+                    className="w-full px-3 py-1.5 text-left text-xs text-gray-500 hover:bg-gray-50 dark:text-slate-400 dark:hover:bg-slate-700"
+                  >
+                    選択解除
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+        <label className="flex items-center gap-1 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={breakoutOnly}
+            onChange={(e) => setBreakoutOnly(e.target.checked)}
+            className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 dark:border-slate-600 dark:bg-slate-800"
+          />
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">52w突破のみ</span>
+        </label>
+        <label className="flex items-center gap-1 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={consolidationOnly}
+            onChange={(e) => setConsolidationOnly(e.target.checked)}
+            className="rounded border-gray-300 text-amber-600 focus:ring-amber-500 dark:border-slate-600 dark:bg-slate-800"
+          />
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">もみ合いあり</span>
+        </label>
+      </div>
+
+      {/* フィルタ Row 2: 数値範囲フィルタ */}
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">株価</span>
+          <input
+            type="number"
+            step="100"
+            value={priceMin}
+            onChange={(e) => setPriceMin(e.target.value)}
+            placeholder=""
+            className="w-20 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">円〜</span>
+          <input
+            type="number"
+            step="100"
+            value={priceMax}
+            onChange={(e) => setPriceMax(e.target.value)}
+            placeholder=""
+            className="w-20 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">円</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">もみ合い</span>
+          <input
+            type="number"
+            step="1"
+            value={consolidationMin}
+            onChange={(e) => setConsolidationMin(e.target.value)}
+            placeholder="10"
+            className="w-14 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">日〜</span>
+          <input
+            type="number"
+            step="1"
+            value={consolidationMax}
+            onChange={(e) => setConsolidationMax(e.target.value)}
+            placeholder=""
+            className="w-14 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">日</span>
+        </div>
+        {(priceMin || priceMax || consolidationMin || consolidationMax) && (
+          <button
+            onClick={() => { setPriceMin(""); setPriceMax(""); setConsolidationMin(""); setConsolidationMax(""); }}
+            className="rounded-full px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+          >
+            クリア
+          </button>
         )}
       </div>
 
