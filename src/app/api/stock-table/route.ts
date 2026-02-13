@@ -146,6 +146,7 @@ export async function GET(request: NextRequest) {
     const divMap = new Map<string, DividendSummary | null>();
     const roeMap = new Map<string, number | null>();
     const fyeMap = new Map<string, string | null>();
+    const currentRatioMap = new Map<string, number | null>();
     const metricsMissing: { sym: string; marketCap: number }[] = []; // NC率またはROEがミス
     const divMissing: string[] = [];
     const supabaseFallbackNeeded: string[] = []; // ファイルキャッシュミスのシンボル
@@ -161,10 +162,13 @@ export async function GET(request: NextRequest) {
 
       const fyeHit = cached.fiscalYearEnd !== undefined;
 
+      const crHit = cached.currentRatio !== undefined;
+
       if (ncHit) ncMap.set(sym, cached.nc ?? null);
       if (roeHit) roeMap.set(sym, cached.roe ?? null);
       if (divHit) divMap.set(sym, cached.dividend ?? null);
       if (fyeHit) fyeMap.set(sym, cached.fiscalYearEnd ?? null);
+      if (crHit) currentRatioMap.set(sym, cached.currentRatio ?? null);
 
       // いずれかがファイルキャッシュミスならSupabaseフォールバック対象
       if (!ncHit || !roeHit || !divHit) {
@@ -217,7 +221,7 @@ export async function GET(request: NextRequest) {
         ? Promise.allSettled(
             metricsMissing.map(async ({ sym, marketCap }) => {
               const metrics = await getFinancialMetrics(sym, marketCap);
-              return { sym, ncRatio: metrics.ncRatio, roe: metrics.roe, fiscalYearEnd: metrics.fiscalYearEnd };
+              return { sym, ncRatio: metrics.ncRatio, roe: metrics.roe, fiscalYearEnd: metrics.fiscalYearEnd, currentRatio: metrics.currentRatio };
             })
           )
         : [],
@@ -238,14 +242,16 @@ export async function GET(request: NextRequest) {
 
     for (const r of metricsResults) {
       if (r.status === "fulfilled") {
-        const { sym, ncRatio, roe, fiscalYearEnd } = r.value;
+        const { sym, ncRatio, roe, fiscalYearEnd, currentRatio } = r.value;
         ncMap.set(sym, ncRatio);
         roeMap.set(sym, roe);
         fyeMap.set(sym, fiscalYearEnd);
+        currentRatioMap.set(sym, currentRatio);
         const update = cacheUpdates.get(sym) ?? {};
         update.nc = ncRatio;
         update.roe = roe;
         update.fiscalYearEnd = fiscalYearEnd;
+        update.currentRatio = currentRatio;
         cacheUpdates.set(sym, update);
       }
     }
@@ -360,6 +366,8 @@ export async function GET(request: NextRequest) {
         daysUntilSell: daysUntilSellVal,
         // ROE推移
         roeHistory: roeHistoryMap.get(sym) ?? null,
+        // 流動比率
+        currentRatio: currentRatioMap.get(sym) ?? null,
       };
     });
 

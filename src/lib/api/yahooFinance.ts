@@ -203,10 +203,11 @@ export interface FinancialMetrics {
   ncRatio: number | null;
   roe: number | null;
   fiscalYearEnd: string | null;
+  currentRatio: number | null;
 }
 
 export async function getFinancialMetrics(symbol: string, marketCap: number): Promise<FinancialMetrics> {
-  const result: FinancialMetrics = { ncRatio: null, roe: null, fiscalYearEnd: null };
+  const result: FinancialMetrics = { ncRatio: null, roe: null, fiscalYearEnd: null, currentRatio: null };
 
   try {
     const period1 = new Date();
@@ -222,7 +223,7 @@ export async function getFinancialMetrics(symbol: string, marketCap: number): Pr
         })
       ),
       yfQueue.add(() =>
-        yf.quoteSummary(symbol, { modules: ["incomeStatementHistoryQuarterly", "defaultKeyStatistics"] })
+        yf.quoteSummary(symbol, { modules: ["incomeStatementHistoryQuarterly", "defaultKeyStatistics", "financialData"] })
       ),
     ]);
 
@@ -275,6 +276,13 @@ export async function getFinancialMetrics(symbol: string, marketCap: number): Pr
     const nextFYE = (ks as Record<string, unknown> | undefined)?.nextFiscalYearEnd;
     if (nextFYE instanceof Date) {
       result.fiscalYearEnd = nextFYE.toISOString().split("T")[0];
+    }
+
+    // 流動比率（financialData.currentRatio）
+    const fd = isResult?.financialData;
+    const cr = (fd as Record<string, unknown> | undefined)?.currentRatio as number | null ?? null;
+    if (cr != null && cr > 0) {
+      result.currentRatio = Math.round(cr * 100) / 100;
     }
   } catch {
     // エラー時はnullのまま返す

@@ -23,6 +23,7 @@ interface NewHighStock {
   consolidationRangePct: number;
   simpleNcRatio: number | null;
   marketCap: number | null;
+  currentRatio: number | null;
 }
 
 const isVercel = !!process.env.VERCEL;
@@ -93,6 +94,7 @@ function enrichWithCachedStats(stocks: NewHighStock[]): NewHighStock[] {
       ...s,
       simpleNcRatio: s.simpleNcRatio ?? cached?.simpleNcRatio ?? null,
       marketCap: s.marketCap ?? cached?.marketCap ?? null,
+      currentRatio: s.currentRatio ?? cached?.currentRatio ?? null,
     };
   });
 }
@@ -142,6 +144,7 @@ function parseRow(header: string[], row: string): NewHighStock | null {
     consolidationRangePct: num("consolidationRangePct") ?? 0,
     simpleNcRatio: num("simpleNcRatio"),
     marketCap: num("marketCap"),
+    currentRatio: num("currentRatio"),
   };
 }
 

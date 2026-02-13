@@ -26,6 +26,7 @@ interface Stock {
   simpleNcRatio: number | null;
   cnPer: number | null;
   marketCap: number | null;
+  currentRatio: number | null;
 }
 
 type SortKey = keyof Stock;
@@ -46,6 +47,7 @@ const COLUMNS: { key: SortKey; label: string; align: "left" | "right"; width?: s
   { key: "pctAbove52wHigh", label: "乖離%", align: "right" },
   { key: "consolidationDays", label: "もみ合い", align: "right" },
   { key: "consolidationRangePct", label: "レンジ%", align: "right" },
+  { key: "currentRatio", label: "流動比率", align: "right" },
   { key: "volume", label: "出来高", align: "right" },
 ];
 
@@ -78,6 +80,8 @@ export default function NewHighsPage() {
   const [priceMax, setPriceMax] = useState("");
   const [consolidationMin, setConsolidationMin] = useState("");
   const [consolidationMax, setConsolidationMax] = useState("");
+  const [currentRatioMin, setCurrentRatioMin] = useState("");
+  const [currentRatioMax, setCurrentRatioMax] = useState("");
   // グループ関連
   const [allGroups, setAllGroups] = useState<WatchlistGroup[]>([]);
   const [selectedGroupIds, setSelectedGroupIds] = useState<Set<number>>(new Set());
@@ -286,6 +290,17 @@ export default function NewHighsPage() {
         return true;
       });
     }
+    // 流動比率フィルタ
+    if (currentRatioMin !== "" || currentRatioMax !== "") {
+      const min = currentRatioMin !== "" ? parseFloat(currentRatioMin) : NaN;
+      const max = currentRatioMax !== "" ? parseFloat(currentRatioMax) : NaN;
+      list = list.filter((s) => {
+        if (s.currentRatio == null) return false;
+        if (!isNaN(min) && s.currentRatio < min) return false;
+        if (!isNaN(max) && s.currentRatio > max) return false;
+        return true;
+      });
+    }
     // Sort
     list = [...list].sort((a, b) => {
       const av = a[sortKey];
@@ -302,7 +317,7 @@ export default function NewHighsPage() {
       return 0;
     });
     return list;
-  }, [stocks, sortKey, sortDir, marketFilter, search, breakoutOnly, consolidationOnly, capSizeFilter, selectedGroupIds, watchlistGroupMap, priceMin, priceMax, consolidationMin, consolidationMax]);
+  }, [stocks, sortKey, sortDir, marketFilter, search, breakoutOnly, consolidationOnly, capSizeFilter, selectedGroupIds, watchlistGroupMap, priceMin, priceMax, consolidationMin, consolidationMax, currentRatioMin, currentRatioMax]);
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -708,9 +723,30 @@ export default function NewHighsPage() {
           />
           <span className="text-xs text-gray-400">日</span>
         </div>
-        {(priceMin || priceMax || consolidationMin || consolidationMax) && (
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">流動比率</span>
+          <input
+            type="number"
+            step="0.1"
+            value={currentRatioMin}
+            onChange={(e) => setCurrentRatioMin(e.target.value)}
+            placeholder="1.0"
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">倍〜</span>
+          <input
+            type="number"
+            step="0.1"
+            value={currentRatioMax}
+            onChange={(e) => setCurrentRatioMax(e.target.value)}
+            placeholder=""
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">倍</span>
+        </div>
+        {(priceMin || priceMax || consolidationMin || consolidationMax || currentRatioMin || currentRatioMax) && (
           <button
-            onClick={() => { setPriceMin(""); setPriceMax(""); setConsolidationMin(""); setConsolidationMax(""); }}
+            onClick={() => { setPriceMin(""); setPriceMax(""); setConsolidationMin(""); setConsolidationMax(""); setCurrentRatioMin(""); setCurrentRatioMax(""); }}
             className="rounded-full px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
           >
             クリア
@@ -817,6 +853,13 @@ export default function NewHighsPage() {
                 </td>
                 <td className="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums text-gray-500 dark:text-slate-400">
                   {s.consolidationDays > 0 ? `${s.consolidationRangePct.toFixed(1)}%` : "－"}
+                </td>
+                <td className={`whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums ${
+                  s.currentRatio != null && s.currentRatio >= 2 ? "text-green-600 dark:text-green-400"
+                    : s.currentRatio != null && s.currentRatio < 1 ? "text-red-600 dark:text-red-400"
+                    : ""
+                }`}>
+                  {formatNum(s.currentRatio, 2)}
                 </td>
                 <td className="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums text-gray-500 dark:text-slate-400">
                   {formatVolume(s.volume)}

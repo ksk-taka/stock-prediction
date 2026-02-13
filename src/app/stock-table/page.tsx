@@ -62,6 +62,8 @@ interface StockTableRow {
   daysUntilSell: number | null;
   // ROE推移
   roeHistory: { year: number; roe: number }[] | null;
+  // 流動比率
+  currentRatio: number | null;
 }
 
 interface MergedRow extends StockTableRow {
@@ -101,6 +103,7 @@ const COLUMNS: ColumnDef[] = [
   { key: "fiscalYearEnd", label: "決算日", group: "指標", align: "right", defaultVisible: false },
   { key: "sharpe1y", label: "Sharpe", group: "指標", align: "right", defaultVisible: false },
   { key: "roe", label: "ROE", group: "指標", align: "right", defaultVisible: false },
+  { key: "currentRatio", label: "流動比率", group: "指標", align: "right", defaultVisible: false },
   { key: "latestDividend", label: "配当額", group: "配当", align: "right", defaultVisible: true },
   { key: "previousDividend", label: "前回配当", group: "配当", align: "right", defaultVisible: false },
   { key: "latestIncrease", label: "増配額", group: "配当", align: "right", defaultVisible: true },
@@ -320,6 +323,8 @@ export default function StockTablePage() {
   const [increaseMin, setIncreaseMin] = useState("");
   const [roeMin, setRoeMin] = useState("");
   const [roeMax, setRoeMax] = useState("");
+  const [currentRatioMin, setCurrentRatioMin] = useState("");
+  const [currentRatioMax, setCurrentRatioMax] = useState("");
   const [priceMin, setPriceMin] = useState("");
   const [priceMax, setPriceMax] = useState("");
   const [yutaiOnly, setYutaiOnly] = useState(false);
@@ -516,6 +521,7 @@ export default function StockTablePage() {
         sellRecommendDate: td?.sellRecommendDate ?? null,
         daysUntilSell: td?.daysUntilSell ?? null,
         roeHistory: td?.roeHistory ?? null,
+        currentRatio: td?.currentRatio ?? null,
       };
     });
 
@@ -568,6 +574,18 @@ export default function StockTablePage() {
       });
     }
 
+    // 流動比率フィルタ
+    if (currentRatioMin !== "" || currentRatioMax !== "") {
+      const min = currentRatioMin !== "" ? parseFloat(currentRatioMin) : NaN;
+      const max = currentRatioMax !== "" ? parseFloat(currentRatioMax) : NaN;
+      rows = rows.filter((r) => {
+        if (r.currentRatio == null) return false;
+        if (!isNaN(min) && r.currentRatio < min) return false;
+        if (!isNaN(max) && r.currentRatio > max) return false;
+        return true;
+      });
+    }
+
     // 株価フィルタ
     if (priceMin !== "" || priceMax !== "") {
       const min = priceMin !== "" ? parseFloat(priceMin) : NaN;
@@ -616,7 +634,7 @@ export default function StockTablePage() {
     });
 
     return rows;
-  }, [filteredStocks, tableData, sortKey, sortDir, capSizeFilter, ncRatioMin, ncRatioMax, sharpeMin, increaseMin, roeMin, roeMax, priceMin, priceMax, yutaiOnly, earningsFrom, earningsTo]);
+  }, [filteredStocks, tableData, sortKey, sortDir, capSizeFilter, ncRatioMin, ncRatioMax, sharpeMin, increaseMin, roeMin, roeMax, currentRatioMin, currentRatioMax, priceMin, priceMax, yutaiOnly, earningsFrom, earningsTo]);
 
   // ── ソート切り替え ──
   function handleSort(key: SortKey) {
@@ -794,6 +812,17 @@ export default function StockTablePage() {
               : ""
           }>
             {(row.roe * 100).toFixed(1)}%
+          </span>
+        );
+      case "currentRatio":
+        if (row.currentRatio == null) return "－";
+        return (
+          <span className={
+            row.currentRatio >= 2 ? "text-green-600 dark:text-green-400"
+              : row.currentRatio < 1 ? "text-red-600 dark:text-red-400"
+              : ""
+          }>
+            {row.currentRatio.toFixed(2)}
           </span>
         );
       case "latestDividend":
@@ -1241,9 +1270,30 @@ export default function StockTablePage() {
           />
           <span className="text-xs text-gray-400">%未満</span>
         </div>
-        {(priceMin || priceMax || ncRatioMin || ncRatioMax || sharpeMin || increaseMin || roeMin || roeMax || yutaiOnly) && (
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">流動比率</span>
+          <input
+            type="number"
+            step="0.1"
+            value={currentRatioMin}
+            onChange={(e) => setCurrentRatioMin(e.target.value)}
+            placeholder="1.0"
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">倍〜</span>
+          <input
+            type="number"
+            step="0.1"
+            value={currentRatioMax}
+            onChange={(e) => setCurrentRatioMax(e.target.value)}
+            placeholder=""
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">倍</span>
+        </div>
+        {(priceMin || priceMax || ncRatioMin || ncRatioMax || sharpeMin || increaseMin || roeMin || roeMax || currentRatioMin || currentRatioMax || yutaiOnly) && (
           <button
-            onClick={() => { setPriceMin(""); setPriceMax(""); setNcRatioMin(""); setNcRatioMax(""); setSharpeMin(""); setIncreaseMin(""); setRoeMin(""); setRoeMax(""); setYutaiOnly(false); }}
+            onClick={() => { setPriceMin(""); setPriceMax(""); setNcRatioMin(""); setNcRatioMax(""); setSharpeMin(""); setIncreaseMin(""); setRoeMin(""); setRoeMax(""); setCurrentRatioMin(""); setCurrentRatioMax(""); setYutaiOnly(false); }}
             className="rounded-full px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
           >
             クリア
