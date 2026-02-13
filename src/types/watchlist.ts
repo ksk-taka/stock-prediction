@@ -16,6 +16,14 @@ export interface StockStats {
   sharpe1y?: number | null;
   latestDividend?: number | null;
   latestIncrease?: number | null;
+  // 株主優待
+  hasYutai?: boolean;
+  yutaiContent?: string | null;
+  recordDate?: string | null;        // 権利付最終日
+  sellRecommendDate?: string | null; // 売り推奨日 (2営業日前)
+  daysUntilSell?: number | null;
+  // ROE推移
+  roeHistory?: { year: number; roe: number }[] | null;
 }
 
 export interface ActiveSignalInfo {

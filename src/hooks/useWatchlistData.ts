@@ -265,6 +265,12 @@ export function useWatchlistData(): UseWatchlistDataReturn {
                 sharpe1y: row.sharpe1y ?? null,
                 latestDividend: row.latestDividend ?? null,
                 latestIncrease: row.latestIncrease ?? null,
+                hasYutai: row.hasYutai ?? undefined,
+                yutaiContent: row.yutaiContent ?? undefined,
+                recordDate: row.recordDate ?? undefined,
+                sellRecommendDate: row.sellRecommendDate ?? undefined,
+                daysUntilSell: row.daysUntilSell ?? undefined,
+                roeHistory: row.roeHistory ?? undefined,
               };
             }
             setQuotes((prev) => ({ ...prev, ...newQuotes }));
@@ -654,6 +660,12 @@ export function useWatchlistData(): UseWatchlistDataReturn {
                   sharpe1y: row.sharpe1y ?? null,
                   latestDividend: row.latestDividend ?? null,
                   latestIncrease: row.latestIncrease ?? null,
+                  hasYutai: row.hasYutai ?? undefined,
+                  yutaiContent: row.yutaiContent ?? undefined,
+                  recordDate: row.recordDate ?? undefined,
+                  sellRecommendDate: row.sellRecommendDate ?? undefined,
+                  daysUntilSell: row.daysUntilSell ?? undefined,
+                  roeHistory: row.roeHistory ?? undefined,
                 };
               } else {
                 missingSymbols.push(sym);
@@ -705,6 +717,12 @@ export function useWatchlistData(): UseWatchlistDataReturn {
                   sharpe1y: row.sharpe1y ?? null,
                   latestDividend: row.latestDividend ?? null,
                   latestIncrease: row.latestIncrease ?? null,
+                  hasYutai: row.hasYutai ?? undefined,
+                  yutaiContent: row.yutaiContent ?? undefined,
+                  recordDate: row.recordDate ?? undefined,
+                  sellRecommendDate: row.sellRecommendDate ?? undefined,
+                  daysUntilSell: row.daysUntilSell ?? undefined,
+                  roeHistory: row.roeHistory ?? undefined,
                 };
               }
             }

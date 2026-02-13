@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getQuoteBatch, getFinancialMetrics, getDividendHistory, computeDividendSummary } from "@/lib/api/yahooFinance";
 import { getCachedStatsAll, setCachedStatsPartial, getStatsCacheBatchFromSupabase, type StatsPartialUpdate } from "@/lib/cache/statsCache";
+import { getCachedYutaiBatch } from "@/lib/cache/yutaiCache";
+import { getRoeHistory } from "@/lib/api/roeHistory";
 import type { DividendSummary } from "@/types";
 import { calcSharpeRatioFromPrices } from "@/lib/utils/indicators";
 import type { PriceData } from "@/types";
@@ -59,6 +61,37 @@ function computeRanges(prices: PriceBar[]) {
     lastYearHigh: lastYear.high,
     lastYearLow: lastYear.low,
   };
+}
+
+/**
+ * 権利付最終日からN営業日前の日付を計算（売り推奨日）
+ * 土日のみ除外（簡易版）
+ */
+function businessDaysBefore(dateStr: string, n: number): string | null {
+  // "2026/03/27" or "2026-03-27" 形式を受け付ける
+  const normalized = dateStr.replace(/\//g, "-");
+  const d = new Date(normalized);
+  if (isNaN(d.getTime())) return null;
+
+  let remaining = n;
+  while (remaining > 0) {
+    d.setDate(d.getDate() - 1);
+    const dow = d.getDay();
+    if (dow !== 0 && dow !== 6) { // 土日スキップ
+      remaining--;
+    }
+  }
+  return d.toISOString().slice(0, 10);
+}
+
+function daysUntil(dateStr: string): number {
+  const normalized = dateStr.replace(/\//g, "-");
+  const target = new Date(normalized);
+  if (isNaN(target.getTime())) return -9999;
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  target.setHours(0, 0, 0, 0);
+  return Math.ceil((target.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
 }
 
 /**
@@ -230,10 +263,60 @@ export async function GET(request: NextRequest) {
       setCachedStatsPartial(sym, update);
     }
 
+    // 5b. 優待キャッシュ一括読み取り（キャッシュのみ、ライブスクレイピングなし）
+    const yutaiMap = getCachedYutaiBatch(symbols);
+
+    // 5c. ROE推移: キャッシュチェック → ミスならYFから取得
+    const roeHistoryMap = new Map<string, { year: number; roe: number }[] | null>();
+    const roeHistMissing: string[] = [];
+
+    for (const sym of symbols) {
+      const quote = quoteMap.get(sym);
+      const cached = getCachedStatsAll(sym, quote?.earningsDate);
+      if (cached.roeHistory !== undefined) {
+        roeHistoryMap.set(sym, cached.roeHistory);
+      } else {
+        roeHistMissing.push(sym);
+      }
+    }
+
+    // ROE推移のキャッシュミス分をYFから並列取得
+    if (roeHistMissing.length > 0) {
+      const roeHistResults = await Promise.allSettled(
+        roeHistMissing.map(async (sym) => {
+          const history = await getRoeHistory(sym);
+          return { sym, history: history.length > 0 ? history : null };
+        })
+      );
+      for (const r of roeHistResults) {
+        if (r.status === "fulfilled") {
+          const { sym, history } = r.value;
+          roeHistoryMap.set(sym, history);
+          // キャッシュに書き込み
+          const update = cacheUpdates.get(sym) ?? {};
+          update.roeHistory = history;
+          cacheUpdates.set(sym, update);
+          setCachedStatsPartial(sym, { roeHistory: history });
+        }
+      }
+    }
+
     // 6. 結合
     const rows = symbols.map((sym) => {
       const q = quoteMap.get(sym);
       const r = rangeMap.get(sym);
+      const yutai = yutaiMap.get(sym);
+
+      // 売り推奨日の計算（権利付最終日の2営業日前）
+      let sellRecommendDate: string | null = null;
+      let daysUntilSellVal: number | null = null;
+      if (yutai?.recordDate) {
+        sellRecommendDate = businessDaysBefore(yutai.recordDate, 2);
+        if (sellRecommendDate) {
+          daysUntilSellVal = daysUntil(sellRecommendDate);
+        }
+      }
+
       return {
         symbol: sym,
         name: q?.name ?? sym,
@@ -262,6 +345,14 @@ export async function GET(request: NextRequest) {
         latestDividend: divMap.get(sym)?.latestAmount ?? null,
         previousDividend: divMap.get(sym)?.previousAmount ?? null,
         latestIncrease: divMap.get(sym)?.latestIncrease ?? null,
+        // 株主優待
+        hasYutai: yutai?.hasYutai ?? null,
+        yutaiContent: yutai?.content ?? null,
+        recordDate: yutai?.recordDate ?? null,
+        sellRecommendDate,
+        daysUntilSell: daysUntilSellVal,
+        // ROE推移
+        roeHistory: roeHistoryMap.get(sym) ?? null,
       };
     });
 

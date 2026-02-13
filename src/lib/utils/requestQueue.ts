@@ -53,3 +53,6 @@ export const yfQueue = new RequestQueue(10);
 
 /** J-Quants API用のグローバルキュー（同時5リクエスト） */
 export const jqQueue = new RequestQueue(5);
+
+/** Kabutan スクレイピング用のグローバルキュー（同時3リクエスト） */
+export const kabutanQueue = new RequestQueue(3);

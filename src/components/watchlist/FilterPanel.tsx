@@ -84,6 +84,10 @@ interface FilterPanelProps {
   selectedSectors: Set<string>;
   onToggleSector: (sector: string) => void;
 
+  // Yutai
+  yutaiOnly: boolean;
+  onYutaiOnlyChange: (value: boolean) => void;
+
   // Filter actions
   hasAnyFilter: boolean;
   filteredCount: number;
@@ -154,6 +158,8 @@ export function FilterPanel({
   allSectors,
   selectedSectors,
   onToggleSector,
+  yutaiOnly,
+  onYutaiOnlyChange,
   hasAnyFilter,
   filteredCount,
   totalCount,
@@ -654,6 +660,21 @@ export function FilterPanel({
             更新: {newHighsScannedAt}
           </span>
         )}
+      </div>
+
+      {/* 優待フィルタ */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium text-gray-500 dark:text-slate-400">優待:</span>
+        <button
+          onClick={() => onYutaiOnlyChange(!yutaiOnly)}
+          className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
+            yutaiOnly
+              ? "border-pink-400 bg-pink-50 text-pink-700 dark:border-pink-500 dark:bg-pink-900/30 dark:text-pink-300"
+              : "border-gray-300 bg-white text-gray-500 hover:border-gray-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-500"
+          }`}
+        >
+          優待ありのみ
+        </button>
       </div>
 
       {/* セクターフィルタ */}

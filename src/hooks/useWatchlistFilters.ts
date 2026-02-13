@@ -65,6 +65,7 @@ export function useWatchlistFilters({
   const [roeMax, setRoeMax] = useState("");
   const [priceMin, setPriceMin] = useState("");
   const [priceMax, setPriceMax] = useState("");
+  const [yutaiOnly, setYutaiOnly] = useState(false);
 
   // 初期化: プリセット読み込み
   useEffect(() => {
@@ -478,6 +479,10 @@ export function useWatchlistFilters({
         if (!isNaN(min) && price < min) return false;
         if (!isNaN(max) && price > max) return false;
       }
+      // 優待フィルタ
+      if (yutaiOnly) {
+        if (stats[stock.symbol]?.hasYutai !== true) return false;
+      }
       return true;
     });
   }, [
@@ -502,6 +507,7 @@ export function useWatchlistFilters({
     roeMax,
     priceMin,
     priceMax,
+    yutaiOnly,
     quotes,
     stats,
     signals,
@@ -614,6 +620,8 @@ export function useWatchlistFilters({
     setPriceMin,
     priceMax,
     setPriceMax,
+    yutaiOnly,
+    setYutaiOnly,
 
     // Actions
     toggleSector,

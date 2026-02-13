@@ -33,6 +33,11 @@ interface StockCardProps {
   sharpe1y?: number;
   latestDividend?: number;
   latestIncrease?: number;
+  hasYutai?: boolean;
+  yutaiContent?: string;
+  sellRecommendDate?: string;
+  daysUntilSell?: number;
+  roeHistory?: { year: number; roe: number }[];
   signals?: SignalSummary;
   signalPeriodFilter?: string;
   fundamentalJudgment?: "bullish" | "neutral" | "bearish";
@@ -55,6 +60,11 @@ export default function StockCard({
   sharpe1y,
   latestDividend,
   latestIncrease,
+  hasYutai,
+  yutaiContent,
+  sellRecommendDate,
+  daysUntilSell,
+  roeHistory,
   signals,
   signalPeriodFilter = "all",
   fundamentalJudgment,
@@ -263,7 +273,7 @@ export default function StockCard({
         )}
       </div>
       {/* 時価総額 / PER / PBR / ROE / 簡易NC率 / ファンダ判定 */}
-      {(marketCap !== undefined || per !== undefined || pbr !== undefined || roe !== undefined || simpleNcRatio !== undefined || sharpe1y !== undefined || latestDividend !== undefined || fundamentalJudgment) && (
+      {(marketCap !== undefined || per !== undefined || pbr !== undefined || roe !== undefined || simpleNcRatio !== undefined || sharpe1y !== undefined || latestDividend !== undefined || hasYutai || fundamentalJudgment) && (
         <div className="mt-2 flex items-center gap-3 border-t border-gray-100 dark:border-slate-700 pt-2">
           {marketCap !== undefined && marketCap > 0 && (
             <div className="text-center">
@@ -332,6 +342,28 @@ export default function StockCard({
                   : latestIncrease < 0 ? "text-red-600 dark:text-red-400"
                   : "text-gray-700 dark:text-slate-300"
               }`}>{latestIncrease > 0 ? "+" : ""}{latestIncrease.toLocaleString()}</span>
+            </div>
+          )}
+          {hasYutai && (
+            <div className="text-center" title={yutaiContent ?? ""}>
+              <span className="block text-[10px] text-gray-400 dark:text-slate-500">優待</span>
+              <span className="text-xs font-semibold text-pink-600 dark:text-pink-400">●</span>
+            </div>
+          )}
+          {sellRecommendDate && daysUntilSell != null && daysUntilSell >= 0 && daysUntilSell <= 30 && (
+            <div className="text-center">
+              <span className="block text-[10px] text-gray-400 dark:text-slate-500">売り推奨</span>
+              <span className="text-xs font-bold text-orange-600 dark:text-orange-400">
+                {sellRecommendDate.slice(5)} ({daysUntilSell}日)
+              </span>
+            </div>
+          )}
+          {roeHistory && roeHistory.length >= 2 && (
+            <div className="text-center">
+              <span className="block text-[10px] text-gray-400 dark:text-slate-500">ROE推移</span>
+              <span className="text-xs text-gray-600 dark:text-slate-300">
+                {roeHistory.slice(0, 3).map((r) => `${(r.roe * 100).toFixed(0)}%`).join("\u2192")}
+              </span>
             </div>
           )}
           {fundamentalJudgment && (

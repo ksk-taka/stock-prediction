@@ -244,6 +244,8 @@ export default function WatchList() {
           allSectors={filters.allSectors}
           selectedSectors={filters.selectedSectors}
           onToggleSector={filters.toggleSector}
+          yutaiOnly={filters.yutaiOnly}
+          onYutaiOnlyChange={filters.setYutaiOnly}
           hasAnyFilter={filters.hasAnyFilter}
           filteredCount={filters.filteredStocks.length}
           totalCount={stocks.length}

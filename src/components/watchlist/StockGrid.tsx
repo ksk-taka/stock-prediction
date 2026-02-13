@@ -86,6 +86,11 @@ export function StockGrid({
                 sharpe1y={s?.sharpe1y ?? undefined}
                 latestDividend={s?.latestDividend ?? undefined}
                 latestIncrease={s?.latestIncrease ?? undefined}
+                hasYutai={s?.hasYutai ?? undefined}
+                yutaiContent={s?.yutaiContent ?? undefined}
+                sellRecommendDate={s?.sellRecommendDate ?? undefined}
+                daysUntilSell={s?.daysUntilSell ?? undefined}
+                roeHistory={s?.roeHistory ?? undefined}
                 signals={sig}
                 signalPeriodFilter={signalPeriodFilter}
                 fundamentalJudgment={stock.fundamental?.judgment}

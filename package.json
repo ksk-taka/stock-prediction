@@ -49,7 +49,10 @@
     "prompt:gemini:clip": "npx tsx scripts/generate-gemini-prompt.ts --clip",
     "scan:netcash": "npx tsx scripts/scan-net-cash.ts",
     "scan:netcash:csv": "npx tsx scripts/scan-net-cash.ts --csv",
-    "scan:netcash:favorites": "npx tsx scripts/scan-net-cash.ts --favorites --csv"
+    "scan:netcash:favorites": "npx tsx scripts/scan-net-cash.ts --favorites --csv",
+    "fetch:yutai": "npx tsx scripts/fetch-yutai.ts",
+    "fetch:yutai:all": "npx tsx scripts/fetch-yutai.ts --all",
+    "fetch:yutai:dry": "npx tsx scripts/fetch-yutai.ts --dry-run"
   },
   "dependencies": {
     "@slack/bolt": "^4.6.0",

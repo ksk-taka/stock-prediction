@@ -54,6 +54,14 @@ interface StockTableRow {
   latestDividend: number | null;
   previousDividend: number | null;
   latestIncrease: number | null;
+  // 株主優待
+  hasYutai: boolean | null;
+  yutaiContent: string | null;
+  recordDate: string | null;
+  sellRecommendDate: string | null;
+  daysUntilSell: number | null;
+  // ROE推移
+  roeHistory: { year: number; roe: number }[] | null;
 }
 
 interface MergedRow extends StockTableRow {
@@ -96,6 +104,12 @@ const COLUMNS: ColumnDef[] = [
   { key: "latestDividend", label: "配当額", group: "配当", align: "right", defaultVisible: true },
   { key: "previousDividend", label: "前回配当", group: "配当", align: "right", defaultVisible: false },
   { key: "latestIncrease", label: "増配額", group: "配当", align: "right", defaultVisible: true },
+  { key: "hasYutai", label: "優待", group: "優待", align: "left", defaultVisible: true },
+  { key: "yutaiContent", label: "優待内容", group: "優待", align: "left", defaultVisible: false },
+  { key: "recordDate", label: "権利付最終日", group: "優待", align: "right", defaultVisible: false },
+  { key: "sellRecommendDate", label: "売り推奨日", group: "優待", align: "right", defaultVisible: true },
+  { key: "daysUntilSell", label: "残日数", group: "優待", align: "right", defaultVisible: false },
+  { key: "roeHistory", label: "ROE推移", group: "指標", align: "left", defaultVisible: false },
   { key: "dayHigh", label: "日高値", group: "日", align: "right", defaultVisible: false },
   { key: "dayLow", label: "日安値", group: "日", align: "right", defaultVisible: false },
   { key: "weekHigh", label: "週高値", group: "週", align: "right", defaultVisible: false },
@@ -308,6 +322,7 @@ export default function StockTablePage() {
   const [roeMax, setRoeMax] = useState("");
   const [priceMin, setPriceMin] = useState("");
   const [priceMax, setPriceMax] = useState("");
+  const [yutaiOnly, setYutaiOnly] = useState(false);
 
   // 決算日フィルタ
   const [earningsPreset, setEarningsPreset] = useState("");
@@ -495,6 +510,12 @@ export default function StockTablePage() {
         latestDividend: td?.latestDividend ?? null,
         previousDividend: td?.previousDividend ?? null,
         latestIncrease: td?.latestIncrease ?? null,
+        hasYutai: td?.hasYutai ?? null,
+        yutaiContent: td?.yutaiContent ?? null,
+        recordDate: td?.recordDate ?? null,
+        sellRecommendDate: td?.sellRecommendDate ?? null,
+        daysUntilSell: td?.daysUntilSell ?? null,
+        roeHistory: td?.roeHistory ?? null,
       };
     });
 
@@ -558,6 +579,11 @@ export default function StockTablePage() {
       });
     }
 
+    // 優待フィルタ
+    if (yutaiOnly) {
+      rows = rows.filter((r) => r.hasYutai === true);
+    }
+
     // 決算発表日フィルタ
     if (earningsFrom || earningsTo) {
       rows = rows.filter((r) => {
@@ -590,7 +616,7 @@ export default function StockTablePage() {
     });
 
     return rows;
-  }, [filteredStocks, tableData, sortKey, sortDir, capSizeFilter, ncRatioMin, ncRatioMax, sharpeMin, increaseMin, roeMin, roeMax, priceMin, priceMax, earningsFrom, earningsTo]);
+  }, [filteredStocks, tableData, sortKey, sortDir, capSizeFilter, ncRatioMin, ncRatioMax, sharpeMin, increaseMin, roeMin, roeMax, priceMin, priceMax, yutaiOnly, earningsFrom, earningsTo]);
 
   // ── ソート切り替え ──
   function handleSort(key: SortKey) {
@@ -813,6 +839,56 @@ export default function StockTablePage() {
         ) : (
           "－"
         );
+      case "hasYutai":
+        if (row.hasYutai === null) return <span className="text-gray-300 dark:text-slate-600">?</span>;
+        return row.hasYutai
+          ? <span className="text-pink-600 dark:text-pink-400 font-bold">●</span>
+          : <span className="text-gray-300 dark:text-slate-600">－</span>;
+      case "yutaiContent":
+        if (!row.yutaiContent) return "－";
+        return <span className="text-xs max-w-48 truncate block" title={row.yutaiContent}>{row.yutaiContent}</span>;
+      case "recordDate":
+        return row.recordDate ? <span className="text-xs">{row.recordDate}</span> : "－";
+      case "sellRecommendDate": {
+        if (!row.sellRecommendDate) return "－";
+        const isUrgent = row.daysUntilSell != null && row.daysUntilSell >= 0 && row.daysUntilSell <= 30;
+        const isPast = row.daysUntilSell != null && row.daysUntilSell < 0;
+        return (
+          <span className={
+            isPast ? "text-gray-400 dark:text-slate-500 line-through text-xs"
+              : isUrgent ? "text-orange-600 dark:text-orange-400 font-bold text-xs"
+              : "text-xs"
+          }>
+            {row.sellRecommendDate}
+            {isUrgent && row.daysUntilSell != null && ` (${row.daysUntilSell}日)`}
+          </span>
+        );
+      }
+      case "daysUntilSell": {
+        if (row.daysUntilSell == null) return "－";
+        const urgent7 = row.daysUntilSell >= 0 && row.daysUntilSell <= 7;
+        const urgent30 = row.daysUntilSell > 7 && row.daysUntilSell <= 30;
+        return (
+          <span className={
+            urgent7 ? "text-red-600 dark:text-red-400 font-bold"
+              : urgent30 ? "text-orange-600 dark:text-orange-400 font-bold"
+              : row.daysUntilSell < 0 ? "text-gray-400 dark:text-slate-500"
+              : ""
+          }>
+            {row.daysUntilSell}日
+          </span>
+        );
+      }
+      case "roeHistory": {
+        if (!row.roeHistory || row.roeHistory.length === 0) return "－";
+        return (
+          <span className="text-xs whitespace-nowrap">
+            {row.roeHistory.slice(0, 4).map((r) =>
+              `${r.year}: ${(r.roe * 100).toFixed(1)}%`
+            ).join(", ")}
+          </span>
+        );
+      }
       default:
         // 高値/安値系はすべて price 形式
         return formatPrice(v as number | null);
@@ -1053,6 +1129,15 @@ export default function StockTablePage() {
             </div>
           )}
         </div>
+        <label className="flex items-center gap-1 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={yutaiOnly}
+            onChange={(e) => setYutaiOnly(e.target.checked)}
+            className="rounded border-gray-300 text-pink-600 focus:ring-pink-500 dark:border-slate-600 dark:bg-slate-800"
+          />
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">優待あり</span>
+        </label>
         <div className="flex items-center gap-1">
           <span className="text-xs font-medium text-gray-500 dark:text-slate-400">株価</span>
           <input
@@ -1156,9 +1241,9 @@ export default function StockTablePage() {
           />
           <span className="text-xs text-gray-400">%未満</span>
         </div>
-        {(priceMin || priceMax || ncRatioMin || ncRatioMax || sharpeMin || increaseMin || roeMin || roeMax) && (
+        {(priceMin || priceMax || ncRatioMin || ncRatioMax || sharpeMin || increaseMin || roeMin || roeMax || yutaiOnly) && (
           <button
-            onClick={() => { setPriceMin(""); setPriceMax(""); setNcRatioMin(""); setNcRatioMax(""); setSharpeMin(""); setIncreaseMin(""); setRoeMin(""); setRoeMax(""); }}
+            onClick={() => { setPriceMin(""); setPriceMax(""); setNcRatioMin(""); setNcRatioMax(""); setSharpeMin(""); setIncreaseMin(""); setRoeMin(""); setRoeMax(""); setYutaiOnly(false); }}
             className="rounded-full px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
           >
             クリア

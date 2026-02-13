@@ -39,6 +39,7 @@ export interface CachedStatsAllResult {
   dividend: DividendSummary | null | undefined;
   roe: number | null | undefined;
   fiscalYearEnd: string | null | undefined;
+  roeHistory: { year: number; roe: number }[] | null | undefined;
 }
 
 interface StatsCacheEntry {
@@ -54,10 +55,12 @@ interface StatsCacheEntry {
   sharpe3y?: number | null;
   dividendSummary?: DividendSummary | null;
   fiscalYearEnd?: string | null;
+  roeHistory?: { year: number; roe: number }[] | null;
   cachedAt: number;
   ncCachedAt?: number; // NC率専用タイムスタンプ（cachedAtとは独立）
   dividendCachedAt?: number; // 配当専用タイムスタンプ
   roeCachedAt?: number; // ROE専用タイムスタンプ（30日TTL）
+  roeHistoryCachedAt?: number; // ROE推移専用タイムスタンプ（30日TTL）
 }
 
 function ensureDir() {
@@ -289,6 +292,7 @@ export interface StatsPartialUpdate {
   dividend?: DividendSummary | null;
   roe?: number | null;
   fiscalYearEnd?: string | null;
+  roeHistory?: { year: number; roe: number }[] | null;
 }
 
 export function setCachedStatsPartial(symbol: string, updates: StatsPartialUpdate): void {
@@ -325,6 +329,10 @@ export function setCachedStatsPartial(symbol: string, updates: StatsPartialUpdat
     if (updates.fiscalYearEnd !== undefined) {
       entry.fiscalYearEnd = updates.fiscalYearEnd;
     }
+    if (updates.roeHistory !== undefined) {
+      entry.roeHistory = updates.roeHistory;
+      entry.roeHistoryCachedAt = now;
+    }
 
     fs.writeFileSync(file, JSON.stringify(entry), "utf-8");
 
@@ -353,6 +361,7 @@ export function getCachedStatsFull(symbol: string): {
   sharpe1y?: number | null;
   latestDividend?: number | null;
   latestIncrease?: number | null;
+  roeHistory?: { year: number; roe: number }[] | null;
 } | null {
   try {
     ensureDir();
@@ -380,6 +389,11 @@ export function getCachedStatsFull(symbol: string): {
     const div = now - divTs <= DIVIDEND_TTL && entry.dividendSummary !== undefined
       ? entry.dividendSummary : undefined;
 
+    // ROE推移 (30日TTL)
+    const roeHistTs = entry.roeHistoryCachedAt ?? entry.cachedAt;
+    const roeHistory = now - roeHistTs <= ROE_TTL && entry.roeHistory !== undefined
+      ? entry.roeHistory : undefined;
+
     return {
       per: mainValid ? (entry.per ?? null) : undefined,
       pbr: mainValid ? (entry.pbr ?? null) : undefined,
@@ -389,6 +403,7 @@ export function getCachedStatsFull(symbol: string): {
       sharpe1y: mainValid ? (entry.sharpe1y ?? null) : undefined,
       latestDividend: div !== undefined ? (div?.latestAmount ?? null) : undefined,
       latestIncrease: div !== undefined ? (div?.latestIncrease ?? null) : undefined,
+      roeHistory,
     };
   } catch {
     return null;
@@ -404,6 +419,7 @@ export function getCachedStatsAll(
     dividend: undefined,
     roe: undefined,
     fiscalYearEnd: undefined,
+    roeHistory: undefined,
   };
 
   // 決算日が直近の場合、ROEは常に再取得（PER/EPS/ROEが更新される可能性）
@@ -442,6 +458,14 @@ export function getCachedStatsAll(
       result.fiscalYearEnd = entry.fiscalYearEnd;
     }
 
+    // ROE推移（30日TTL）
+    if (!nearEarnings) {
+      const roeHistTs = entry.roeHistoryCachedAt ?? entry.cachedAt;
+      if (now - roeHistTs <= ROE_TTL && entry.roeHistory !== undefined) {
+        result.roeHistory = entry.roeHistory;
+      }
+    }
+
     return result;
   } catch {
     return result;
@@ -457,7 +481,7 @@ export function getCachedStatsAll(
  * ファイルキャッシュがない場合にのみ呼び出される
  */
 export async function getStatsCacheFromSupabase(symbol: string): Promise<CachedStatsAllResult> {
-  const result: CachedStatsAllResult = { nc: undefined, dividend: undefined, roe: undefined, fiscalYearEnd: undefined };
+  const result: CachedStatsAllResult = { nc: undefined, dividend: undefined, roe: undefined, fiscalYearEnd: undefined, roeHistory: undefined };
 
   try {
     const supabase = createServiceClient();
@@ -557,7 +581,7 @@ export async function getStatsCacheBatchFromSupabase(
     const now = Date.now();
 
     for (const row of data as SupabaseStatsCacheRow[]) {
-      const result: CachedStatsAllResult = { nc: undefined, dividend: undefined, roe: undefined, fiscalYearEnd: undefined };
+      const result: CachedStatsAllResult = { nc: undefined, dividend: undefined, roe: undefined, fiscalYearEnd: undefined, roeHistory: undefined };
 
       // NC率（7日TTL）
       if (row.nc_cached_at && row.nc_ratio !== null) {
