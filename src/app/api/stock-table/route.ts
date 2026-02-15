@@ -148,6 +148,10 @@ export async function GET(request: NextRequest) {
     const roeMap = new Map<string, number | null>();
     const fyeMap = new Map<string, string | null>();
     const currentRatioMap = new Map<string, number | null>();
+    const pegRatioMap = new Map<string, number | null>();
+    const equityRatioMap = new Map<string, number | null>();
+    const totalDebtMap = new Map<string, number | null>();
+    const profitGrowthMap = new Map<string, number | null>();
     const metricsMissing: { sym: string; marketCap: number }[] = []; // NC率またはROEがミス
     const divMissing: string[] = [];
     const supabaseFallbackNeeded: string[] = []; // ファイルキャッシュミスのシンボル
@@ -165,11 +169,20 @@ export async function GET(request: NextRequest) {
 
       const crHit = cached.currentRatio !== undefined;
 
+      const pegHit = cached.pegRatio !== undefined;
+      const eqHit = cached.equityRatio !== undefined;
+      const tdHit = cached.totalDebt !== undefined;
+      const pgHit = cached.profitGrowthRate !== undefined;
+
       if (ncHit) ncMap.set(sym, cached.nc ?? null);
       if (roeHit) roeMap.set(sym, cached.roe ?? null);
       if (divHit) divMap.set(sym, cached.dividend ?? null);
       if (fyeHit) fyeMap.set(sym, cached.fiscalYearEnd ?? null);
       if (crHit) currentRatioMap.set(sym, cached.currentRatio ?? null);
+      if (pegHit) pegRatioMap.set(sym, cached.pegRatio ?? null);
+      if (eqHit) equityRatioMap.set(sym, cached.equityRatio ?? null);
+      if (tdHit) totalDebtMap.set(sym, cached.totalDebt ?? null);
+      if (pgHit) profitGrowthMap.set(sym, cached.profitGrowthRate ?? null);
 
       // いずれかがファイルキャッシュミスならSupabaseフォールバック対象
       if (!ncHit || !roeHit || !divHit) {
@@ -198,14 +211,23 @@ export async function GET(request: NextRequest) {
       const roeHit = roeMap.has(sym);
       const divHit = divMap.has(sym);
 
-      // NC率・ROE（どちらかがミスなら両方再取得）
-      if (!ncHit || !roeHit) {
+      const pegHit2 = pegRatioMap.has(sym);
+      const eqHit2 = equityRatioMap.has(sym);
+      const tdHit2 = totalDebtMap.has(sym);
+      const pgHit2 = profitGrowthMap.has(sym);
+
+      // NC率・ROE・追加指標（いずれかがミスなら全て再取得）
+      if (!ncHit || !roeHit || !pegHit2 || !eqHit2 || !tdHit2 || !pgHit2) {
         const mc = quote?.marketCap ?? 0;
         if (mc > 0) {
           metricsMissing.push({ sym, marketCap: mc });
         } else {
           if (!ncHit) ncMap.set(sym, null);
           if (!roeHit) roeMap.set(sym, null);
+          if (!pegHit2) pegRatioMap.set(sym, null);
+          if (!eqHit2) equityRatioMap.set(sym, null);
+          if (!tdHit2) totalDebtMap.set(sym, null);
+          if (!pgHit2) profitGrowthMap.set(sym, null);
         }
       }
 
@@ -222,7 +244,7 @@ export async function GET(request: NextRequest) {
         ? Promise.allSettled(
             metricsMissing.map(async ({ sym, marketCap }) => {
               const metrics = await getFinancialMetrics(sym, marketCap);
-              return { sym, ncRatio: metrics.ncRatio, roe: metrics.roe, fiscalYearEnd: metrics.fiscalYearEnd, currentRatio: metrics.currentRatio };
+              return { sym, ...metrics };
             })
           )
         : [],
@@ -243,16 +265,24 @@ export async function GET(request: NextRequest) {
 
     for (const r of metricsResults) {
       if (r.status === "fulfilled") {
-        const { sym, ncRatio, roe, fiscalYearEnd, currentRatio } = r.value;
+        const { sym, ncRatio, roe, fiscalYearEnd, currentRatio, pegRatio, equityRatio, totalDebt, profitGrowthRate } = r.value;
         ncMap.set(sym, ncRatio);
         roeMap.set(sym, roe);
         fyeMap.set(sym, fiscalYearEnd);
         currentRatioMap.set(sym, currentRatio);
+        pegRatioMap.set(sym, pegRatio);
+        equityRatioMap.set(sym, equityRatio);
+        totalDebtMap.set(sym, totalDebt);
+        profitGrowthMap.set(sym, profitGrowthRate);
         const update = cacheUpdates.get(sym) ?? {};
         update.nc = ncRatio;
         update.roe = roe;
         update.fiscalYearEnd = fiscalYearEnd;
         update.currentRatio = currentRatio;
+        update.pegRatio = pegRatio;
+        update.equityRatio = equityRatio;
+        update.totalDebt = totalDebt;
+        update.profitGrowthRate = profitGrowthRate;
         cacheUpdates.set(sym, update);
       }
     }
@@ -400,6 +430,12 @@ export async function GET(request: NextRequest) {
         fcfHistory: fcfHistoryMap.get(sym) ?? null,
         // 流動比率
         currentRatio: currentRatioMap.get(sym) ?? null,
+        // 追加指標
+        psr: q?.psr ?? null,
+        pegRatio: pegRatioMap.get(sym) ?? null,
+        equityRatio: equityRatioMap.get(sym) ?? null,
+        totalDebt: totalDebtMap.get(sym) ?? null,
+        profitGrowthRate: profitGrowthMap.get(sym) ?? null,
       };
     });
 

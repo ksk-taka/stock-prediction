@@ -68,6 +68,12 @@ interface StockTableRow {
   fcfHistory: { year: number; fcf: number; ocf: number; capex: number }[] | null;
   // 流動比率
   currentRatio: number | null;
+  // 追加指標
+  psr: number | null;
+  pegRatio: number | null;
+  equityRatio: number | null;
+  totalDebt: number | null;
+  profitGrowthRate: number | null;
 }
 
 interface MergedRow extends StockTableRow {
@@ -108,6 +114,11 @@ const COLUMNS: ColumnDef[] = [
   { key: "sharpe1y", label: "Sharpe", group: "指標", align: "right", defaultVisible: false },
   { key: "roe", label: "ROE", group: "指標", align: "right", defaultVisible: false },
   { key: "currentRatio", label: "流動比率", group: "指標", align: "right", defaultVisible: false },
+  { key: "psr", label: "PSR", group: "指標", align: "right", defaultVisible: false },
+  { key: "pegRatio", label: "PEG", group: "指標", align: "right", defaultVisible: false },
+  { key: "equityRatio", label: "自己資本比率", group: "指標", align: "right", defaultVisible: false },
+  { key: "totalDebt", label: "有利子負債", group: "指標", align: "right", defaultVisible: false },
+  { key: "profitGrowthRate", label: "増益率", group: "指標", align: "right", defaultVisible: false },
   { key: "dividendYield", label: "配当利回り", group: "配当", align: "right", defaultVisible: true },
   { key: "latestDividend", label: "配当額", group: "配当", align: "right", defaultVisible: false },
   { key: "previousDividend", label: "前回配当", group: "配当", align: "right", defaultVisible: false },
@@ -133,7 +144,7 @@ const COLUMNS: ColumnDef[] = [
 
 const BATCH_SIZE = 50;
 const TABLE_DATA_CACHE_KEY = "stock-table-v1";
-const TABLE_DATA_CACHE_VERSION = 1;
+const TABLE_DATA_CACHE_VERSION = 2;
 const TABLE_DATA_CACHE_TTL_MARKET = 15 * 60 * 1000; // 場中: 15分
 const TABLE_DATA_CACHE_TTL_CLOSED = 6 * 60 * 60 * 1000; // 場外: 6時間
 
@@ -331,6 +342,13 @@ export default function StockTablePage() {
   const [roeMax, setRoeMax] = useState("");
   const [currentRatioMin, setCurrentRatioMin] = useState("");
   const [currentRatioMax, setCurrentRatioMax] = useState("");
+  const [psrMin, setPsrMin] = useState("");
+  const [psrMax, setPsrMax] = useState("");
+  const [pegMin, setPegMin] = useState("");
+  const [pegMax, setPegMax] = useState("");
+  const [equityRatioMin, setEquityRatioMin] = useState("");
+  const [equityRatioMax, setEquityRatioMax] = useState("");
+  const [profitGrowthMin, setProfitGrowthMin] = useState("");
   const [priceMin, setPriceMin] = useState("");
   const [priceMax, setPriceMax] = useState("");
   const [yutaiOnly, setYutaiOnly] = useState(false);
@@ -530,6 +548,11 @@ export default function StockTablePage() {
         roeHistory: td?.roeHistory ?? null,
         fcfHistory: td?.fcfHistory ?? null,
         currentRatio: td?.currentRatio ?? null,
+        psr: td?.psr ?? null,
+        pegRatio: td?.pegRatio ?? null,
+        equityRatio: td?.equityRatio ?? null,
+        totalDebt: td?.totalDebt ?? null,
+        profitGrowthRate: td?.profitGrowthRate ?? null,
       };
     });
 
@@ -594,6 +617,50 @@ export default function StockTablePage() {
       });
     }
 
+    // PSRフィルタ
+    if (psrMin !== "" || psrMax !== "") {
+      const min = psrMin !== "" ? parseFloat(psrMin) : NaN;
+      const max = psrMax !== "" ? parseFloat(psrMax) : NaN;
+      rows = rows.filter((r) => {
+        if (r.psr == null) return false;
+        if (!isNaN(min) && r.psr < min) return false;
+        if (!isNaN(max) && r.psr > max) return false;
+        return true;
+      });
+    }
+
+    // PEGフィルタ
+    if (pegMin !== "" || pegMax !== "") {
+      const min = pegMin !== "" ? parseFloat(pegMin) : NaN;
+      const max = pegMax !== "" ? parseFloat(pegMax) : NaN;
+      rows = rows.filter((r) => {
+        if (r.pegRatio == null) return false;
+        if (!isNaN(min) && r.pegRatio < min) return false;
+        if (!isNaN(max) && r.pegRatio > max) return false;
+        return true;
+      });
+    }
+
+    // 自己資本比率フィルタ
+    if (equityRatioMin !== "" || equityRatioMax !== "") {
+      const min = equityRatioMin !== "" ? parseFloat(equityRatioMin) : NaN;
+      const max = equityRatioMax !== "" ? parseFloat(equityRatioMax) : NaN;
+      rows = rows.filter((r) => {
+        if (r.equityRatio == null) return false;
+        if (!isNaN(min) && r.equityRatio < min) return false;
+        if (!isNaN(max) && r.equityRatio > max) return false;
+        return true;
+      });
+    }
+
+    // 増益率フィルタ
+    if (profitGrowthMin !== "") {
+      const min = parseFloat(profitGrowthMin);
+      if (!isNaN(min)) {
+        rows = rows.filter((r) => r.profitGrowthRate != null && r.profitGrowthRate >= min);
+      }
+    }
+
     // 株価フィルタ
     if (priceMin !== "" || priceMax !== "") {
       const min = priceMin !== "" ? parseFloat(priceMin) : NaN;
@@ -642,7 +709,7 @@ export default function StockTablePage() {
     });
 
     return rows;
-  }, [filteredStocks, tableData, sortKey, sortDir, capSizeFilter, ncRatioMin, ncRatioMax, sharpeMin, increaseMin, roeMin, roeMax, currentRatioMin, currentRatioMax, priceMin, priceMax, yutaiOnly, earningsFrom, earningsTo]);
+  }, [filteredStocks, tableData, sortKey, sortDir, capSizeFilter, ncRatioMin, ncRatioMax, sharpeMin, increaseMin, roeMin, roeMax, currentRatioMin, currentRatioMax, psrMin, psrMax, pegMin, pegMax, equityRatioMin, equityRatioMax, profitGrowthMin, priceMin, priceMax, yutaiOnly, earningsFrom, earningsTo]);
 
   // ── ソート切り替え ──
   function handleSort(key: SortKey) {
@@ -831,6 +898,58 @@ export default function StockTablePage() {
               : ""
           }>
             {row.currentRatio.toFixed(2)}
+          </span>
+        );
+      case "psr":
+        if (row.psr == null) return "－";
+        return (
+          <span className={
+            row.psr < 1 ? "text-green-600 dark:text-green-400"
+              : row.psr > 5 ? "text-red-600 dark:text-red-400"
+              : ""
+          }>
+            {row.psr.toFixed(2)}
+          </span>
+        );
+      case "pegRatio":
+        if (row.pegRatio == null) return "－";
+        return (
+          <span className={
+            row.pegRatio > 0 && row.pegRatio < 1 ? "text-green-600 dark:text-green-400"
+              : row.pegRatio > 2 ? "text-red-600 dark:text-red-400"
+              : ""
+          }>
+            {row.pegRatio.toFixed(2)}
+          </span>
+        );
+      case "equityRatio":
+        if (row.equityRatio == null) return "－";
+        return (
+          <span className={
+            row.equityRatio >= 50 ? "text-green-600 dark:text-green-400"
+              : row.equityRatio < 20 ? "text-red-600 dark:text-red-400"
+              : ""
+          }>
+            {row.equityRatio.toFixed(1)}%
+          </span>
+        );
+      case "totalDebt":
+        if (row.totalDebt == null) return "－";
+        return (
+          <span title={`${row.totalDebt.toLocaleString()}円`}>
+            {(row.totalDebt / 1e8).toFixed(0)}億
+          </span>
+        );
+      case "profitGrowthRate":
+        if (row.profitGrowthRate == null) return "－";
+        return (
+          <span className={
+            row.profitGrowthRate > 20 ? "text-green-600 dark:text-green-400 font-bold"
+              : row.profitGrowthRate > 0 ? "text-green-600 dark:text-green-400"
+              : row.profitGrowthRate < -20 ? "text-red-600 dark:text-red-400 font-bold"
+              : "text-red-600 dark:text-red-400"
+          }>
+            {row.profitGrowthRate > 0 ? "+" : ""}{row.profitGrowthRate.toFixed(1)}%
           </span>
         );
       case "dividendYield": {
@@ -1331,9 +1450,82 @@ export default function StockTablePage() {
           />
           <span className="text-xs text-gray-400">倍</span>
         </div>
-        {(priceMin || priceMax || ncRatioMin || ncRatioMax || sharpeMin || increaseMin || roeMin || roeMax || currentRatioMin || currentRatioMax || yutaiOnly) && (
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">PSR</span>
+          <input
+            type="number"
+            step="0.5"
+            value={psrMin}
+            onChange={(e) => setPsrMin(e.target.value)}
+            placeholder=""
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">〜</span>
+          <input
+            type="number"
+            step="0.5"
+            value={psrMax}
+            onChange={(e) => setPsrMax(e.target.value)}
+            placeholder=""
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">PEG</span>
+          <input
+            type="number"
+            step="0.1"
+            value={pegMin}
+            onChange={(e) => setPegMin(e.target.value)}
+            placeholder=""
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">〜</span>
+          <input
+            type="number"
+            step="0.1"
+            value={pegMax}
+            onChange={(e) => setPegMax(e.target.value)}
+            placeholder=""
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">自己資本比率</span>
+          <input
+            type="number"
+            step="5"
+            value={equityRatioMin}
+            onChange={(e) => setEquityRatioMin(e.target.value)}
+            placeholder="40"
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">%〜</span>
+          <input
+            type="number"
+            step="5"
+            value={equityRatioMax}
+            onChange={(e) => setEquityRatioMax(e.target.value)}
+            placeholder=""
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">%</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">増益率</span>
+          <input
+            type="number"
+            step="5"
+            value={profitGrowthMin}
+            onChange={(e) => setProfitGrowthMin(e.target.value)}
+            placeholder="0"
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">%以上</span>
+        </div>
+        {(priceMin || priceMax || ncRatioMin || ncRatioMax || sharpeMin || increaseMin || roeMin || roeMax || currentRatioMin || currentRatioMax || psrMin || psrMax || pegMin || pegMax || equityRatioMin || equityRatioMax || profitGrowthMin || yutaiOnly) && (
           <button
-            onClick={() => { setPriceMin(""); setPriceMax(""); setNcRatioMin(""); setNcRatioMax(""); setSharpeMin(""); setIncreaseMin(""); setRoeMin(""); setRoeMax(""); setCurrentRatioMin(""); setCurrentRatioMax(""); setYutaiOnly(false); }}
+            onClick={() => { setPriceMin(""); setPriceMax(""); setNcRatioMin(""); setNcRatioMax(""); setSharpeMin(""); setIncreaseMin(""); setRoeMin(""); setRoeMax(""); setCurrentRatioMin(""); setCurrentRatioMax(""); setPsrMin(""); setPsrMax(""); setPegMin(""); setPegMax(""); setEquityRatioMin(""); setEquityRatioMax(""); setProfitGrowthMin(""); setYutaiOnly(false); }}
             className="rounded-full px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
           >
             クリア

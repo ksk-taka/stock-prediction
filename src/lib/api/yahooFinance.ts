@@ -204,10 +204,14 @@ export interface FinancialMetrics {
   roe: number | null;
   fiscalYearEnd: string | null;
   currentRatio: number | null;
+  pegRatio: number | null;
+  equityRatio: number | null;      // 自己資本比率 (%)
+  totalDebt: number | null;        // 有利子負債 (円)
+  profitGrowthRate: number | null;  // 増益率 (%, YoY EBIT growth)
 }
 
 export async function getFinancialMetrics(symbol: string, marketCap: number): Promise<FinancialMetrics> {
-  const result: FinancialMetrics = { ncRatio: null, roe: null, fiscalYearEnd: null, currentRatio: null };
+  const result: FinancialMetrics = { ncRatio: null, roe: null, fiscalYearEnd: null, currentRatio: null, pegRatio: null, equityRatio: null, totalDebt: null, profitGrowthRate: null };
 
   try {
     const period1 = new Date();
@@ -283,6 +287,58 @@ export async function getFinancialMetrics(symbol: string, marketCap: number): Pr
     const cr = (fd as Record<string, unknown> | undefined)?.currentRatio as number | null ?? null;
     if (cr != null && cr > 0) {
       result.currentRatio = Math.round(cr * 100) / 100;
+    }
+
+    // PEG Ratio（defaultKeyStatistics.pegRatio）
+    const pegVal = (ks as Record<string, unknown> | undefined)?.pegRatio as number | null ?? null;
+    if (pegVal != null) {
+      result.pegRatio = Math.round(pegVal * 100) / 100;
+    }
+
+    // 自己資本比率（financialData.debtToEquity → 計算）
+    const debtToEquity = (fd as Record<string, unknown> | undefined)?.debtToEquity as number | null ?? null;
+    if (debtToEquity != null && debtToEquity >= 0) {
+      result.equityRatio = Math.round((100 / (1 + debtToEquity / 100)) * 10) / 10;
+    }
+
+    // 有利子負債（financialData.totalDebt）
+    const tdVal = (fd as Record<string, unknown> | undefined)?.totalDebt as number | null ?? null;
+    if (tdVal != null) {
+      result.totalDebt = tdVal;
+    }
+
+    // 増益率: TTM EBIT YoY成長率
+    if (statements && statements.length >= 5) {
+      const getEbit = (q: unknown): number | null => {
+        const rec = q as Record<string, unknown>;
+        return (rec.ebit as number | undefined) ??
+               (rec.operatingIncome as number | undefined) ?? null;
+      };
+
+      const currentQuarters = statements.slice(0, 4);
+      const priorQuarters = statements.slice(4, 8);
+
+      if (priorQuarters.length >= 4) {
+        let currentTTM = 0, priorTTM = 0;
+        let currentValid = true, priorValid = true;
+
+        for (const q of currentQuarters) {
+          const ebit = getEbit(q);
+          if (ebit != null) currentTTM += ebit;
+          else currentValid = false;
+        }
+        for (const q of priorQuarters) {
+          const ebit = getEbit(q);
+          if (ebit != null) priorTTM += ebit;
+          else priorValid = false;
+        }
+
+        if (currentValid && priorValid && Math.abs(priorTTM) > 0) {
+          result.profitGrowthRate = Math.round(
+            ((currentTTM - priorTTM) / Math.abs(priorTTM)) * 1000
+          ) / 10;
+        }
+      }
     }
   } catch {
     // エラー時はnullのまま返す
@@ -464,6 +520,7 @@ export async function getQuoteBatch(symbols: string[]) {
       yearLow: (r.fiftyTwoWeekLow as number) ?? null,
       marketCap: (r.marketCap as number) ?? 0,
       dividendYield: (r.trailingAnnualDividendYield as number) ?? null,
+      psr: (r.priceToSalesTrailing12Months as number) ?? null,
       earningsDate:
         earningsTs instanceof Date
           ? earningsTs.toISOString().split("T")[0]
