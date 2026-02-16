@@ -76,6 +76,8 @@ export default function NewHighsPage() {
   const [consolidationOnly, setConsolidationOnly] = useState(false);
   const [capSizeFilter, setCapSizeFilter] = useState<Set<string>>(new Set());
   // 数値範囲フィルタ
+  const [perMin, setPerMin] = useState("");
+  const [perMax, setPerMax] = useState("");
   const [priceMin, setPriceMin] = useState("");
   const [priceMax, setPriceMax] = useState("");
   const [consolidationMin, setConsolidationMin] = useState("");
@@ -270,6 +272,17 @@ export default function NewHighsPage() {
         (s) => s.code.includes(q) || s.name.toLowerCase().includes(q) || s.symbol.toLowerCase().includes(q),
       );
     }
+    // PERフィルタ
+    if (perMin !== "" || perMax !== "") {
+      const min = perMin !== "" ? parseFloat(perMin) : NaN;
+      const max = perMax !== "" ? parseFloat(perMax) : NaN;
+      list = list.filter((s) => {
+        if (s.per == null) return false;
+        if (!isNaN(min) && s.per < min) return false;
+        if (!isNaN(max) && s.per > max) return false;
+        return true;
+      });
+    }
     // 株価フィルタ
     if (priceMin !== "" || priceMax !== "") {
       const min = priceMin !== "" ? parseFloat(priceMin) : NaN;
@@ -317,7 +330,7 @@ export default function NewHighsPage() {
       return 0;
     });
     return list;
-  }, [stocks, sortKey, sortDir, marketFilter, search, breakoutOnly, consolidationOnly, capSizeFilter, selectedGroupIds, watchlistGroupMap, priceMin, priceMax, consolidationMin, consolidationMax, currentRatioMin, currentRatioMax]);
+  }, [stocks, sortKey, sortDir, marketFilter, search, breakoutOnly, consolidationOnly, capSizeFilter, selectedGroupIds, watchlistGroupMap, perMin, perMax, priceMin, priceMax, consolidationMin, consolidationMax, currentRatioMin, currentRatioMax]);
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -682,6 +695,27 @@ export default function NewHighsPage() {
       {/* フィルタ Row 2: 数値範囲フィルタ */}
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">PER</span>
+          <input
+            type="number"
+            step="1"
+            value={perMin}
+            onChange={(e) => setPerMin(e.target.value)}
+            placeholder=""
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">倍〜</span>
+          <input
+            type="number"
+            step="1"
+            value={perMax}
+            onChange={(e) => setPerMax(e.target.value)}
+            placeholder=""
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">倍</span>
+        </div>
+        <div className="flex items-center gap-1">
           <span className="text-xs font-medium text-gray-500 dark:text-slate-400">株価</span>
           <input
             type="number"
@@ -744,9 +778,9 @@ export default function NewHighsPage() {
           />
           <span className="text-xs text-gray-400">倍</span>
         </div>
-        {(priceMin || priceMax || consolidationMin || consolidationMax || currentRatioMin || currentRatioMax) && (
+        {(perMin || perMax || priceMin || priceMax || consolidationMin || consolidationMax || currentRatioMin || currentRatioMax) && (
           <button
-            onClick={() => { setPriceMin(""); setPriceMax(""); setConsolidationMin(""); setConsolidationMax(""); setCurrentRatioMin(""); setCurrentRatioMax(""); }}
+            onClick={() => { setPerMin(""); setPerMax(""); setPriceMin(""); setPriceMax(""); setConsolidationMin(""); setConsolidationMax(""); setCurrentRatioMin(""); setCurrentRatioMax(""); }}
             className="rounded-full px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
           >
             クリア

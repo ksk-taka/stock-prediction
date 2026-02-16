@@ -61,9 +61,10 @@ function parseArgs() {
   };
 
   const outputCsv = args.includes("--csv");
-  const perRange = get("--per")?.split(",").map(Number) ?? [10, 30];
-  const perMin = perRange[0] ?? 10;
-  const perMax = perRange[1] ?? 30;
+  const perRangeStr = get("--per");
+  const perRange = perRangeStr?.split(",").map(Number);
+  const perMin = perRange?.[0] ?? undefined;
+  const perMax = perRange?.[1] ?? undefined;
   const marketFilter = get("--market");
   const maxPages = get("--pages") ? parseInt(get("--pages")!, 10) : undefined;
   const breakoutOnly = !args.includes("--all-ytd");
@@ -273,8 +274,14 @@ function filterByMarket(stocks: KabutanStock[], marketFilter?: string): KabutanS
   return stocks.filter((s) => allowed.some((m) => s.market.includes(m)));
 }
 
-function filterByPer(stocks: KabutanStock[], perMin: number, perMax: number): KabutanStock[] {
-  return stocks.filter((s) => s.per !== null && s.per >= perMin && s.per <= perMax);
+function filterByPer(stocks: KabutanStock[], perMin?: number, perMax?: number): KabutanStock[] {
+  if (perMin == null && perMax == null) return stocks;
+  return stocks.filter((s) => {
+    if (s.per === null) return false;
+    if (perMin != null && s.per < perMin) return false;
+    if (perMax != null && s.per > perMax) return false;
+    return true;
+  });
 }
 
 // ── Consolidation Detection ──────────────────────────────
@@ -724,7 +731,7 @@ async function main() {
   console.log(
     `新高値スキャナー (${new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })})`,
   );
-  console.log(`  PERフィルタ: ${perMin} - ${perMax}`);
+  if (perMin != null || perMax != null) console.log(`  PERフィルタ: ${perMin ?? "−"} - ${perMax ?? "−"}`);
   if (marketFilter) console.log(`  市場区分: ${marketFilter}`);
   console.log(`  出力: ${breakoutOnly ? "52週高値ブレイクアウトのみ" : "年初来高値全件"}`);
   console.log("=".repeat(60));
@@ -752,7 +759,9 @@ async function main() {
 
   // Step 3: PER filter
   const perFiltered = filterByPer(marketFiltered, perMin, perMax);
-  console.log(`PERフィルタ後 (${perMin}-${perMax}): ${perFiltered.length} 銘柄\n`);
+  if (perMin != null || perMax != null) {
+    console.log(`PERフィルタ後 (${perMin ?? "−"}〜${perMax ?? "−"}): ${perFiltered.length} 銘柄\n`);
+  }
 
   if (perFiltered.length === 0) {
     console.log("条件に合う銘柄がありませんでした。");
