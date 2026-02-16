@@ -49,6 +49,8 @@ interface BreakoutStock extends KabutanStock {
   consolidationDays: number;
   consolidationRangePct: number;
   simpleNcRatio: number | null;
+  marketCap: number | null;
+  currentRatio: number | null;
   breakoutVolume: number | null;
   prevDayVolume: number | null;
   avgVolume5d: number | null;
@@ -451,6 +453,12 @@ async function addNetCashData(stocks: BreakoutStock[]): Promise<void> {
 
           const netCash = currentAssets + investmentInFA * 0.7 - totalLiabilities;
           stock.simpleNcRatio = Math.round((netCash / marketCap) * 1000) / 10;
+
+          // 流動比率
+          const currentLiabilities = (bs.currentLiabilities as number) ?? 0;
+          if (currentLiabilities > 0) {
+            stock.currentRatio = Math.round((currentAssets / currentLiabilities) * 100) / 100;
+          }
         } catch {
           // leave null
         }
@@ -487,6 +495,7 @@ async function checkFiftyTwoWeekBreakouts(stocks: KabutanStock[], scanId?: numbe
 
           const fiftyTwoWeekHigh = r.fiftyTwoWeekHigh as number | undefined;
           const currentYfPrice = (r.regularMarketPrice as number) ?? stock.price;
+          const marketCap = (r.marketCap as number | undefined) ?? null;
 
           if (fiftyTwoWeekHigh == null || fiftyTwoWeekHigh === 0) {
             return null;
@@ -506,6 +515,8 @@ async function checkFiftyTwoWeekBreakouts(stocks: KabutanStock[], scanId?: numbe
             consolidationDays: 0,
             consolidationRangePct: 0,
             simpleNcRatio: null,
+            marketCap,
+            currentRatio: null,
             breakoutVolume: null,
             prevDayVolume: null,
             avgVolume5d: null,
@@ -645,6 +656,8 @@ function writeCsv(stocks: BreakoutStock[]): string {
     "consolidationDays",
     "consolidationRangePct",
     "simpleNcRatio",
+    "marketCap",
+    "currentRatio",
     "breakoutVolume",
     "prevDayVolume",
     "avgVolume5d",
@@ -670,6 +683,8 @@ function writeCsv(stocks: BreakoutStock[]): string {
       s.consolidationDays,
       s.consolidationRangePct.toFixed(2),
       s.simpleNcRatio != null ? s.simpleNcRatio.toFixed(1) : "",
+      s.marketCap ?? "",
+      s.currentRatio != null ? s.currentRatio.toFixed(2) : "",
       s.breakoutVolume ?? "",
       s.prevDayVolume ?? "",
       s.avgVolume5d ?? "",

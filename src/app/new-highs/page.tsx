@@ -85,6 +85,8 @@ export default function NewHighsPage() {
   // 数値範囲フィルタ
   const [perMin, setPerMin] = useState("");
   const [perMax, setPerMax] = useState("");
+  const [marketCapMin, setMarketCapMin] = useState("");
+  const [marketCapMax, setMarketCapMax] = useState("");
   const [priceMin, setPriceMin] = useState("");
   const [priceMax, setPriceMax] = useState("");
   const [consolidationMin, setConsolidationMin] = useState("");
@@ -279,6 +281,17 @@ export default function NewHighsPage() {
         (s) => s.code.includes(q) || s.name.toLowerCase().includes(q) || s.symbol.toLowerCase().includes(q),
       );
     }
+    // 時価総額フィルタ (億円入力)
+    if (marketCapMin !== "" || marketCapMax !== "") {
+      const min = marketCapMin !== "" ? parseFloat(marketCapMin) * 1e8 : NaN;
+      const max = marketCapMax !== "" ? parseFloat(marketCapMax) * 1e8 : NaN;
+      list = list.filter((s) => {
+        if (s.marketCap == null) return false;
+        if (!isNaN(min) && s.marketCap < min) return false;
+        if (!isNaN(max) && s.marketCap > max) return false;
+        return true;
+      });
+    }
     // PERフィルタ
     if (perMin !== "" || perMax !== "") {
       const min = perMin !== "" ? parseFloat(perMin) : NaN;
@@ -337,7 +350,7 @@ export default function NewHighsPage() {
       return 0;
     });
     return list;
-  }, [stocks, sortKey, sortDir, marketFilter, search, breakoutOnly, consolidationOnly, capSizeFilter, selectedGroupIds, watchlistGroupMap, perMin, perMax, priceMin, priceMax, consolidationMin, consolidationMax, currentRatioMin, currentRatioMax]);
+  }, [stocks, sortKey, sortDir, marketFilter, search, breakoutOnly, consolidationOnly, capSizeFilter, selectedGroupIds, watchlistGroupMap, marketCapMin, marketCapMax, perMin, perMax, priceMin, priceMax, consolidationMin, consolidationMax, currentRatioMin, currentRatioMax]);
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -702,6 +715,27 @@ export default function NewHighsPage() {
       {/* フィルタ Row 2: 数値範囲フィルタ */}
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">時価総額</span>
+          <input
+            type="number"
+            step="100"
+            value={marketCapMin}
+            onChange={(e) => setMarketCapMin(e.target.value)}
+            placeholder=""
+            className="w-20 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">億〜</span>
+          <input
+            type="number"
+            step="100"
+            value={marketCapMax}
+            onChange={(e) => setMarketCapMax(e.target.value)}
+            placeholder=""
+            className="w-20 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">億</span>
+        </div>
+        <div className="flex items-center gap-1">
           <span className="text-xs font-medium text-gray-500 dark:text-slate-400">PER</span>
           <input
             type="number"
@@ -785,9 +819,9 @@ export default function NewHighsPage() {
           />
           <span className="text-xs text-gray-400">倍</span>
         </div>
-        {(perMin || perMax || priceMin || priceMax || consolidationMin || consolidationMax || currentRatioMin || currentRatioMax) && (
+        {(marketCapMin || marketCapMax || perMin || perMax || priceMin || priceMax || consolidationMin || consolidationMax || currentRatioMin || currentRatioMax) && (
           <button
-            onClick={() => { setPerMin(""); setPerMax(""); setPriceMin(""); setPriceMax(""); setConsolidationMin(""); setConsolidationMax(""); setCurrentRatioMin(""); setCurrentRatioMax(""); }}
+            onClick={() => { setMarketCapMin(""); setMarketCapMax(""); setPerMin(""); setPerMax(""); setPriceMin(""); setPriceMax(""); setConsolidationMin(""); setConsolidationMax(""); setCurrentRatioMin(""); setCurrentRatioMax(""); }}
             className="rounded-full px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
           >
             クリア
