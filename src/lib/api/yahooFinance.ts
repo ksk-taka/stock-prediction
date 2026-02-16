@@ -525,6 +525,10 @@ export async function getQuoteBatch(symbols: string[]) {
         earningsTs instanceof Date
           ? earningsTs.toISOString().split("T")[0]
           : null,
+      firstTradeDate:
+        r.firstTradeDateMilliseconds instanceof Date
+          ? (r.firstTradeDateMilliseconds as Date).toISOString().split("T")[0]
+          : null,
     };
   });
 }

@@ -74,6 +74,10 @@ interface StockTableRow {
   equityRatio: number | null;
   totalDebt: number | null;
   profitGrowthRate: number | null;
+  // TOPIX / N225 / 上場日
+  topixScale: string | null;
+  isNikkei225: boolean;
+  firstTradeDate: string | null;
 }
 
 interface MergedRow extends StockTableRow {
@@ -100,6 +104,9 @@ const COLUMNS: ColumnDef[] = [
   { key: "code", label: "コード", group: "基本", align: "left", defaultVisible: true },
   { key: "name", label: "銘柄名", group: "基本", align: "left", defaultVisible: true },
   { key: "market", label: "市場", group: "基本", align: "left", defaultVisible: true },
+  { key: "topixScale", label: "TOPIX", group: "基本", align: "left", defaultVisible: false },
+  { key: "isNikkei225", label: "N225", group: "基本", align: "left", defaultVisible: false },
+  { key: "firstTradeDate", label: "上場日", group: "基本", align: "right", defaultVisible: false },
   { key: "price", label: "現在値", group: "基本", align: "right", defaultVisible: true },
   { key: "changePercent", label: "前日比%", group: "基本", align: "right", defaultVisible: true },
   { key: "volume", label: "出来高", group: "基本", align: "right", defaultVisible: true },
@@ -353,6 +360,14 @@ export default function StockTablePage() {
   const [priceMax, setPriceMax] = useState("");
   const [yutaiOnly, setYutaiOnly] = useState(false);
 
+  // TOPIX / N225 / 時価総額範囲フィルタ
+  const [topixFilter, setTopixFilter] = useState<Set<string>>(new Set());
+  const [nikkei225Only, setNikkei225Only] = useState(false);
+  const [marketCapMin, setMarketCapMin] = useState("");
+  const [marketCapMax, setMarketCapMax] = useState("");
+  const [showTopixDropdown, setShowTopixDropdown] = useState(false);
+  const topixDropdownRef = useRef<HTMLDivElement>(null);
+
   // 決算日フィルタ
   const [earningsPreset, setEarningsPreset] = useState("");
   const [earningsFrom, setEarningsFrom] = useState("");
@@ -385,16 +400,17 @@ export default function StockTablePage() {
 
   // ドロップダウン: 外側クリックで閉じる
   useEffect(() => {
-    if (!showGroupDropdown && !showMarketDropdown && !showCapDropdown) return;
+    if (!showGroupDropdown && !showMarketDropdown && !showCapDropdown && !showTopixDropdown) return;
     function handleClick(e: MouseEvent) {
       const t = e.target as Node;
       if (showGroupDropdown && groupDropdownRef.current && !groupDropdownRef.current.contains(t)) setShowGroupDropdown(false);
       if (showMarketDropdown && marketDropdownRef.current && !marketDropdownRef.current.contains(t)) setShowMarketDropdown(false);
       if (showCapDropdown && capDropdownRef.current && !capDropdownRef.current.contains(t)) setShowCapDropdown(false);
+      if (showTopixDropdown && topixDropdownRef.current && !topixDropdownRef.current.contains(t)) setShowTopixDropdown(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, [showGroupDropdown, showMarketDropdown, showCapDropdown]);
+  }, [showGroupDropdown, showMarketDropdown, showCapDropdown, showTopixDropdown]);
 
   // ── ウォッチリスト読み込み ──
   useEffect(() => {
@@ -553,15 +569,40 @@ export default function StockTablePage() {
         equityRatio: td?.equityRatio ?? null,
         totalDebt: td?.totalDebt ?? null,
         profitGrowthRate: td?.profitGrowthRate ?? null,
+        topixScale: td?.topixScale ?? null,
+        isNikkei225: td?.isNikkei225 ?? false,
+        firstTradeDate: td?.firstTradeDate ?? null,
       };
     });
 
-    // 時価総額フィルタ
+    // 時価総額フィルタ (カテゴリ)
     if (capSizeFilter.size > 0) {
       rows = rows.filter((r) => {
         const cs = getCapSize(r.marketCap);
         return cs !== null && capSizeFilter.has(cs);
       });
+    }
+
+    // 時価総額フィルタ (範囲, 億円)
+    if (marketCapMin !== "" || marketCapMax !== "") {
+      const min = marketCapMin !== "" ? parseFloat(marketCapMin) * 100_000_000 : NaN;
+      const max = marketCapMax !== "" ? parseFloat(marketCapMax) * 100_000_000 : NaN;
+      rows = rows.filter((r) => {
+        if (r.marketCap == null) return false;
+        if (!isNaN(min) && r.marketCap < min) return false;
+        if (!isNaN(max) && r.marketCap > max) return false;
+        return true;
+      });
+    }
+
+    // TOPIXフィルタ
+    if (topixFilter.size > 0) {
+      rows = rows.filter((r) => r.topixScale != null && topixFilter.has(r.topixScale));
+    }
+
+    // N225フィルタ
+    if (nikkei225Only) {
+      rows = rows.filter((r) => r.isNikkei225 === true);
     }
 
     // NC率フィルタ (x以上y未満)
@@ -709,7 +750,7 @@ export default function StockTablePage() {
     });
 
     return rows;
-  }, [filteredStocks, tableData, sortKey, sortDir, capSizeFilter, ncRatioMin, ncRatioMax, sharpeMin, increaseMin, roeMin, roeMax, currentRatioMin, currentRatioMax, psrMin, psrMax, pegMin, pegMax, equityRatioMin, equityRatioMax, profitGrowthMin, priceMin, priceMax, yutaiOnly, earningsFrom, earningsTo]);
+  }, [filteredStocks, tableData, sortKey, sortDir, capSizeFilter, ncRatioMin, ncRatioMax, sharpeMin, increaseMin, roeMin, roeMax, currentRatioMin, currentRatioMax, psrMin, psrMax, pegMin, pegMax, equityRatioMin, equityRatioMax, profitGrowthMin, priceMin, priceMax, yutaiOnly, earningsFrom, earningsTo, topixFilter, nikkei225Only, marketCapMin, marketCapMax]);
 
   // ── ソート切り替え ──
   function handleSort(key: SortKey) {
@@ -830,6 +871,24 @@ export default function StockTablePage() {
         );
       case "market":
         return <span className="text-gray-500 dark:text-slate-400">{row.market}</span>;
+      case "topixScale":
+        if (!row.topixScale) return "－";
+        {
+          const label = row.topixScale.replace("TOPIX ", "");
+          const color = row.topixScale === "TOPIX Core30" ? "text-red-600 dark:text-red-400 font-semibold"
+            : row.topixScale === "TOPIX Large70" ? "text-orange-600 dark:text-orange-400 font-semibold"
+            : row.topixScale === "TOPIX Mid400" ? "text-blue-600 dark:text-blue-400"
+            : "text-gray-500 dark:text-slate-400";
+          return <span className={color}>{label}</span>;
+        }
+      case "isNikkei225":
+        return row.isNikkei225
+          ? <span className="inline-block rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">N225</span>
+          : "－";
+      case "firstTradeDate":
+        return row.firstTradeDate
+          ? <span className="text-gray-500 dark:text-slate-400 text-xs">{row.firstTradeDate}</span>
+          : "－";
       case "price":
         return formatPrice(row.price);
       case "changePercent":
@@ -1317,6 +1376,90 @@ export default function StockTablePage() {
             </div>
           )}
         </div>
+        <div className="relative" ref={topixDropdownRef}>
+          <button
+            onClick={() => setShowTopixDropdown((v) => !v)}
+            className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
+              topixFilter.size > 0
+                ? "border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-900/30 dark:text-indigo-300"
+                : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            }`}
+          >
+            TOPIX
+            {topixFilter.size > 0 && (
+              <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold text-white">
+                {topixFilter.size}
+              </span>
+            )}
+            <svg className="ml-1 inline h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+            </svg>
+          </button>
+          {showTopixDropdown && (
+            <div className="absolute left-0 top-full z-50 mt-1 min-w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-slate-600 dark:bg-slate-800">
+              {(["TOPIX Core30", "TOPIX Large70", "TOPIX Mid400", "TOPIX Small 1", "TOPIX Small 2"] as const).map((cat) => (
+                <label
+                  key={cat}
+                  className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-50 dark:hover:bg-slate-700"
+                >
+                  <input
+                    type="checkbox"
+                    checked={topixFilter.has(cat)}
+                    onChange={() => setTopixFilter((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(cat)) next.delete(cat);
+                      else next.add(cat);
+                      return next;
+                    })}
+                    className="h-3.5 w-3.5 rounded"
+                  />
+                  <span className="text-gray-700 dark:text-slate-300">{cat.replace("TOPIX ", "")}</span>
+                </label>
+              ))}
+              {topixFilter.size > 0 && (
+                <>
+                  <div className="my-1 border-t border-gray-100 dark:border-slate-700" />
+                  <button
+                    onClick={() => setTopixFilter(new Set())}
+                    className="w-full px-3 py-1.5 text-left text-xs text-gray-500 hover:bg-gray-50 dark:text-slate-400 dark:hover:bg-slate-700"
+                  >
+                    選択解除
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+        <label className="flex items-center gap-1 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={nikkei225Only}
+            onChange={(e) => setNikkei225Only(e.target.checked)}
+            className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 dark:border-slate-600 dark:bg-slate-800"
+          />
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">N225</span>
+        </label>
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">時価総額</span>
+          <input
+            type="number"
+            step="100"
+            value={marketCapMin}
+            onChange={(e) => setMarketCapMin(e.target.value)}
+            placeholder=""
+            className="w-20 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">億〜</span>
+          <input
+            type="number"
+            step="100"
+            value={marketCapMax}
+            onChange={(e) => setMarketCapMax(e.target.value)}
+            placeholder=""
+            className="w-20 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">億</span>
+        </div>
         <label className="flex items-center gap-1 cursor-pointer">
           <input
             type="checkbox"
@@ -1523,9 +1666,9 @@ export default function StockTablePage() {
           />
           <span className="text-xs text-gray-400">%以上</span>
         </div>
-        {(priceMin || priceMax || ncRatioMin || ncRatioMax || sharpeMin || increaseMin || roeMin || roeMax || currentRatioMin || currentRatioMax || psrMin || psrMax || pegMin || pegMax || equityRatioMin || equityRatioMax || profitGrowthMin || yutaiOnly) && (
+        {(priceMin || priceMax || ncRatioMin || ncRatioMax || sharpeMin || increaseMin || roeMin || roeMax || currentRatioMin || currentRatioMax || psrMin || psrMax || pegMin || pegMax || equityRatioMin || equityRatioMax || profitGrowthMin || yutaiOnly || topixFilter.size > 0 || nikkei225Only || marketCapMin || marketCapMax) && (
           <button
-            onClick={() => { setPriceMin(""); setPriceMax(""); setNcRatioMin(""); setNcRatioMax(""); setSharpeMin(""); setIncreaseMin(""); setRoeMin(""); setRoeMax(""); setCurrentRatioMin(""); setCurrentRatioMax(""); setPsrMin(""); setPsrMax(""); setPegMin(""); setPegMax(""); setEquityRatioMin(""); setEquityRatioMax(""); setProfitGrowthMin(""); setYutaiOnly(false); }}
+            onClick={() => { setPriceMin(""); setPriceMax(""); setNcRatioMin(""); setNcRatioMax(""); setSharpeMin(""); setIncreaseMin(""); setRoeMin(""); setRoeMax(""); setCurrentRatioMin(""); setCurrentRatioMax(""); setPsrMin(""); setPsrMax(""); setPegMin(""); setPegMax(""); setEquityRatioMin(""); setEquityRatioMax(""); setProfitGrowthMin(""); setYutaiOnly(false); setTopixFilter(new Set()); setNikkei225Only(false); setMarketCapMin(""); setMarketCapMax(""); }}
             className="rounded-full px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
           >
             クリア

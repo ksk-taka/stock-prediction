@@ -9,6 +9,8 @@ import type { DividendSummary } from "@/types";
 import { calcSharpeRatioFromPrices } from "@/lib/utils/indicators";
 import type { PriceData } from "@/types";
 import { isMarketOpen } from "@/lib/utils/date";
+import { getCachedMaster } from "@/lib/cache/jquantsCache";
+import { NIKKEI225_CODES } from "@/data/nikkei225";
 
 interface PriceBar {
   date: string;
@@ -116,6 +118,20 @@ export async function GET(request: NextRequest) {
     // 1. Yahoo Finance バッチquote
     const quotes = await getQuoteBatch(symbols);
     const quoteMap = new Map(quotes.map((q) => [q.symbol, q]));
+
+    // 1b. J-Quants master → TOPIX ScaleCat マップ
+    const topixMap = new Map<string, string>();
+    const masterData = getCachedMaster("all");
+    if (masterData) {
+      for (const item of masterData) {
+        // J-Quants code "72030" → symbol "7203.T"
+        const code = item.Code.slice(0, 4);
+        const sym = `${code}.T`;
+        if (item.ScaleCat && item.ScaleCat !== "-") {
+          topixMap.set(sym, item.ScaleCat);
+        }
+      }
+    }
 
     // 2. Supabase price_history からレンジ計算 + シャープレシオ算出
     let rangeMap = new Map<string, ReturnType<typeof computeRanges>>();
@@ -436,6 +452,10 @@ export async function GET(request: NextRequest) {
         equityRatio: equityRatioMap.get(sym) ?? null,
         totalDebt: totalDebtMap.get(sym) ?? null,
         profitGrowthRate: profitGrowthMap.get(sym) ?? null,
+        // TOPIX / N225 / 上場日
+        topixScale: topixMap.get(sym) ?? null,
+        isNikkei225: NIKKEI225_CODES.has(sym.replace(".T", "")),
+        firstTradeDate: q?.firstTradeDate ?? null,
       };
     });
 
