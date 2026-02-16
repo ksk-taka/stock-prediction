@@ -36,26 +36,26 @@ interface Stock {
 type SortKey = keyof Stock;
 type SortDir = "asc" | "desc";
 
-const COLUMNS: { key: SortKey; label: string; align: "left" | "right"; width?: string }[] = [
-  { key: "code", label: "コード", align: "left" },
+const COLUMNS: { key: SortKey; label: string; align: "left" | "right"; width?: string; tooltip?: string }[] = [
+  { key: "code", label: "コード", align: "left", tooltip: "銘柄コード（4桁）" },
   { key: "name", label: "銘柄名", align: "left", width: "min-w-[120px]" },
-  { key: "market", label: "市場", align: "left" },
-  { key: "currentYfPrice", label: "株価", align: "right" },
-  { key: "changePct", label: "前日比%", align: "right" },
-  { key: "per", label: "PER", align: "right" },
-  { key: "pbr", label: "PBR", align: "right" },
-  { key: "marketCap", label: "時価総額", align: "right" },
-  { key: "simpleNcRatio", label: "簡易NC率", align: "right" },
-  { key: "cnPer", label: "簡易CNPER", align: "right" },
-  { key: "fiftyTwoWeekHigh", label: "52w高値", align: "right" },
-  { key: "pctAbove52wHigh", label: "乖離%", align: "right" },
-  { key: "consolidationDays", label: "もみ合い", align: "right" },
-  { key: "consolidationRangePct", label: "レンジ%", align: "right" },
-  { key: "currentRatio", label: "流動比率", align: "right" },
-  { key: "breakoutVolume", label: "当日出来高", align: "right" },
-  { key: "prevDayVolume", label: "前日出来高", align: "right" },
-  { key: "avgVolume5d", label: "5日平均", align: "right" },
-  { key: "volumeRatio", label: "出来高倍率", align: "right" },
+  { key: "market", label: "市場", align: "left", tooltip: "東証プライム(P)/スタンダード(S)/グロース(G)" },
+  { key: "currentYfPrice", label: "株価", align: "right", tooltip: "Yahoo Finance取得の現在株価" },
+  { key: "changePct", label: "前日比%", align: "right", tooltip: "前日終値からの変動率" },
+  { key: "per", label: "PER", align: "right", tooltip: "株価収益率 = 株価 ÷ 1株利益(EPS)" },
+  { key: "pbr", label: "PBR", align: "right", tooltip: "株価純資産倍率 = 株価 ÷ 1株純資産(BPS)" },
+  { key: "marketCap", label: "時価総額", align: "right", tooltip: "株価 × 発行済株式数" },
+  { key: "simpleNcRatio", label: "簡易NC率", align: "right", tooltip: "簡易ネットキャッシュ比率\n(流動資産 + 投資有価証券×70% − 負債) ÷ 時価総額\nプラスが大きいほど資産面で割安" },
+  { key: "cnPer", label: "簡易CNPER", align: "right", tooltip: "キャッシュニュートラルPER\nPER × (1 − NC率/100)\nNC率が高い企業ほど実質PERが低くなる" },
+  { key: "fiftyTwoWeekHigh", label: "52w高値", align: "right", tooltip: "過去52週間（約1年）の最高値" },
+  { key: "pctAbove52wHigh", label: "乖離%", align: "right", tooltip: "現在値の52週高値からの乖離率\nプラス=52週高値を超えてブレイクアウト中" },
+  { key: "consolidationDays", label: "もみ合い", align: "right", tooltip: "ブレイクアウト直前の横ばい日数\n値幅が平均の10%以内に収まった連続日数\n長いほどエネルギーが溜まっている" },
+  { key: "consolidationRangePct", label: "レンジ%", align: "right", tooltip: "もみ合い期間中の値幅\n(高値−安値) ÷ 平均 × 100\n小さいほどタイトなもみ合い" },
+  { key: "currentRatio", label: "流動比率", align: "right", tooltip: "流動資産 ÷ 流動負債\n1.0未満は短期支払い能力に懸念\n2.0以上が理想的" },
+  { key: "breakoutVolume", label: "当日出来高", align: "right", tooltip: "ブレイクアウト当日の出来高" },
+  { key: "prevDayVolume", label: "前日出来高", align: "right", tooltip: "ブレイクアウト前日の出来高" },
+  { key: "avgVolume5d", label: "5日平均", align: "right", tooltip: "ブレイクアウト前5営業日の平均出来高" },
+  { key: "volumeRatio", label: "出来高倍率", align: "right", tooltip: "当日出来高 ÷ 5日平均出来高\n出来高を伴うブレイクアウトほど信頼性が高い\n2倍以上が目安" },
 ];
 
 function formatNum(v: number | null, digits = 1): string {
@@ -805,11 +805,12 @@ export default function NewHighsPage() {
                 <th
                   key={col.key}
                   onClick={() => handleSort(col.key)}
+                  title={col.tooltip}
                   className={`cursor-pointer select-none whitespace-nowrap px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-white ${
                     col.align === "right" ? "text-right" : "text-left"
                   } ${col.width ?? ""}`}
                 >
-                  {col.label}
+                  {col.label}{col.tooltip && <span className="ml-0.5 text-[10px] text-gray-400 dark:text-slate-500">?</span>}
                   {sortKey === col.key && (
                     <span className="ml-1">{sortDir === "asc" ? "▲" : "▼"}</span>
                   )}
