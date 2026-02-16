@@ -327,16 +327,17 @@ function detectConsolidation(
 }
 
 async function addConsolidationData(stocks: BreakoutStock[], scanId?: number): Promise<void> {
-  const targets = stocks.filter((s) => s.isTrue52wBreakout);
+  const targets = stocks;
   if (targets.length === 0) return;
 
-  console.log(`\nもみ合い分析中... (${targets.length} 銘柄)`);
+  console.log(`\n日足データ分析中 (52w高値再判定 + もみ合い + 出来高)... (${targets.length} 銘柄)`);
 
   const BATCH_SIZE = 30;
   let completed = 0;
 
   const period1 = new Date();
-  period1.setDate(period1.getDate() - 120);
+  period1.setFullYear(period1.getFullYear() - 1);
+  period1.setDate(period1.getDate() - 14); // 52週 + 余裕2週
 
   if (scanId) {
     await updateProgress(scanId, {
@@ -356,8 +357,18 @@ async function addConsolidationData(stocks: BreakoutStock[], scanId?: number): P
           const result = await yfQueue.add(() =>
             yf.chart(stock.symbol, { period1, interval: "1d" }),
           );
-          const quotes = (result as unknown as { quotes: { close: number; volume: number }[] }).quotes;
+          const quotes = (result as unknown as { quotes: { high: number; close: number; volume: number }[] }).quotes;
           if (!quotes?.length || quotes.length < 5) return;
+
+          // 前日までの52週高値を算出 (当日を除外)
+          const prevQuotes = quotes.slice(0, -1);
+          const prevHighs = prevQuotes.map((q) => q.high).filter((h) => h > 0);
+          if (prevHighs.length > 0) {
+            const prev52wHigh = Math.max(...prevHighs);
+            stock.fiftyTwoWeekHigh = prev52wHigh;
+            stock.pctAbove52wHigh = ((stock.currentYfPrice - prev52wHigh) / prev52wHigh) * 100;
+            stock.isTrue52wBreakout = stock.pctAbove52wHigh >= -0.5;
+          }
 
           // Volume data: last = today (breakout day)
           const lastIdx = quotes.length - 1;
@@ -816,14 +827,14 @@ async function main() {
     return;
   }
 
-  // Step 4: 52-week high check
+  // Step 4: 52-week high check (YF quote の fiftyTwoWeekHigh は当日含む暫定値)
   const breakouts = await checkFiftyTwoWeekBreakouts(perFiltered, doSupabase ? scanId : undefined);
-  const true52wBreakouts = breakouts.filter((s) => s.isTrue52wBreakout);
+  console.log(`\n52週高値候補 (YF quote): ${breakouts.filter((s) => s.isTrue52wBreakout).length} / ${breakouts.length} 銘柄`);
 
-  console.log(`\n52週高値ブレイクアウト: ${true52wBreakouts.length} / ${breakouts.length} 銘柄`);
-
-  // Step 5: Consolidation analysis
+  // Step 5: Consolidation + volume + 前日までの52週高値で乖離%再計算
   await addConsolidationData(breakouts, doSupabase ? scanId : undefined);
+  const true52wBreakouts = breakouts.filter((s) => s.isTrue52wBreakout);
+  console.log(`52週高値ブレイクアウト (前日まで基準): ${true52wBreakouts.length} 銘柄`);
   const withConsolidation = true52wBreakouts.filter((s) => s.consolidationDays >= 10);
   console.log(`もみ合い (≥10日) 付きブレイクアウト: ${withConsolidation.length} 銘柄`);
 

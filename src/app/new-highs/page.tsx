@@ -93,6 +93,8 @@ export default function NewHighsPage() {
   const [consolidationMax, setConsolidationMax] = useState("");
   const [currentRatioMin, setCurrentRatioMin] = useState("");
   const [currentRatioMax, setCurrentRatioMax] = useState("");
+  const [volumeRatioMin, setVolumeRatioMin] = useState("");
+  const [volumeRatioMax, setVolumeRatioMax] = useState("");
   // グループ関連
   const [allGroups, setAllGroups] = useState<WatchlistGroup[]>([]);
   const [selectedGroupIds, setSelectedGroupIds] = useState<Set<number>>(new Set());
@@ -334,6 +336,17 @@ export default function NewHighsPage() {
         return true;
       });
     }
+    // 出来高倍率フィルタ
+    if (volumeRatioMin !== "" || volumeRatioMax !== "") {
+      const min = volumeRatioMin !== "" ? parseFloat(volumeRatioMin) : NaN;
+      const max = volumeRatioMax !== "" ? parseFloat(volumeRatioMax) : NaN;
+      list = list.filter((s) => {
+        if (s.volumeRatio == null) return false;
+        if (!isNaN(min) && s.volumeRatio < min) return false;
+        if (!isNaN(max) && s.volumeRatio > max) return false;
+        return true;
+      });
+    }
     // Sort
     list = [...list].sort((a, b) => {
       const av = a[sortKey];
@@ -350,7 +363,7 @@ export default function NewHighsPage() {
       return 0;
     });
     return list;
-  }, [stocks, sortKey, sortDir, marketFilter, search, breakoutOnly, consolidationOnly, capSizeFilter, selectedGroupIds, watchlistGroupMap, marketCapMin, marketCapMax, perMin, perMax, priceMin, priceMax, consolidationMin, consolidationMax, currentRatioMin, currentRatioMax]);
+  }, [stocks, sortKey, sortDir, marketFilter, search, breakoutOnly, consolidationOnly, capSizeFilter, selectedGroupIds, watchlistGroupMap, marketCapMin, marketCapMax, perMin, perMax, priceMin, priceMax, consolidationMin, consolidationMax, currentRatioMin, currentRatioMax, volumeRatioMin, volumeRatioMax]);
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -819,9 +832,30 @@ export default function NewHighsPage() {
           />
           <span className="text-xs text-gray-400">倍</span>
         </div>
-        {(marketCapMin || marketCapMax || perMin || perMax || priceMin || priceMax || consolidationMin || consolidationMax || currentRatioMin || currentRatioMax) && (
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">出来高倍率</span>
+          <input
+            type="number"
+            step="0.1"
+            value={volumeRatioMin}
+            onChange={(e) => setVolumeRatioMin(e.target.value)}
+            placeholder=""
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">x〜</span>
+          <input
+            type="number"
+            step="0.1"
+            value={volumeRatioMax}
+            onChange={(e) => setVolumeRatioMax(e.target.value)}
+            placeholder=""
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">x</span>
+        </div>
+        {(marketCapMin || marketCapMax || perMin || perMax || priceMin || priceMax || consolidationMin || consolidationMax || currentRatioMin || currentRatioMax || volumeRatioMin || volumeRatioMax) && (
           <button
-            onClick={() => { setMarketCapMin(""); setMarketCapMax(""); setPerMin(""); setPerMax(""); setPriceMin(""); setPriceMax(""); setConsolidationMin(""); setConsolidationMax(""); setCurrentRatioMin(""); setCurrentRatioMax(""); }}
+            onClick={() => { setMarketCapMin(""); setMarketCapMax(""); setPerMin(""); setPerMax(""); setPriceMin(""); setPriceMax(""); setConsolidationMin(""); setConsolidationMax(""); setCurrentRatioMin(""); setCurrentRatioMax(""); setVolumeRatioMin(""); setVolumeRatioMax(""); }}
             className="rounded-full px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
           >
             クリア
