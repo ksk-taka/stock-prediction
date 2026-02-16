@@ -293,7 +293,7 @@ function detectConsolidation(
   let sum = closes[closes.length - 1];
   let days = 1;
 
-  for (let i = closes.length - 2; i >= 0 && i >= closes.length - 60; i--) {
+  for (let i = closes.length - 2; i >= 0; i--) {
     const c = closes[i];
     const newMax = Math.max(maxP, c);
     const newMin = Math.min(minP, c);
