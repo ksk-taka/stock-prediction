@@ -27,6 +27,10 @@ interface Stock {
   cnPer: number | null;
   marketCap: number | null;
   currentRatio: number | null;
+  breakoutVolume: number | null;
+  prevDayVolume: number | null;
+  avgVolume5d: number | null;
+  volumeRatio: number | null;
 }
 
 type SortKey = keyof Stock;
@@ -48,7 +52,10 @@ const COLUMNS: { key: SortKey; label: string; align: "left" | "right"; width?: s
   { key: "consolidationDays", label: "もみ合い", align: "right" },
   { key: "consolidationRangePct", label: "レンジ%", align: "right" },
   { key: "currentRatio", label: "流動比率", align: "right" },
-  { key: "volume", label: "出来高", align: "right" },
+  { key: "breakoutVolume", label: "当日出来高", align: "right" },
+  { key: "prevDayVolume", label: "前日出来高", align: "right" },
+  { key: "avgVolume5d", label: "5日平均", align: "right" },
+  { key: "volumeRatio", label: "出来高倍率", align: "right" },
 ];
 
 function formatNum(v: number | null, digits = 1): string {
@@ -896,7 +903,21 @@ export default function NewHighsPage() {
                   {formatNum(s.currentRatio, 2)}
                 </td>
                 <td className="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums text-gray-500 dark:text-slate-400">
-                  {formatVolume(s.volume)}
+                  {s.breakoutVolume != null ? formatVolume(s.breakoutVolume) : formatVolume(s.volume)}
+                </td>
+                <td className="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums text-gray-500 dark:text-slate-400">
+                  {s.prevDayVolume != null ? formatVolume(s.prevDayVolume) : "－"}
+                </td>
+                <td className="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums text-gray-500 dark:text-slate-400">
+                  {s.avgVolume5d != null ? formatVolume(s.avgVolume5d) : "－"}
+                </td>
+                <td className={`whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums ${
+                  s.volumeRatio != null && s.volumeRatio >= 3 ? "text-red-600 dark:text-red-400 font-semibold"
+                    : s.volumeRatio != null && s.volumeRatio >= 2 ? "text-amber-600 dark:text-amber-400 font-semibold"
+                    : s.volumeRatio != null && s.volumeRatio >= 1.5 ? "text-amber-500 dark:text-amber-300"
+                    : "text-gray-500 dark:text-slate-400"
+                }`}>
+                  {s.volumeRatio != null ? `${s.volumeRatio.toFixed(1)}x` : "－"}
                 </td>
               </tr>
             ))}

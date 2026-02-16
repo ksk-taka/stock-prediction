@@ -24,6 +24,10 @@ interface NewHighStock {
   simpleNcRatio: number | null;
   marketCap: number | null;
   currentRatio: number | null;
+  breakoutVolume: number | null;
+  prevDayVolume: number | null;
+  avgVolume5d: number | null;
+  volumeRatio: number | null;
 }
 
 const isVercel = !!process.env.VERCEL;
@@ -145,6 +149,10 @@ function parseRow(header: string[], row: string): NewHighStock | null {
     simpleNcRatio: num("simpleNcRatio"),
     marketCap: num("marketCap"),
     currentRatio: num("currentRatio"),
+    breakoutVolume: num("breakoutVolume"),
+    prevDayVolume: num("prevDayVolume"),
+    avgVolume5d: num("avgVolume5d"),
+    volumeRatio: num("volumeRatio"),
   };
 }
 

@@ -49,6 +49,10 @@ interface BreakoutStock extends KabutanStock {
   consolidationDays: number;
   consolidationRangePct: number;
   simpleNcRatio: number | null;
+  breakoutVolume: number | null;
+  prevDayVolume: number | null;
+  avgVolume5d: number | null;
+  volumeRatio: number | null;
 }
 
 // ── CLI Args ───────────────────────────────────────────────
@@ -350,10 +354,27 @@ async function addConsolidationData(stocks: BreakoutStock[], scanId?: number): P
           const result = await yfQueue.add(() =>
             yf.chart(stock.symbol, { period1, interval: "1d" }),
           );
-          const quotes = (result as unknown as { quotes: { close: number }[] }).quotes;
+          const quotes = (result as unknown as { quotes: { close: number; volume: number }[] }).quotes;
           if (!quotes?.length || quotes.length < 5) return;
 
-          // Exclude the last day (today's breakout move)
+          // Volume data: last = today (breakout day)
+          const lastIdx = quotes.length - 1;
+          stock.breakoutVolume = quotes[lastIdx].volume ?? null;
+          stock.prevDayVolume = lastIdx >= 1 ? (quotes[lastIdx - 1].volume ?? null) : null;
+
+          // Average volume for 5 trading days before breakout day
+          const volSlice = quotes.slice(Math.max(0, lastIdx - 5), lastIdx);
+          const validVols = volSlice.map((q) => q.volume).filter((v) => v > 0);
+          stock.avgVolume5d = validVols.length > 0
+            ? Math.round(validVols.reduce((a, b) => a + b, 0) / validVols.length)
+            : null;
+
+          // Volume ratio: breakout day / avg 5d
+          stock.volumeRatio = (stock.breakoutVolume != null && stock.avgVolume5d != null && stock.avgVolume5d > 0)
+            ? Math.round((stock.breakoutVolume / stock.avgVolume5d) * 100) / 100
+            : null;
+
+          // Exclude the last day (today's breakout move) for consolidation
           const closes = quotes
             .slice(0, -1)
             .map((q) => q.close)
@@ -485,6 +506,10 @@ async function checkFiftyTwoWeekBreakouts(stocks: KabutanStock[], scanId?: numbe
             consolidationDays: 0,
             consolidationRangePct: 0,
             simpleNcRatio: null,
+            breakoutVolume: null,
+            prevDayVolume: null,
+            avgVolume5d: null,
+            volumeRatio: null,
           } as BreakoutStock;
         } catch {
           return null;
@@ -620,6 +645,10 @@ function writeCsv(stocks: BreakoutStock[]): string {
     "consolidationDays",
     "consolidationRangePct",
     "simpleNcRatio",
+    "breakoutVolume",
+    "prevDayVolume",
+    "avgVolume5d",
+    "volumeRatio",
   ].join(",");
 
   const rows = stocks.map((s) =>
@@ -641,6 +670,10 @@ function writeCsv(stocks: BreakoutStock[]): string {
       s.consolidationDays,
       s.consolidationRangePct.toFixed(2),
       s.simpleNcRatio != null ? s.simpleNcRatio.toFixed(1) : "",
+      s.breakoutVolume ?? "",
+      s.prevDayVolume ?? "",
+      s.avgVolume5d ?? "",
+      s.volumeRatio != null ? s.volumeRatio.toFixed(2) : "",
     ].join(","),
   );
 
