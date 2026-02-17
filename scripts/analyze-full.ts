@@ -557,9 +557,10 @@ async function main(): Promise<void> {
   const startAll = Date.now();
 
   for (let i = 0; i < symbols.length; i++) {
-    if (i > 0 && stats.done > 0) {
-      console.log("\n⏳ 3秒待機（レート制限対策）...");
-      await sleep(3000);
+    if (i > 0) {
+      const waitSec = stats.error > 0 ? 30 : 10;
+      console.log(`\n⏳ ${waitSec}秒待機（レート制限対策）...`);
+      await sleep(waitSec * 1000);
     }
     const result = await analyzeSymbol(symbols[i], i, symbols.length);
     stats[result]++;

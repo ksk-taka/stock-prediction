@@ -1,0 +1,84 @@
+name: Analyze Full (Gemini PDF)
+
+on:
+  workflow_dispatch:
+    inputs:
+      symbols:
+        description: 'Symbols (space-separated, e.g. "4415.T 7203.T 6503.T")'
+        required: true
+        type: string
+      model:
+        description: 'Gemini model'
+        required: false
+        default: 'flash'
+        type: choice
+        options:
+          - flash
+          - pro
+      all_docs:
+        description: 'Include 有報/半期報 (all-docs)'
+        required: false
+        default: false
+        type: boolean
+      force:
+        description: 'Force re-run (skip same-day check)'
+        required: false
+        default: false
+        type: boolean
+  repository_dispatch:
+    types: [analyze-full]
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Gemini PDF analysis
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+        run: |
+          # workflow_dispatch or repository_dispatch
+          if [ -n "${{ github.event.inputs.symbols }}" ]; then
+            SYMBOLS="${{ github.event.inputs.symbols }}"
+            MODEL="${{ github.event.inputs.model }}"
+            ALL_DOCS="${{ github.event.inputs.all_docs }}"
+            FORCE="${{ github.event.inputs.force }}"
+          else
+            SYMBOLS="${{ github.event.client_payload.symbols }}"
+            MODEL="${{ github.event.client_payload.model }}"
+            ALL_DOCS="${{ github.event.client_payload.all_docs }}"
+            FORCE="${{ github.event.client_payload.force }}"
+          fi
+
+          MODEL="${MODEL:-flash}"
+          ALL_DOCS="${ALL_DOCS:-false}"
+          FORCE="${FORCE:-false}"
+
+          ARGS="$SYMBOLS --model $MODEL"
+          if [ "$ALL_DOCS" = "true" ]; then
+            ARGS="$ARGS --all-docs"
+          fi
+          if [ "$FORCE" = "true" ]; then
+            ARGS="$ARGS --force"
+          fi
+
+          echo "=== Analyze Full ==="
+          echo "Symbols: $SYMBOLS"
+          echo "Model: $MODEL"
+          echo "All docs: $ALL_DOCS"
+          echo "Force: $FORCE"
+          echo ""
+
+          npx tsx scripts/analyze-full.ts $ARGS

@@ -52,7 +52,7 @@ export async function callGeminiWithPdf(
   const temperature = options?.temperature ?? 0.1;
   const maxOutputTokens = options?.maxOutputTokens ?? 65536;
   const timeoutMs = options?.timeoutMs ?? 300_000; // 5分
-  const maxRetries = options?.maxRetries ?? 2;
+  const maxRetries = options?.maxRetries ?? 5;
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`;
 
