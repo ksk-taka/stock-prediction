@@ -51,6 +51,8 @@ export interface NotionAnalysisEntry {
   buyPrice?: number;
   takeProfitPrice?: number;
   stopLossPrice?: number;
+  // メモ
+  memo?: string;
 }
 
 // ---------- マッピング ----------
@@ -148,6 +150,10 @@ function buildProperties(entry: NotionAnalysisEntry, includeTitle: boolean): Rec
   }
   if (entry.hasYutai != null) {
     props["優待"] = { select: { name: entry.hasYutai ? "有" : "無" } };
+  }
+  // メモ
+  if (entry.memo) {
+    props["メモ"] = { rich_text: [{ text: { content: truncate(entry.memo) } }] };
   }
   // 3期間判定
   if (entry.shortTerm) {

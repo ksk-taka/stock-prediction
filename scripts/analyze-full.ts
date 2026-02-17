@@ -110,9 +110,13 @@ const forceRerun = args.includes("--force");
 const modelArg = args.includes("--model")
   ? args[args.indexOf("--model") + 1]
   : "flash";
+const memoArg = args.includes("--memo")
+  ? args[args.indexOf("--memo") + 1]
+  : undefined;
 
+const flagValues = [modelArg, memoArg].filter(Boolean);
 const symbols = args
-  .filter((a) => !a.startsWith("--") && a !== modelArg)
+  .filter((a) => !a.startsWith("--") && !flagValues.includes(a))
   .map((s) => (s.includes(".T") ? s : `${s}.T`));
 
 // ---------- ユーティリティ ----------
@@ -274,6 +278,7 @@ if (symbols.length === 0) {
   console.log("  --slack          Slack通知を送信");
   console.log("  --dry-run        分析せずPDF読み込みまで確認");
   console.log("  --force          同日分析済みでもスキップしない");
+  console.log('  --memo "text"    Notionメモ欄に記載');
   console.log("  --list           分析可能な銘柄一覧");
   process.exit(0);
 }
@@ -501,6 +506,7 @@ async function analyzeSymbol(
         buyPrice: validation.buyPrice,
         takeProfitPrice: validation.takeProfitPrice,
         stopLossPrice: validation.stopLossPrice,
+        memo: memoArg,
       };
       const { url } = await createAnalysisPage(notionEntry);
       console.log(`  Notion: 登録完了 ${url}`);

@@ -25,6 +25,10 @@ on:
         required: false
         default: false
         type: boolean
+      memo:
+        description: 'Notionメモ欄に記載するテキスト'
+        required: false
+        type: string
   repository_dispatch:
     types: [analyze-full]
 
@@ -55,11 +59,13 @@ jobs:
             MODEL="${{ github.event.inputs.model }}"
             ALL_DOCS="${{ github.event.inputs.all_docs }}"
             FORCE="${{ github.event.inputs.force }}"
+            MEMO="${{ github.event.inputs.memo }}"
           else
             SYMBOLS="${{ github.event.client_payload.symbols }}"
             MODEL="${{ github.event.client_payload.model }}"
             ALL_DOCS="${{ github.event.client_payload.all_docs }}"
             FORCE="${{ github.event.client_payload.force }}"
+            MEMO="${{ github.event.client_payload.memo }}"
           fi
 
           MODEL="${MODEL:-flash}"
@@ -73,12 +79,16 @@ jobs:
           if [ "$FORCE" = "true" ]; then
             ARGS="$ARGS --force"
           fi
+          if [ -n "$MEMO" ]; then
+            ARGS="$ARGS --memo \"$MEMO\""
+          fi
 
           echo "=== Analyze Full ==="
           echo "Symbols: $SYMBOLS"
           echo "Model: $MODEL"
           echo "All docs: $ALL_DOCS"
           echo "Force: $FORCE"
+          echo "Memo: $MEMO"
           echo ""
 
-          npx tsx scripts/analyze-full.ts $ARGS
+          eval npx tsx scripts/analyze-full.ts $ARGS
