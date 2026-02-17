@@ -238,6 +238,7 @@ function extractJsonBlock(text: string): AnalysisResult | null {
       riskFactor: parsed.riskFactor ?? "",
       catalyst: parsed.catalyst ?? "",
       summary: parsed.summary ?? "",
+      validatedAt: new Date().toISOString(),
     };
   } catch {
     return null;
