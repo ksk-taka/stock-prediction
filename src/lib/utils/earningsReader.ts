@@ -14,10 +14,10 @@ import { join } from "path";
 const EARNINGS_DIR = join(process.cwd(), "data", "earnings");
 
 /** 資料の種類（優先順位順） */
-const DOC_PRIORITIES = ["決算短信", "説明資料", "半期報", "有報"] as const;
-type DocType = (typeof DOC_PRIORITIES)[number];
+export const DOC_PRIORITIES = ["決算短信", "説明資料", "半期報", "有報"] as const;
+export type DocType = (typeof DOC_PRIORITIES)[number];
 
-interface ParsedFile {
+export interface ParsedFile {
   filename: string;
   type: DocType | "other";
   date: string;
@@ -26,7 +26,7 @@ interface ParsedFile {
 /**
  * 銘柄コードから決算資料フォルダを探す
  */
-function findEarningsDir(symbol: string): string | null {
+export function findEarningsDir(symbol: string): string | null {
   const code = symbol.replace(".T", "");
   if (!existsSync(EARNINGS_DIR)) return null;
 
@@ -38,7 +38,7 @@ function findEarningsDir(symbol: string): string | null {
 /**
  * ファイル名を解析して種類と日付を取得
  */
-function parseFilename(filename: string): ParsedFile {
+export function parseFilename(filename: string): ParsedFile {
   const typeMatch = DOC_PRIORITIES.find((t) => filename.startsWith(t + "_"));
   const dateMatch = filename.match(/_(\d{4}-\d{2}-\d{2})_/);
 

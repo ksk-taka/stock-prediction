@@ -70,8 +70,20 @@ async function main() {
   const period1 = sixMonthsAgo.toISOString().slice(0, 10);
   const period2 = new Date().toISOString().slice(0, 10);
 
-  // データ取得
-  const [quote, summary, chart] = await Promise.all([
+  // 配当履歴の取得期間（6年分）
+  const sixYearsAgo = new Date();
+  sixYearsAgo.setFullYear(sixYearsAgo.getFullYear() - 6);
+
+  // バランスシートの取得期間（1年分）
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+  // シャープレシオ用: 3年分チャート
+  const threeYearsAgo = new Date();
+  threeYearsAgo.setFullYear(threeYearsAgo.getFullYear() - 3);
+
+  // データ取得（quote, summary, chart6m, chart3y, バランスシート, 配当履歴）
+  const [quote, summary, chart, chart3y, bsResult, dividendHistory] = await Promise.all([
     yf.quote(symbol),
     yf.quoteSummary(symbol, {
       modules: [
@@ -82,6 +94,17 @@ async function main() {
       ],
     }),
     yf.chart(symbol, { period1, period2, interval: "1d" as const }),
+    yf.chart(symbol, { period1: threeYearsAgo.toISOString().slice(0, 10), period2, interval: "1d" as const }).catch(() => null),
+    yf.fundamentalsTimeSeries(symbol, {
+      period1: oneYearAgo,
+      type: "quarterly" as const,
+      module: "balance-sheet" as const,
+    }).catch(() => []),
+    yf.historical(symbol, {
+      period1: sixYearsAgo,
+      period2: new Date(),
+      events: "dividends" as "dividends",
+    }).catch(() => []),
   ]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -135,6 +158,110 @@ async function main() {
   const industry = ap.industry ?? "";
   const sector = ap.sector ?? "";
   const businessSummary = ap.longBusinessSummary ?? "";
+
+  // ---------- シャープレシオ算出（半年/1年/3年） ----------
+
+  function calcSharpe(closes: number[]): number | null {
+    if (closes.length < 20) return null;
+    const returns: number[] = [];
+    for (let i = 1; i < closes.length; i++) {
+      returns.push((closes[i] - closes[i - 1]) / closes[i - 1]);
+    }
+    const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
+    const variance =
+      returns.reduce((a, r) => a + (r - mean) ** 2, 0) / (returns.length - 1);
+    const stdDev = Math.sqrt(variance);
+    if (stdDev === 0) return null;
+    return Math.round((mean / stdDev) * Math.sqrt(252) * 100) / 100;
+  }
+
+  // 3年分のcloseを取得（chart3yから）、期間ごとにスライス
+  const allCloses = (chart3y?.quotes ?? [])
+    .map((r) => ({ date: new Date(r.date), close: r.close }))
+    .filter((r): r is { date: Date; close: number } => r.close != null && r.close > 0)
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  const now = new Date();
+  const cutoff6m = new Date(now); cutoff6m.setMonth(cutoff6m.getMonth() - 6);
+  const cutoff1y = new Date(now); cutoff1y.setFullYear(cutoff1y.getFullYear() - 1);
+
+  const closes6m = allCloses.filter((r) => r.date >= cutoff6m).map((r) => r.close);
+  const closes1y = allCloses.filter((r) => r.date >= cutoff1y).map((r) => r.close);
+  const closes3y = allCloses.map((r) => r.close);
+
+  const sharpe6m = calcSharpe(closes6m);
+  const sharpe1y = calcSharpe(closes1y);
+  const sharpe3y = calcSharpe(closes3y);
+
+  // ---------- NC比率・CNPER計算 ----------
+
+  let ncRatio: number | null = null;
+  let cnper: number | null = null;
+
+  if (bsResult && bsResult.length > 0 && marketCap > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const bs = bsResult[bsResult.length - 1] as any;
+    const currentAssets = (bs.currentAssets as number) ?? 0;
+    const investmentInFA =
+      (bs.investmentinFinancialAssets as number) ??
+      (bs.availableForSaleSecurities as number) ??
+      (bs.investmentsAndAdvances as number) ??
+      0;
+    const totalLiabilities = (bs.totalLiabilitiesNetMinorityInterest as number) ?? 0;
+
+    if (currentAssets !== 0 || totalLiabilities !== 0) {
+      const netCash = currentAssets + investmentInFA * 0.7 - totalLiabilities;
+      ncRatio = Math.round((netCash / marketCap) * 1000) / 10;
+      if (per != null) {
+        cnper = Math.round(per * (1 - ncRatio / 100) * 100) / 100;
+      }
+    }
+  }
+
+  // ---------- 増配傾向算出 ----------
+
+  let dividendTrendText = "N/A";
+  {
+    const divRows = (dividendHistory as unknown as { date: Date; dividends: number }[]) ?? [];
+    const validDivs = Array.isArray(divRows) ? divRows.filter((r) => r.dividends > 0) : [];
+
+    if (validDivs.length >= 2) {
+      // 年ごとに合算（日本株は中間+期末の年2回）
+      const byYear = new Map<number, number>();
+      for (const d of validDivs) {
+        const year = new Date(d.date).getFullYear();
+        byYear.set(year, (byYear.get(year) ?? 0) + d.dividends);
+      }
+      const years = [...byYear.entries()].sort((a, b) => b[0] - a[0]);
+
+      if (years.length >= 2) {
+        // 連続増配年数
+        let consecutive = 0;
+        for (let i = 0; i < years.length - 1; i++) {
+          if (years[i][1] > years[i + 1][1]) {
+            consecutive++;
+          } else {
+            break;
+          }
+        }
+        // 直近増配率
+        const latestGrowthPct = years[1][1] > 0
+          ? Math.round(((years[0][1] - years[1][1]) / years[1][1]) * 1000) / 10
+          : null;
+
+        // 各年の配当額
+        const yearDetails = years.slice(0, 5).map(([y, amt]) => `${y}年: ${fmt(amt)}円`).join(", ");
+
+        if (consecutive >= 1) {
+          dividendTrendText = `${consecutive}年連続増配 (直近${latestGrowthPct != null ? (latestGrowthPct > 0 ? "+" : "") + latestGrowthPct : "N/A"}%) [${yearDetails}]`;
+        } else if (latestGrowthPct != null && latestGrowthPct < 0) {
+          dividendTrendText = `直近減配 (${latestGrowthPct}%) [${yearDetails}]`;
+        } else {
+          dividendTrendText = `横ばいまたは不定期 [${yearDetails}]`;
+        }
+      }
+    }
+  }
 
   // 決算日
   const earningsDate = cal.earnings?.earningsDate?.[0];
@@ -261,6 +388,12 @@ async function main() {
 - D/Eレシオ: ${debtToEquity != null ? fmt(debtToEquity) : "N/A"}
 - 流動比率: ${currentRatio != null ? fmt(currentRatio) + "倍" : "N/A"}
 - フリーキャッシュフロー: ${freeCashflow != null ? fmtYen(freeCashflow) : "N/A"}
+
+# 資本効率・キャッシュ
+- ネットキャッシュ比率: ${ncRatio != null ? fmt(ncRatio) + "%" : "N/A"}${ncRatio != null ? ` (= (流動資産 + 投資有価証券×70% − 総負債) / 時価総額)` : ""}
+- CNPER（キャッシュニュートラルPER）: ${cnper != null ? fmt(cnper, 2) + "倍" : "N/A"}${cnper != null ? ` (= PER × (1 − NC比率))` : ""}
+- 増配傾向: ${dividendTrendText}
+- シャープレシオ: 6ヶ月 ${sharpe6m != null ? fmt(sharpe6m, 2) : "N/A"} / 1年 ${sharpe1y != null ? fmt(sharpe1y, 2) : "N/A"} / 3年 ${sharpe3y != null ? fmt(sharpe3y, 2) : "N/A"} (> 1.0 で優秀、< 0 はリターン負)
 `;
 
   // アナリスト
@@ -309,28 +442,51 @@ async function main() {
   // 分析依頼
   prompt += `
 # 分析してほしいこと
-1. 業績の現状と見通し（決算資料があれば参照）
-2. バリュエーション面の評価（割安/割高/適正）
-3. チャートのトレンドと需給分析
-4. 業界/セクターの動向とこの銘柄への影響
-5. リスク要因の洗い出し
-6. 総合的な投資判断: Go（買い推奨）/ No Go（見送り）/ 様子見、その理由
+1. **業績の現状と見通し**（決算資料があれば参照）
+2. **バリュエーション面の評価**（割安/割高/適正）
+   - 通常PERだけでなく、**CNPER（キャッシュニュートラルPER）**も考慮すること
+   - CNPER = PER ×（1 − ネットキャッシュ比率）。NC比率が高い＝手元現金が厚い＝実質的なPERはもっと低い
+   - CNPER < 5倍なら超割安圏。ただしROEが低い場合は「万年バリュートラップ」のリスクあり
+3. **増配傾向と株主還元**
+   - 連続増配年数、直近の増配率、配当性向を評価
+   - 3年以上連続増配は経営陣のコミットメントと業績安定性を示す強いプラス材料
+   - 逆に減配は業績悪化のシグナル。自社株買いの有無も確認
+4. **シャープエッジ（競争優位性）の有無**
+   - この企業は同業他社に対して明確な「尖った強み」を持っているか？
+   - 参入障壁（特許・技術・ブランド・規制・スイッチングコスト）、ニッチトップ、独占的市場ポジション
+   - シャープエッジがある企業は一時的な株価下落後の回復力が強い
+   - シャープエッジが不明確ならコモディティ化リスクを指摘
+5. **リスク調整後リターン（シャープレシオ）**
+   - シャープレシオ > 1.0 はリスクに見合ったリターンが出ている優秀な銘柄
+   - シャープレシオ < 0 はリターンが負でリスクを取る意味がない状態
+   - ボラティリティが高い銘柄はシャープレシオが低くなりやすい。安定成長株との比較材料に
+6. **チャートのトレンドと需給分析**
+7. **業界/セクターの動向**とこの銘柄への影響
+8. **リスク要因の洗い出し**
+9. **総合的な投資判断**: Go（買い推奨）/ No Go（見送り）/ 様子見、その理由
 `;
 
-  // 出力
-  if (copyToClipboard) {
-    try {
-      const { execSync } = await import("child_process");
-      // Windows: clip, macOS: pbcopy
-      const cmd =
-        process.platform === "win32" ? "clip" : "pbcopy";
-      execSync(cmd, { input: prompt });
-      console.error(`[info] プロンプトをクリップボードにコピーしました (${prompt.length.toLocaleString()}文字)`);
-    } catch {
-      console.error("[warn] クリップボードコピーに失敗。標準出力に出力します。");
-      console.log(prompt);
-    }
-  } else {
+  // ファイル保存
+  const { writeFileSync, mkdirSync } = await import("fs");
+  const { join } = await import("path");
+  const code = symbol.replace(".T", "");
+  const outDir = join(process.cwd(), "data", "prompts");
+  mkdirSync(outDir, { recursive: true });
+  const outPath = join(outDir, `${code}.md`);
+  writeFileSync(outPath, prompt, "utf-8");
+  console.error(`[info] ファイル保存: ${outPath}`);
+
+  // クリップボードコピー
+  try {
+    const { execSync } = await import("child_process");
+    const cmd = process.platform === "win32" ? "clip" : "pbcopy";
+    execSync(cmd, { input: prompt });
+    console.error(`[info] クリップボードにもコピーしました`);
+  } catch {
+    // クリップボード失敗は無視
+  }
+
+  if (!copyToClipboard) {
     console.log(prompt);
   }
 

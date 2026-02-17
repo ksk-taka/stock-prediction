@@ -8,6 +8,10 @@ export interface CupMeta {
   leftRimHigh: number;
   bottomLow: number;
   rightRimHigh: number;
+  cupDays?: number;
+  depthPct?: number;
+  handleDays?: number;
+  pullbackPct?: number;
 }
 
 export interface BuySignal {
@@ -148,6 +152,11 @@ export function detectCupWithHandle(data: PriceData[]): BuySignal[] {
   const HANDLE_MIN_DAYS = 3;
   const HANDLE_MAX_DAYS = 25;
   const HANDLE_MAX_PULLBACK = 0.12;
+  const BREAKOUT_VOL_RATIO = 1.5;    // ブレイクアウト出来高 >= 20日平均の1.5倍
+  const REQUIRE_52W_HIGH = true;     // ブレイクアウト時に52週高値も更新していること
+  const UPTREND_MA_SHORT = 50;       // 短期MA期間
+  const UPTREND_MA_LONG = 200;       // 長期MA期間
+  const REQUIRE_UPTREND = true;      // 50MA > 200MA で上昇トレンド判定
 
   // ローカルピーク検出（前後5本で最高値）
   const PEAK_W = 5;
@@ -170,6 +179,15 @@ export function detectCupWithHandle(data: PriceData[]): BuySignal[] {
 
       const leftHigh = data[leftIdx].high;
       const rightHigh = data[rightIdx].high;
+
+      // 上昇トレンド判定: 左リム > 50MA かつ 50MA > 200MA
+      if (REQUIRE_UPTREND && leftIdx >= UPTREND_MA_LONG) {
+        const ma50Sum = data.slice(leftIdx - UPTREND_MA_SHORT, leftIdx).reduce((s, d) => s + d.close, 0);
+        const ma200Sum = data.slice(leftIdx - UPTREND_MA_LONG, leftIdx).reduce((s, d) => s + d.close, 0);
+        const ma50 = ma50Sum / UPTREND_MA_SHORT;
+        const ma200 = ma200Sum / UPTREND_MA_LONG;
+        if (leftHigh < ma50 || ma50 <= ma200) continue;
+      }
 
       // リム高さの類似チェック
       const rimDiff = Math.abs(leftHigh - rightHigh) / Math.max(leftHigh, rightHigh);
@@ -203,8 +221,20 @@ export function detectCupWithHandle(data: PriceData[]): BuySignal[] {
         if (pullback > HANDLE_MAX_PULLBACK) break;   // 押し目が深すぎ
         if (pullback < 0.01) continue;                // 押し目が浅すぎ
 
-        // ブレイクアウト: 陽線で右リムを上抜け
+        // ブレイクアウト: 陽線で右リムを上抜け + 出来高急増
         if (data[h].close > rightHigh && data[h].close > data[h].open) {
+          const volStart = Math.max(0, h - 20);
+          const avgVol = data.slice(volStart, h).reduce((s, d) => s + d.volume, 0) / (h - volStart);
+          if (avgVol > 0 && data[h].volume < avgVol * BREAKOUT_VOL_RATIO) continue;
+          // 52週高値ブレイクチェック: ブレイクアウト日の終値が過去252日の最高値以上
+          if (REQUIRE_52W_HIGH) {
+            const lookback52w = Math.max(0, h - 252);
+            let high52w = 0;
+            for (let k = lookback52w; k < h; k++) {
+              if (data[k].high > high52w) high52w = data[k].high;
+            }
+            if (data[h].close < high52w) continue;
+          }
           signals.push({
             index: h,
             date: data[h].date,
@@ -219,6 +249,10 @@ export function detectCupWithHandle(data: PriceData[]): BuySignal[] {
               leftRimHigh: leftHigh,
               bottomLow,
               rightRimHigh: rightHigh,
+              cupDays,
+              depthPct: depth * 100,
+              handleDays: h - rightIdx,
+              pullbackPct: pullback * 100,
             },
           });
           break;

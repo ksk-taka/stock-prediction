@@ -16,6 +16,7 @@
 //   npx tsx scripts/fetch-earnings.ts --kabutan-only   # Kabutanのみ
 //   npx tsx scripts/fetch-earnings.ts --tdnet-only     # TDnetのみ
 //   npx tsx scripts/fetch-earnings.ts --edinet-only    # EDINETのみ
+//   npx tsx scripts/fetch-earnings.ts --group "CNPER低" # 特定グループのみ
 //   npx tsx scripts/fetch-earnings.ts --count 4        # 直近4件ずつ
 //   npx tsx scripts/fetch-earnings.ts --days 365       # EDINET検索期間
 //   npx tsx scripts/fetch-earnings.ts --tdnet-days 60  # TDnet検索期間
@@ -42,6 +43,7 @@ const EDINET_CONCURRENCY = 5;
 
 interface CLIArgs {
   symbol?: string;
+  group?: string;
   kabutanOnly: boolean;
   tdnetOnly: boolean;
   edinetOnly: boolean;
@@ -59,6 +61,7 @@ function parseArgs(): CLIArgs {
   };
   return {
     symbol: get("--symbol"),
+    group: get("--group"),
     kabutanOnly: args.includes("--kabutan-only"),
     tdnetOnly: args.includes("--tdnet-only"),
     edinetOnly: args.includes("--edinet-only"),
@@ -134,6 +137,53 @@ async function getFavoriteStocks(supabase: SupabaseClient): Promise<StockInfo[]>
     if (rows.length < PAGE_SIZE) break;
   }
 
+  return allStocks;
+}
+
+async function getGroupStocks(supabase: SupabaseClient, groupName: string): Promise<StockInfo[]> {
+  const userId = process.env.SUPABASE_TARGET_USER_ID;
+  if (!userId) throw new Error("SUPABASE_TARGET_USER_ID が必要です");
+
+  // グループID取得
+  const { data: group, error: gErr } = await supabase
+    .from("watchlist_groups")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("name", groupName)
+    .single();
+  if (gErr || !group) throw new Error(`グループ「${groupName}」が見つかりません`);
+
+  // メンバーシップからシンボル取得
+  const PAGE_SIZE = 1000;
+  const symbols: string[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("stock_group_memberships")
+      .select("symbol")
+      .eq("user_id", userId)
+      .eq("group_id", group.id)
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    const rows = (data ?? []) as Array<{ symbol: string }>;
+    symbols.push(...rows.map((r) => r.symbol));
+    if (rows.length < PAGE_SIZE) break;
+  }
+
+  // 銘柄名を取得
+  const allStocks: StockInfo[] = [];
+  for (let i = 0; i < symbols.length; i += PAGE_SIZE) {
+    const batch = symbols.slice(i, i + PAGE_SIZE);
+    const { data, error } = await supabase
+      .from("stocks")
+      .select("symbol, name")
+      .eq("user_id", userId)
+      .in("symbol", batch);
+    if (error) throw error;
+    allStocks.push(...(data ?? []) as StockInfo[]);
+  }
+
+  // シンボル順でソート
+  allStocks.sort((a, b) => a.symbol.localeCompare(b.symbol));
   return allStocks;
 }
 
@@ -528,6 +578,10 @@ async function main() {
   let stocks: StockInfo[];
   if (opts.symbol) {
     stocks = [{ symbol: opts.symbol, name: opts.symbol }];
+  } else if (opts.group) {
+    const supabase = createServiceClient();
+    stocks = await getGroupStocks(supabase, opts.group);
+    console.log(`グループ「${opts.group}」: ${stocks.length}銘柄`);
   } else {
     const supabase = createServiceClient();
     stocks = await getFavoriteStocks(supabase);

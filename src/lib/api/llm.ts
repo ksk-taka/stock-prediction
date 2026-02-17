@@ -403,10 +403,13 @@ export async function validateSignal(
     pbr: number | null;
     roe: number | null;
     dividendYield: number | null;
+    ncRatio?: number | null;
+    cnper?: number | null;
+    dividendTrend?: string | null;
   },
   perplexitySummary: string
 ): Promise<SignalValidation> {
-  const fmt = (v: number | null, suffix: string) =>
+  const fmt = (v: number | null | undefined, suffix: string) =>
     v != null ? `${v}${suffix}` : "N/A";
 
   const prompt = `あなたは「テクニカルとファンダメンタルズを統合して判断する」ポートフォリオマネージャーです。
@@ -425,23 +428,41 @@ ${signal.confidence ? `* **信頼度**: ${signal.confidence}` : ""}
 * PBR: ${fmt(stats.pbr, "倍")}
 * ROE: ${stats.roe != null ? fmt(Math.round(stats.roe * 1000) / 10, "%") : "N/A"}
 * 配当利回り: ${stats.dividendYield != null ? fmt(Math.round(stats.dividendYield * 1000) / 10, "%") : "N/A"}
+* ネットキャッシュ比率: ${fmt(stats.ncRatio, "%")}
+* CNPER（キャッシュニュートラルPER）: ${fmt(stats.cnper, "倍")}
+* 増配傾向: ${stats.dividendTrend ?? "N/A"}
 
-### 3. 定性情報（Perplexity調査結果）
+### 3. 定性情報（Web調査結果）
 ${perplexitySummary}
 
 ### 4. 最終判定タスク
 以下のロジックで「Go / No Go」を判定せよ。
 
 **Step 1: 「落ちるナイフ」チェック**
-* テクニカルは「買い」と言っているが、Perplexityの情報に「決算ミス」「不祥事」「減配」などの**明確な悪材料**はないか？
+* テクニカルは「買い」と言っているが、調査情報に「決算ミス」「不祥事」「減配」などの**明確な悪材料**はないか？
 * 悪材料がある場合、シグナルは「一時的なリバウンド（ダマシ）」の可能性が高い。
 
 **Step 2: 「田端メソッド」適合チェック**
 * PBR × PER × ROE の観点で、株価が上昇する余地（割安是正や成長）があるか？
 * 特に「PBR1倍割れ」かつ「改善策あり」の場合、テクニカルの買いシグナルは**特大のチャンス**となる。
 
-**Step 3: 結論**
-* テクニカルのシグナルに乗るべきか、見送るべきか。
+**Step 3: CNPER（キャッシュニュートラルPER）による本質的割安度**
+* CNPER = PER ×（1 − ネットキャッシュ比率）。ネットキャッシュ（流動資産＋投資有価証券×70%−総負債）が時価総額に対して大きいほど、実質的なPERは低い。
+* CNPER < 5倍 → 超割安（企業価値を現金が大きくカバー）。CNPER < 0 → 時価総額以上のネットキャッシュ保有。
+* CNPERが低くてもROEが低い場合は「万年バリュートラップ」のリスクあり。ROE改善のカタリストがあるか確認せよ。
+
+**Step 4: 増配傾向チェック**
+* 連続増配は経営陣の株主還元の本気度と業績安定性を示す。3年以上連続増配なら強いプラス材料。
+* 逆に直近で減配していれば、業績悪化のシグナル。「落ちるナイフ」と併せて判断せよ。
+
+**Step 5: シャープエッジ（競争優位性）チェック**
+* 定性情報から、同業他社に対する明確な「シャープエッジ（尖った強み）」があるか確認せよ。
+* 参入障壁（特許・技術・ブランド・規制・スイッチングコスト）、ニッチトップ、独占的市場ポジション、等。
+* シャープエッジがある企業は、一時的な株価下落後の回復力が強い。テクニカル買いシグナルの信頼度を高める。
+* シャープエッジが不明確な場合は、コモディティ化リスクや競争激化リスクを指摘せよ。
+
+**Step 6: 結論**
+* 上記すべてを統合して、テクニカルのシグナルに乗るべきか、見送るべきか。
 
 ### 5. 出力フォーマット
 余計な前置きは省略し、以下のJSON形式のみで出力してください。
