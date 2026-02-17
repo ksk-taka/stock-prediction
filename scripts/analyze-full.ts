@@ -341,11 +341,13 @@ async function analyzeSymbol(
 
   // ── Step 3: PDFがなければダウンロード → 再読み込み ──
   if (pdfs.length === 0 && !skipDownload) {
-    console.log("\n[3/5] PDFなし → 決算資料ダウンロード中...");
+    const dlFlag = allDocs ? "" : " --kabutan-only";
+    const dlTimeout = allDocs ? 180_000 : 120_000; // 全ソースは3分
+    console.log(`\n[3/5] PDFなし → 決算資料ダウンロード中...${allDocs ? "（全ソース）" : "（Kabutanのみ）"}`);
     try {
       execSync(
-        `npx tsx scripts/fetch-earnings.ts --symbol ${symbol} --kabutan-only`,
-        { stdio: "pipe", timeout: 120_000 },
+        `npx tsx scripts/fetch-earnings.ts --symbol ${symbol}${dlFlag}`,
+        { stdio: "pipe", timeout: dlTimeout },
       );
       // 再読み込み
       pdfs = loadEarningsPdfs(symbol, { includeTypes });
