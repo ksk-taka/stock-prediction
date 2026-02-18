@@ -71,26 +71,24 @@ OHLCVデータと移動平均線から読み取れるトレンドと需給を分
 ### 7. 総合判定
 上記すべてを踏まえた結論を述べた後、以下のJSONブロックを**必ず**出力してください。
 
-判定は3つの投資期間で別々に評価してください：
-- **短期（数日〜2週間）**: テクニカル・需給重視。チャートパターン、出来高、移動平均線からの乖離を重視
-- **中期（2週間〜2ヶ月）**: 決算カタリスト・バリュエーション重視。直近決算と次回決算までのイベントを考慮
-- **長期（2ヶ月以上）**: ファンダメンタルズ・成長性重視。事業の競争優位性、成長ドライバー、割安度を重視
+判定は3つの投資期間で別々に評価し、**各期間ごとに推奨売買価格も提示**してください：
+- **短期（〜3日）**: テクニカル・需給重視。日足チャートパターン、出来高急変、板の厚みを重視。利確・損切はタイトに設定
+- **中期（3日〜2ヶ月）**: 決算カタリスト・バリュエーション重視。直近決算と次回決算までのイベントを考慮。スイングトレード目線
+- **長期（2ヶ月〜1年）**: ファンダメンタルズ・成長性重視。事業の競争優位性、成長ドライバー、割安度を重視。損切は広めに設定
 
-また、推奨売買価格を提示してください：
-- **buyPrice**: 現在の株価やチャートから判断した推奨買い値（指値）。直近サポートラインや出来高の厚い価格帯を参考に
-- **takeProfitPrice**: 利確目標価格。直近レジスタンスラインや目標バリュエーションから算出
-- **stopLossPrice**: 損切ライン。原則として買値の約-8%を基準に、サポートライン割れ等を考慮して設定
+推奨価格の考え方：
+- **buyPrice**: 現在の株価やチャートから判断した推奨買い値（指値）
+- **takeProfitPrice**: 利確目標価格
+- **stopLossPrice**: 損切ライン
+- 短期は買値から±2-5%程度、中期は±5-15%程度、長期は±10-25%程度を目安に
 
 \`\`\`json
 {
-  "shortTerm": "entry または wait または avoid",
-  "midTerm": "entry または wait または avoid",
-  "longTerm": "entry または wait または avoid",
+  "shortTerm": { "decision": "entry/wait/avoid", "buyPrice": 数値, "takeProfitPrice": 数値, "stopLossPrice": 数値 },
+  "midTerm": { "decision": "entry/wait/avoid", "buyPrice": 数値, "takeProfitPrice": 数値, "stopLossPrice": 数値 },
+  "longTerm": { "decision": "entry/wait/avoid", "buyPrice": 数値, "takeProfitPrice": 数値, "stopLossPrice": 数値 },
   "confidence": "high または medium または low",
   "summary": "100字程度の結論",
-  "buyPrice": 推奨買値（数値）,
-  "takeProfitPrice": 利確目標（数値）,
-  "stopLossPrice": 損切ライン（数値）,
   "signalEvaluation": "テクニカルとファンダメンタルズの整合性",
   "catalyst": "上昇カタリスト",
   "riskFactor": "主要リスク"
@@ -212,14 +210,34 @@ function extractQuantFromPrompt(prompt: string) {
   };
 }
 
-interface AnalysisResult extends SignalValidation {
-  confidence?: string;
-  shortTerm?: string;
-  midTerm?: string;
-  longTerm?: string;
+interface PeriodPrices {
+  decision?: string;
   buyPrice?: number;
   takeProfitPrice?: number;
   stopLossPrice?: number;
+}
+
+interface AnalysisResult extends SignalValidation {
+  confidence?: string;
+  shortTerm?: PeriodPrices;
+  midTerm?: PeriodPrices;
+  longTerm?: PeriodPrices;
+}
+
+function parsePeriod(val: unknown): PeriodPrices | undefined {
+  if (!val) return undefined;
+  // 新フォーマット: { decision, buyPrice, ... }
+  if (typeof val === "object") {
+    const obj = val as Record<string, unknown>;
+    return {
+      decision: String(obj.decision ?? "wait"),
+      buyPrice: typeof obj.buyPrice === "number" ? obj.buyPrice : undefined,
+      takeProfitPrice: typeof obj.takeProfitPrice === "number" ? obj.takeProfitPrice : undefined,
+      stopLossPrice: typeof obj.stopLossPrice === "number" ? obj.stopLossPrice : undefined,
+    };
+  }
+  // 旧フォーマット: 文字列 "entry" / "wait" / "avoid"
+  return { decision: String(val) };
 }
 
 function extractJsonBlock(text: string): AnalysisResult | null {
@@ -227,17 +245,19 @@ function extractJsonBlock(text: string): AnalysisResult | null {
   if (!match) return null;
   try {
     const parsed = JSON.parse(match[1]);
+
+    const shortTerm = parsePeriod(parsed.shortTerm);
+    const midTerm = parsePeriod(parsed.midTerm);
+    const longTerm = parsePeriod(parsed.longTerm);
+
     // 後方互換: 旧フォーマットのdecisionも受け付ける
-    const decision = parsed.decision ?? parsed.midTerm ?? "wait";
+    const decision = parsed.decision ?? midTerm?.decision ?? "wait";
     return {
       decision,
       confidence: parsed.confidence,
-      shortTerm: parsed.shortTerm,
-      midTerm: parsed.midTerm,
-      longTerm: parsed.longTerm,
-      buyPrice: parsed.buyPrice,
-      takeProfitPrice: parsed.takeProfitPrice,
-      stopLossPrice: parsed.stopLossPrice,
+      shortTerm,
+      midTerm,
+      longTerm,
       signalEvaluation: parsed.signalEvaluation ?? parsed.summary ?? "",
       riskFactor: parsed.riskFactor ?? "",
       catalyst: parsed.catalyst ?? "",
@@ -413,15 +433,12 @@ async function analyzeSymbol(
     setCachedValidation(symbol, "full_analysis", validation);
     const dl = (d: string | undefined) =>
       d === "entry" ? "GO ✅" : d === "avoid" ? "AVOID ❌" : "WAIT ⏳";
+    const priceStr = (p: PeriodPrices | undefined) =>
+      p?.buyPrice ? `買 ¥${p.buyPrice.toLocaleString()} / 利確 ¥${(p.takeProfitPrice ?? 0).toLocaleString()} / 損切 ¥${(p.stopLossPrice ?? 0).toLocaleString()}` : "";
     console.log(`\n${"─".repeat(50)}`);
-    console.log(`  短期判定: ${dl(validation.shortTerm)}`);
-    console.log(`  中期判定: ${dl(validation.midTerm)}`);
-    console.log(`  長期判定: ${dl(validation.longTerm)}`);
-    if (validation.buyPrice) {
-      console.log(
-        `  推奨価格: 買値 ¥${validation.buyPrice.toLocaleString()} / 利確 ¥${(validation.takeProfitPrice ?? 0).toLocaleString()} / 損切 ¥${(validation.stopLossPrice ?? 0).toLocaleString()}`,
-      );
-    }
+    console.log(`  短期判定: ${dl(validation.shortTerm?.decision)}  ${priceStr(validation.shortTerm)}`);
+    console.log(`  中期判定: ${dl(validation.midTerm?.decision)}  ${priceStr(validation.midTerm)}`);
+    console.log(`  長期判定: ${dl(validation.longTerm?.decision)}  ${priceStr(validation.longTerm)}`);
     console.log(`  概要: ${validation.summary}`);
     console.log(`  カタリスト: ${validation.catalyst}`);
     console.log(`  リスク: ${validation.riskFactor}`);
@@ -502,12 +519,18 @@ async function analyzeSymbol(
         earningsDate: quant.earningsDate,
         marketSegment,
         hasYutai,
-        shortTerm: validation.shortTerm as "entry" | "wait" | "avoid" | undefined,
-        midTerm: validation.midTerm as "entry" | "wait" | "avoid" | undefined,
-        longTerm: validation.longTerm as "entry" | "wait" | "avoid" | undefined,
-        buyPrice: validation.buyPrice,
-        takeProfitPrice: validation.takeProfitPrice,
-        stopLossPrice: validation.stopLossPrice,
+        shortTerm: validation.shortTerm?.decision as "entry" | "wait" | "avoid" | undefined,
+        midTerm: validation.midTerm?.decision as "entry" | "wait" | "avoid" | undefined,
+        longTerm: validation.longTerm?.decision as "entry" | "wait" | "avoid" | undefined,
+        shortTermBuy: validation.shortTerm?.buyPrice,
+        shortTermTP: validation.shortTerm?.takeProfitPrice,
+        shortTermSL: validation.shortTerm?.stopLossPrice,
+        midTermBuy: validation.midTerm?.buyPrice,
+        midTermTP: validation.midTerm?.takeProfitPrice,
+        midTermSL: validation.midTerm?.stopLossPrice,
+        longTermBuy: validation.longTerm?.buyPrice,
+        longTermTP: validation.longTerm?.takeProfitPrice,
+        longTermSL: validation.longTerm?.stopLossPrice,
         memo: memoArg,
       };
       const { url } = await createAnalysisPage(notionEntry);

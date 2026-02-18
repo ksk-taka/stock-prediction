@@ -47,10 +47,16 @@ export interface NotionAnalysisEntry {
   shortTerm?: "entry" | "wait" | "avoid";
   midTerm?: "entry" | "wait" | "avoid";
   longTerm?: "entry" | "wait" | "avoid";
-  // 推奨価格
-  buyPrice?: number;
-  takeProfitPrice?: number;
-  stopLossPrice?: number;
+  // 推奨価格（期間別）
+  shortTermBuy?: number;
+  shortTermTP?: number;
+  shortTermSL?: number;
+  midTermBuy?: number;
+  midTermTP?: number;
+  midTermSL?: number;
+  longTermBuy?: number;
+  longTermTP?: number;
+  longTermSL?: number;
   // メモ
   memo?: string;
 }
@@ -136,9 +142,15 @@ function buildProperties(entry: NotionAnalysisEntry, includeTitle: boolean): Rec
     ["出来高倍率", entry.volumeRatio],
     ["自己資本比率", entry.equityRatio],
     ["もみ合い日数", entry.consolidationDays],
-    ["買値推奨", entry.buyPrice],
-    ["利確目標", entry.takeProfitPrice],
-    ["損切ライン", entry.stopLossPrice],
+    ["短期買値", entry.shortTermBuy],
+    ["短期利確", entry.shortTermTP],
+    ["短期損切", entry.shortTermSL],
+    ["中期買値", entry.midTermBuy],
+    ["中期利確", entry.midTermTP],
+    ["中期損切", entry.midTermSL],
+    ["長期買値", entry.longTermBuy],
+    ["長期利確", entry.longTermTP],
+    ["長期損切", entry.longTermSL],
   ];
   for (const [key, val] of numFields) {
     if (val != null && isFinite(val)) props[key] = { number: val };

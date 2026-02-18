@@ -89,14 +89,18 @@ OHLCVデータと移動平均線から読み取れるトレンドと需給を分
 
 // ---------- 型定義 ----------
 
-interface AnalysisResult extends SignalValidation {
-  confidence?: string;
-  shortTerm?: string;
-  midTerm?: string;
-  longTerm?: string;
+interface PeriodPrices {
+  decision?: string;
   buyPrice?: number;
   takeProfitPrice?: number;
   stopLossPrice?: number;
+}
+
+interface AnalysisResult extends SignalValidation {
+  confidence?: string;
+  shortTerm?: PeriodPrices;
+  midTerm?: PeriodPrices;
+  longTerm?: PeriodPrices;
 }
 
 // ---------- ユーティリティ ----------
@@ -191,17 +195,29 @@ function extractJsonBlock(text: string): AnalysisResult | null {
   if (!match) return null;
   try {
     const parsed = JSON.parse(match[1]);
-    // 後方互換: 旧フォーマットの decision も受け付ける
-    const decision = parsed.decision ?? parsed.midTerm ?? "wait";
+    const pp = (val: unknown): PeriodPrices | undefined => {
+      if (!val) return undefined;
+      if (typeof val === "object") {
+        const o = val as Record<string, unknown>;
+        return {
+          decision: String(o.decision ?? "wait"),
+          buyPrice: typeof o.buyPrice === "number" ? o.buyPrice : undefined,
+          takeProfitPrice: typeof o.takeProfitPrice === "number" ? o.takeProfitPrice : undefined,
+          stopLossPrice: typeof o.stopLossPrice === "number" ? o.stopLossPrice : undefined,
+        };
+      }
+      return { decision: String(val) };
+    };
+    const shortTerm = pp(parsed.shortTerm);
+    const midTerm = pp(parsed.midTerm);
+    const longTerm = pp(parsed.longTerm);
+    const decision = parsed.decision ?? midTerm?.decision ?? "wait";
     return {
       decision,
       confidence: parsed.confidence,
-      shortTerm: parsed.shortTerm,
-      midTerm: parsed.midTerm,
-      longTerm: parsed.longTerm,
-      buyPrice: parsed.buyPrice,
-      takeProfitPrice: parsed.takeProfitPrice,
-      stopLossPrice: parsed.stopLossPrice,
+      shortTerm,
+      midTerm,
+      longTerm,
       signalEvaluation: parsed.signalEvaluation ?? parsed.summary ?? "",
       riskFactor: parsed.riskFactor ?? "",
       catalyst: parsed.catalyst ?? "",
@@ -373,12 +389,18 @@ export async function POST(request: NextRequest) {
           earningsDate: quant.earningsDate,
           marketSegment,
           hasYutai,
-          shortTerm: validation.shortTerm as "entry" | "wait" | "avoid" | undefined,
-          midTerm: validation.midTerm as "entry" | "wait" | "avoid" | undefined,
-          longTerm: validation.longTerm as "entry" | "wait" | "avoid" | undefined,
-          buyPrice: validation.buyPrice,
-          takeProfitPrice: validation.takeProfitPrice,
-          stopLossPrice: validation.stopLossPrice,
+          shortTerm: validation.shortTerm?.decision as "entry" | "wait" | "avoid" | undefined,
+          midTerm: validation.midTerm?.decision as "entry" | "wait" | "avoid" | undefined,
+          longTerm: validation.longTerm?.decision as "entry" | "wait" | "avoid" | undefined,
+          shortTermBuy: validation.shortTerm?.buyPrice,
+          shortTermTP: validation.shortTerm?.takeProfitPrice,
+          shortTermSL: validation.shortTerm?.stopLossPrice,
+          midTermBuy: validation.midTerm?.buyPrice,
+          midTermTP: validation.midTerm?.takeProfitPrice,
+          midTermSL: validation.midTerm?.stopLossPrice,
+          longTermBuy: validation.longTerm?.buyPrice,
+          longTermTP: validation.longTerm?.takeProfitPrice,
+          longTermSL: validation.longTerm?.stopLossPrice,
         };
         const result = await createAnalysisPage(notionEntry);
         notionUrl = result.url;
@@ -401,9 +423,6 @@ export async function POST(request: NextRequest) {
       shortTerm: validation?.shortTerm,
       midTerm: validation?.midTerm,
       longTerm: validation?.longTerm,
-      buyPrice: validation?.buyPrice,
-      takeProfitPrice: validation?.takeProfitPrice,
-      stopLossPrice: validation?.stopLossPrice,
       summary: validation?.summary ?? "",
       catalyst: validation?.catalyst ?? "",
       riskFactor: validation?.riskFactor ?? "",
