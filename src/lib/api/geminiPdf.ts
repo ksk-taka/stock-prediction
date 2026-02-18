@@ -7,6 +7,10 @@
  * 対応モデル:
  *   - gemini-2.5-flash (無料250RPD)
  *   - gemini-2.5-pro   (無料100RPD)
+ *
+ * 複数APIキー対応:
+ *   GEMINI_API_KEY にカンマ区切りで複数キーを設定すると
+ *   ラウンドロビンでリクエストを分散（実質RPM倍増）
  */
 
 // ---------- 型定義 ----------
@@ -38,23 +42,36 @@ const MODEL_MAP: Record<string, string> = {
   pro: "gemini-2.5-pro",
 };
 
+// ---------- APIキー ラウンドロビン ----------
+
+let _keyIndex = 0;
+
+function getApiKeys(): string[] {
+  const raw = process.env.GEMINI_API_KEY ?? "";
+  const keys = raw.split(",").map((k) => k.trim()).filter(Boolean);
+  if (keys.length === 0) throw new Error("GEMINI_API_KEY is not set");
+  return keys;
+}
+
+function nextApiKey(): { key: string; index: number; total: number } {
+  const keys = getApiKeys();
+  const index = _keyIndex % keys.length;
+  _keyIndex++;
+  return { key: keys[index], index, total: keys.length };
+}
+
 // ---------- メイン関数 ----------
 
 export async function callGeminiWithPdf(
   input: GeminiPdfInput,
   options?: GeminiPdfOptions,
 ): Promise<GeminiPdfResponse> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
-
   const modelKey = options?.model ?? "flash";
   const modelId = MODEL_MAP[modelKey] ?? MODEL_MAP.flash;
   const temperature = options?.temperature ?? 0.1;
   const maxOutputTokens = options?.maxOutputTokens ?? 65536;
   const timeoutMs = options?.timeoutMs ?? 300_000; // 5分
   const maxRetries = options?.maxRetries ?? 5;
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`;
 
   // リクエストボディ構築
   const parts: Array<Record<string, unknown>> = [
@@ -72,8 +89,12 @@ export async function callGeminiWithPdf(
     });
   }
 
+  const { total: keyCount } = nextApiKey();
+  // インデックスを戻す（ログ用に先読みしただけ）
+  _keyIndex--;
+
   console.log(
-    `[GeminiPdf] モデル: ${modelId}, PDF: ${input.pdfs.length}件 (${(totalPdfBytes / 1024 / 1024).toFixed(1)}MB), プロンプト: ${input.textPrompt.length.toLocaleString()}文字`,
+    `[GeminiPdf] モデル: ${modelId}, PDF: ${input.pdfs.length}件 (${(totalPdfBytes / 1024 / 1024).toFixed(1)}MB), プロンプト: ${input.textPrompt.length.toLocaleString()}文字${keyCount > 1 ? `, APIキー: ${keyCount}本` : ""}`,
   );
 
   const body: Record<string, unknown> = {
@@ -93,6 +114,10 @@ export async function callGeminiWithPdf(
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     const remaining = deadline - Date.now();
     if (remaining <= 0) throw new Error("[GeminiPdf] タイムアウト");
+
+    // ラウンドロビンでキー選択
+    const { key, index } = nextApiKey();
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${key}`;
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), remaining);
@@ -115,7 +140,7 @@ export async function callGeminiWithPdf(
         // retryDelay: "0s" のケースがあるため、最低30秒は待機
         const waitSec = Math.max(parsedDelay, fallbackDelay);
         console.log(
-          `[GeminiPdf] 429 rate limited, ${waitSec}秒後にリトライ (${attempt + 1}/${maxRetries})`,
+          `[GeminiPdf] 429 rate limited (key${index + 1}/${keyCount}), ${waitSec}秒後にリトライ (${attempt + 1}/${maxRetries})`,
         );
         await new Promise((r) => setTimeout(r, waitSec * 1000));
         continue;

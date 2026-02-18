@@ -49,7 +49,7 @@ jobs:
 
       - name: Run Gemini PDF analysis
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY: "${{ secrets.GEMINI_API_KEY }}${{ secrets.GEMINI_API_KEY_2 && format(',{0}', secrets.GEMINI_API_KEY_2) }}"
           NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
           NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
         run: |
