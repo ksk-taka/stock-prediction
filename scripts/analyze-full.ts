@@ -347,7 +347,7 @@ async function analyzeSymbol(
     try {
       execSync(
         `npx tsx scripts/fetch-earnings.ts --symbol ${symbol}${dlFlag}`,
-        { stdio: "pipe", timeout: dlTimeout },
+        { stdio: "inherit", timeout: dlTimeout },
       );
       // 再読み込み
       pdfs = loadEarningsPdfs(symbol, { includeTypes });
