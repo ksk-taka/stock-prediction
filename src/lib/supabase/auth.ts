@@ -21,17 +21,25 @@ export async function getAuthUserId(): Promise<string> {
 /**
  * 許可ユーザーかチェック
  * 環境変数 ALLOWED_USER_IDS (カンマ区切り) に含まれるユーザーのみ許可。
- * 未設定の場合は全認証ユーザーを許可（ローカル開発用）。
+ * 未設定の場合: ローカル(NODE_ENV=development)は許可、本番は全拒否。
  */
 export async function requireAllowedUser(): Promise<string> {
   const userId = await getAuthUserId();
 
   const allowList = process.env.ALLOWED_USER_IDS;
-  if (allowList) {
-    const allowed = allowList.split(",").map((id) => id.trim());
-    if (!allowed.includes(userId)) {
-      throw new Error("Forbidden");
+  if (!allowList) {
+    // 未設定: ローカル開発のみ許可、本番は拒否
+    if (process.env.NODE_ENV === "production") {
+      console.warn(`[auth] ALLOWED_USER_IDS未設定のため全拒否 (userId=${userId})`);
+      throw new Error("Forbidden: ALLOWED_USER_IDS not configured");
     }
+    return userId;
+  }
+
+  const allowed = allowList.split(",").map((id) => id.trim());
+  if (!allowed.includes(userId)) {
+    console.warn(`[auth] 許可されていないユーザー: ${userId}`);
+    throw new Error("Forbidden");
   }
 
   return userId;
