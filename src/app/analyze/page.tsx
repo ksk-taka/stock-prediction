@@ -116,6 +116,11 @@ export default function AnalyzePage() {
           body: JSON.stringify({ symbol: sym, model, skipDownload, allDocs, force }),
         });
 
+        if (res.status === 403) {
+          setError("この機能は許可されたユーザーのみ使用できます");
+          break;
+        }
+
         const data: AnalysisResult = await res.json();
         setResults((prev) => [...prev, data]);
       } catch (err) {
