@@ -6,12 +6,12 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { execSync } from "child_process";
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
+import { readFileSync, writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
 
 import { callGeminiWithPdf } from "@/lib/api/geminiPdf";
 import { loadEarningsPdfs } from "@/lib/analysis/earningsPdfLoader";
+import { generateAnalysisPrompt } from "@/lib/analysis/promptGenerator";
 import { setCachedValidation } from "@/lib/cache/fundamentalCache";
 import {
   isNotionConfigured,
@@ -26,7 +26,6 @@ export const maxDuration = 300;
 
 // ---------- 定数 ----------
 
-const PROMPTS_DIR = join(process.cwd(), "data", "prompts");
 const ANALYSIS_DIR = join(process.cwd(), "data", "analysis");
 
 const SYSTEM_INSTRUCTION = `あなたは日本株の投資アナリストです。
@@ -220,7 +219,6 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const rawSymbol: string = body.symbol ?? "";
   const model: "flash" | "pro" = body.model === "pro" ? "pro" : "flash";
-  const skipDownload: boolean = body.skipDownload ?? true;
   const allDocs: boolean = body.allDocs ?? false;
   const force: boolean = body.force ?? false;
 
@@ -249,12 +247,9 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Step 1: プロンプト生成 ──
+    let promptText: string;
     try {
-      execSync(`npx tsx scripts/generate-gemini-prompt.ts ${symbol}`, {
-        stdio: "pipe",
-        timeout: 60_000,
-        cwd: process.cwd(),
-      });
+      promptText = await generateAnalysisPrompt(symbol);
     } catch (err) {
       return NextResponse.json(
         {
@@ -267,37 +262,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const promptFile = join(PROMPTS_DIR, `${code}.md`);
-    if (!existsSync(promptFile)) {
-      return NextResponse.json(
-        {
-          symbol,
-          status: "error",
-          error: "プロンプトファイルが見つかりません",
-          elapsedSec: (Date.now() - startTime) / 1000,
-        },
-        { status: 500 },
-      );
-    }
-    const promptText = readFileSync(promptFile, "utf-8");
-
     // ── Step 2: PDF読み込み（まず既存を確認） ──
     const includeTypes = allDocs
       ? ["決算短信", "説明資料", "半期報", "有報"]
       : ["決算短信", "説明資料"];
-    let pdfs = loadEarningsPdfs(symbol, { includeTypes });
+    const pdfs = loadEarningsPdfs(symbol, { includeTypes });
 
-    // ── Step 3: PDFがなければダウンロード → 再読み込み ──
-    if (pdfs.length === 0 && !skipDownload) {
-      try {
-        execSync(
-          `npx tsx scripts/fetch-earnings.ts --symbol ${symbol} --kabutan-only`,
-          { stdio: "pipe", timeout: 120_000, cwd: process.cwd() },
-        );
-        pdfs = loadEarningsPdfs(symbol, { includeTypes });
-      } catch {
-        // ダウンロード失敗は続行
-      }
+    // ── Step 3: PDFなしの場合は警告のみ（Vercelではダウンロード不可） ──
+    if (pdfs.length === 0) {
+      console.warn(
+        `[analyze-full] ${symbol}: 決算PDFなし。事前に npm run fetch:earnings --symbol ${symbol} でダウンロードしてください`,
+      );
     }
 
     // ── Step 4: Gemini API ──
