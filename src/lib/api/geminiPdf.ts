@@ -110,11 +110,23 @@ export async function callGeminiWithPdf(
         clearTimeout(timer);
         const errorBody = await res.text().catch(() => "");
         const delayMatch = errorBody.match(/"retryDelay":\s*"(\d+)s?"/);
-        const waitSec = delayMatch
-          ? parseInt(delayMatch[1], 10)
-          : Math.min(30 * (attempt + 1), 90);
+        const parsedDelay = delayMatch ? parseInt(delayMatch[1], 10) : 0;
+        const fallbackDelay = Math.min(30 * (attempt + 1), 90);
+        // retryDelay: "0s" のケースがあるため、最低30秒は待機
+        const waitSec = Math.max(parsedDelay, fallbackDelay);
         console.log(
           `[GeminiPdf] 429 rate limited, ${waitSec}秒後にリトライ (${attempt + 1}/${maxRetries})`,
+        );
+        await new Promise((r) => setTimeout(r, waitSec * 1000));
+        continue;
+      }
+
+      // 503 サーバーエラー → リトライ
+      if (res.status === 503 && attempt < maxRetries) {
+        clearTimeout(timer);
+        const waitSec = Math.min(30 * (attempt + 1), 90);
+        console.log(
+          `[GeminiPdf] 503 server error, ${waitSec}秒後にリトライ (${attempt + 1}/${maxRetries})`,
         );
         await new Promise((r) => setTimeout(r, waitSec * 1000));
         continue;
