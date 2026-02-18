@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchNewsAndSentiment } from "@/lib/api/webResearch";
 import { getCachedNews, setCachedNews } from "@/lib/cache/newsCache";
+import { requireAllowedUser } from "@/lib/supabase/auth";
 
 export async function GET(request: NextRequest) {
+  try {
+    await requireAllowedUser();
+  } catch {
+    return NextResponse.json(
+      { error: "この機能は許可されたユーザーのみ使用できます" },
+      { status: 403 },
+    );
+  }
+
   const { searchParams } = request.nextUrl;
   const symbol = searchParams.get("symbol");
   const name = searchParams.get("name") ?? symbol ?? "";

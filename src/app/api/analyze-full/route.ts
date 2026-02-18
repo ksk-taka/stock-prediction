@@ -20,6 +20,7 @@ import {
 } from "@/lib/api/notion";
 import type { NotionAnalysisEntry } from "@/lib/api/notion";
 import type { SignalValidation } from "@/types";
+import { requireAllowedUser } from "@/lib/supabase/auth";
 
 // Next.js Route Segment Config: 5 分タイムアウト
 export const maxDuration = 300;
@@ -232,6 +233,16 @@ function extractJsonBlock(text: string): AnalysisResult | null {
 // ---------- POST ハンドラ ----------
 
 export async function POST(request: NextRequest) {
+  // ── 認可チェック ──
+  try {
+    await requireAllowedUser();
+  } catch {
+    return NextResponse.json(
+      { status: "error", error: "この機能は許可されたユーザーのみ使用できます" },
+      { status: 403 },
+    );
+  }
+
   const body = await request.json();
   const rawSymbol: string = body.symbol ?? "";
   const model: "flash" | "pro" = body.model === "pro" ? "pro" : "flash";
