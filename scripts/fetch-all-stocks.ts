@@ -75,7 +75,6 @@ function parseExcel(buffer: Buffer): ExistingStock[] {
     const code = row["コード"] ?? row["銘柄コード"] ?? "";
     const name = row["銘柄名"] ?? row["会社名"] ?? "";
     const market = row["市場・商品区分"] ?? row["市場区分"] ?? "";
-    const _sector33 = row["33業種コード"] ?? "";
     const sector33Name = row["33業種区分"] ?? "";
 
     if (!code || !name) continue;
