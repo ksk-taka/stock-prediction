@@ -13,6 +13,7 @@
 
 import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
+import { getArgs, parseFlag, hasFlag, parseIntFlag } from "@/lib/utils/cli";
 import { strategies } from "@/lib/backtest/strategies";
 import { runBacktest } from "@/lib/backtest/engine";
 import type { PriceData } from "@/types";
@@ -26,19 +27,16 @@ const EXCLUDE_SYMBOLS = new Set(["7817.T"]);
 // CLI引数
 // ============================================================
 
-function parseArgs() {
-  const args = process.argv.slice(2);
-  const get = (flag: string) => {
-    const idx = args.indexOf(flag);
-    return idx >= 0 && idx + 1 < args.length ? args[idx + 1] : undefined;
-  };
+function parseCliArgs() {
+  const args = getArgs();
 
-  const allStocks = args.includes("--all");
-  const favoritesOnly = !allStocks && !args.includes("--segment");
-  const segment = get("--segment") ?? "プライム";
-  const trainYears = get("--train-years") ? parseInt(get("--train-years")!, 10) : 3;
-  const testYears = get("--test-years") ? parseInt(get("--test-years")!, 10) : 1;
-  const strategyFilter = get("--strategies")?.split(",") ?? null;
+  const allStocks = hasFlag(args, "--all");
+  const favoritesOnly = !allStocks && !hasFlag(args, "--segment");
+  const segment = parseFlag(args, "--segment") ?? "プライム";
+  const trainYears = parseIntFlag(args, "--train-years", 3);
+  const testYears = parseIntFlag(args, "--test-years", 1);
+  const strategyFilter = parseFlag(args, "--strategies")?.split(",") ?? null;
+  const noOptimize = hasFlag(args, "--no-optimize");
 
   const activeStrategies = strategies.filter((s) => {
     if (s.id === "dca") return false;
@@ -46,7 +44,7 @@ function parseArgs() {
     return true;
   });
 
-  return { allStocks, favoritesOnly, segment, trainYears, testYears, activeStrategies, strategyFilter };
+  return { allStocks, favoritesOnly, segment, trainYears, testYears, activeStrategies, strategyFilter, noOptimize };
 }
 
 // ============================================================
@@ -56,7 +54,7 @@ function parseArgs() {
 interface WatchlistStock { symbol: string; name: string; market: string; marketSegment?: string; favorite?: boolean; }
 interface StockData { symbol: string; name: string; data: PriceData[]; }
 
-function loadStocks(opts: ReturnType<typeof parseArgs>): WatchlistStock[] {
+function loadStocks(opts: ReturnType<typeof parseCliArgs>): WatchlistStock[] {
   const raw = readFileSync(join(process.cwd(), "data", "watchlist.json"), "utf-8");
   const watchlist = JSON.parse(raw) as { stocks: WatchlistStock[] };
   return watchlist.stocks.filter((s) => {
@@ -132,9 +130,19 @@ function generateValues(p: StrategyParam, maxCount: number): number[] {
 }
 
 /** 戦略パラメータ定義からグリッドを生成 */
-function generateParamGrid(strategy: StrategyDef): { key: string; params: Record<string, number> }[] {
+function generateParamGrid(strategy: StrategyDef, noOptimize = false): { key: string; params: Record<string, number> }[] {
   if (strategy.params.length === 0) {
     return [{ key: "default", params: {} }];
+  }
+
+  if (noOptimize) {
+    const defaultParams: Record<string, number> = {};
+    const keyParts: string[] = [];
+    for (const p of strategy.params) {
+      defaultParams[p.key] = p.default;
+      keyParts.push(`${p.key.replace(/Pct|Period/g, "")}${p.default}`);
+    }
+    return [{ key: keyParts.join("/"), params: defaultParams }];
   }
 
   const maxVals = maxValuesPerParam(strategy.params.length);
@@ -234,8 +242,13 @@ interface WFRecord {
   testLabel: string;
   trainReturn: number;
   testReturn: number;
+  testReturnMean: number;
+  testReturnP25: number;
+  testReturnP75: number;
   testWinRate: number;
   testTrades: number;
+  testStocksWithTrades: number;
+  testTotalStocks: number;
   testMaxDD: number;
   testSharpe: number;
 }
@@ -244,13 +257,14 @@ function runWalkForward(
   stockDataList: StockData[],
   activeStrategies: StrategyDef[],
   windows: WFWindow[],
+  noOptimize = false,
 ): WFRecord[] {
   const allRecords: WFRecord[] = [];
   const totalStrats = activeStrategies.length;
 
   for (let si = 0; si < totalStrats; si++) {
     const strat = activeStrategies[si];
-    const grid = generateParamGrid(strat);
+    const grid = generateParamGrid(strat, noOptimize);
     const t0 = Date.now();
     console.log(`  [${si + 1}/${totalStrats}] ${strat.name} (${grid.length}組合せ × ${windows.length}窓)...`);
 
@@ -296,8 +310,13 @@ function runWalkForward(
           testLabel: win.testLabel,
           trainReturn: median(trainReturns),
           testReturn: median(testReturns),
+          testReturnMean: mean(testReturns),
+          testReturnP25: percentile(testReturns, 25),
+          testReturnP75: percentile(testReturns, 75),
           testWinRate: median(testWinRates),
           testTrades: sum(testTradesList),
+          testStocksWithTrades: testTradesList.filter((t) => t > 0).length,
+          testTotalStocks: testReturns.length,
           testMaxDD: median(testMaxDDs),
           testSharpe: median(testSharpes),
         });
@@ -318,6 +337,9 @@ interface ParamScore {
   paramKey: string;
   paramValues: Record<string, number>;
   testReturnMedian: number;
+  testReturnMean: number;
+  testReturnP25: number;
+  testReturnP75: number;
   testReturnMin: number;
   testReturnStd: number;
   trainReturnMedian: number;
@@ -325,6 +347,10 @@ interface ParamScore {
   compositeScore: number;
   // 各ウィンドウの検証リターン
   windowReturns: number[];
+  // 各ウィンドウの検証Mean
+  windowReturnsMean: number[];
+  // 各ウィンドウの取引あり銘柄数/全銘柄数
+  windowActiveStocks: string[];
 }
 
 function evaluateStability(records: WFRecord[], activeStrategies: StrategyDef[], windows: WFWindow[]): ParamScore[] {
@@ -346,9 +372,13 @@ function evaluateStability(records: WFRecord[], activeStrategies: StrategyDef[],
 
     for (const [paramKey, recs] of Array.from(byParam.entries())) {
       const testRets = recs.map((r) => r.testReturn);
+      const testRetsMean = recs.map((r) => r.testReturnMean);
       const trainRets = recs.map((r) => r.trainReturn);
 
       const testMed = median(testRets);
+      const testAvg = mean(testRetsMean);
+      const testP25 = percentile(testRets, 25);
+      const testP75 = percentile(testRets, 75);
       const testMin = Math.min(...testRets);
       const testStd = stddev(testRets);
       const trainMed = median(trainRets);
@@ -360,6 +390,9 @@ function evaluateStability(records: WFRecord[], activeStrategies: StrategyDef[],
         paramKey,
         paramValues: recs[0].paramValues,
         testReturnMedian: testMed,
+        testReturnMean: testAvg,
+        testReturnP25: testP25,
+        testReturnP75: testP75,
         testReturnMin: testMin,
         testReturnStd: testStd,
         trainReturnMedian: trainMed,
@@ -367,6 +400,14 @@ function evaluateStability(records: WFRecord[], activeStrategies: StrategyDef[],
         windowReturns: windows.map((w) => {
           const wr = recs.find((r) => r.windowId === w.id);
           return wr?.testReturn ?? 0;
+        }),
+        windowReturnsMean: windows.map((w) => {
+          const wr = recs.find((r) => r.windowId === w.id);
+          return wr?.testReturnMean ?? 0;
+        }),
+        windowActiveStocks: windows.map((w) => {
+          const wr = recs.find((r) => r.windowId === w.id);
+          return wr ? `${wr.testStocksWithTrades}/${wr.testTotalStocks}` : "0/0";
         }),
       });
     }
@@ -422,7 +463,7 @@ function printStrategySummary(
     console.log(`\n★ 推奨パラメータ: ${best.paramKey}`);
     console.log(`  パラメータ値: ${JSON.stringify(best.paramValues)}`);
     console.log(`  スコア: ${best.compositeScore.toFixed(3)}`);
-    console.log(`  検証中央値: ${fmtPct(best.testReturnMedian)} | 検証最小: ${fmtPct(best.testReturnMin)} | 標準偏差: ${best.testReturnStd.toFixed(1)} | OFit: ${fmtPct(best.overfitDegree)}`);
+    console.log(`  検証中央値: ${fmtPct(best.testReturnMedian)} | 検証平均: ${fmtPct(best.testReturnMean)} | P25: ${fmtPct(best.testReturnP25)} | P75: ${fmtPct(best.testReturnP75)} | 最小: ${fmtPct(best.testReturnMin)} | OFit: ${fmtPct(best.overfitDegree)}`);
 
     // Top 5
     console.log(`\nスコア上位5:`);
@@ -430,24 +471,26 @@ function printStrategySummary(
       "  " + "Rank".padEnd(5) +
       "ParamKey".padEnd(40) +
       "Score".padStart(7) +
-      "TestMed%".padStart(10) +
-      "TestMin%".padStart(10) +
-      "StdDev".padStart(8) +
-      "OFit%".padStart(8) +
-      "TrainMed%".padStart(11),
+      "Med%".padStart(8) +
+      "Mean%".padStart(8) +
+      "P25%".padStart(8) +
+      "P75%".padStart(8) +
+      "Min%".padStart(8) +
+      "OFit%".padStart(8),
     );
-    console.log("  " + "-".repeat(99));
+    console.log("  " + "-".repeat(100));
     for (let i = 0; i < Math.min(5, stratScores.length); i++) {
       const s = stratScores[i];
       console.log(
         "  " + `#${i + 1}`.padEnd(5) +
         s.paramKey.padEnd(40) +
         s.compositeScore.toFixed(3).padStart(7) +
-        fmtPct(s.testReturnMedian).padStart(10) +
-        fmtPct(s.testReturnMin).padStart(10) +
-        s.testReturnStd.toFixed(1).padStart(8) +
-        fmtPct(s.overfitDegree).padStart(8) +
-        fmtPct(s.trainReturnMedian).padStart(11),
+        fmtPct(s.testReturnMedian).padStart(8) +
+        fmtPct(s.testReturnMean).padStart(8) +
+        fmtPct(s.testReturnP25).padStart(8) +
+        fmtPct(s.testReturnP75).padStart(8) +
+        fmtPct(s.testReturnMin).padStart(8) +
+        fmtPct(s.overfitDegree).padStart(8),
       );
     }
 
@@ -455,7 +498,7 @@ function printStrategySummary(
     console.log(`\n推奨パラメータのウィンドウ別検証リターン:`);
     for (let wi = 0; wi < windows.length; wi++) {
       const w = windows[wi];
-      console.log(`  #${w.id} ${w.trainLabel}→${w.testLabel}: ${fmtPct(best.windowReturns[wi])}`);
+      console.log(`  #${w.id} ${w.trainLabel}→${w.testLabel}: Med ${fmtPct(best.windowReturns[wi])} | Mean ${fmtPct(best.windowReturnsMean[wi])} | Active ${best.windowActiveStocks[wi]}`);
     }
 
     // パラメータ安定性: 各ウィンドウの訓練1位パラメータ
@@ -494,14 +537,15 @@ function printWindowDetails(records: WFRecord[], activeStrategies: StrategyDef[]
       "  " + "Strategy".padEnd(20) +
       "TrainBestParam".padEnd(35) +
       "Train%".padStart(8) +
-      "Test%".padStart(8) +
-      "Gap".padStart(8) +
-      "TestWR%".padStart(8) +
+      "Med%".padStart(8) +
+      "Mean%".padStart(8) +
+      "P25%".padStart(8) +
+      "P75%".padStart(8) +
+      "Active".padStart(10) +
       "TestTr".padStart(7) +
-      "TestDD%".padStart(8) +
       "TestSR".padStart(8),
     );
-    console.log("  " + "-".repeat(112));
+    console.log("  " + "-".repeat(130));
 
     for (const strat of activeStrategies) {
       const winRecords = records
@@ -511,17 +555,17 @@ function printWindowDetails(records: WFRecord[], activeStrategies: StrategyDef[]
       // 訓練1位
       const sorted = [...winRecords].sort((a, b) => b.trainReturn - a.trainReturn);
       const best = sorted[0];
-      const gap = best.trainReturn - best.testReturn;
 
       console.log(
         "  " + strat.name.slice(0, 18).padEnd(20) +
         best.paramKey.slice(0, 33).padEnd(35) +
         fmtPct(best.trainReturn).padStart(8) +
         fmtPct(best.testReturn).padStart(8) +
-        fmtPct(gap).padStart(8) +
-        best.testWinRate.toFixed(1).padStart(8) +
+        fmtPct(best.testReturnMean).padStart(8) +
+        fmtPct(best.testReturnP25).padStart(8) +
+        fmtPct(best.testReturnP75).padStart(8) +
+        `${best.testStocksWithTrades}/${best.testTotalStocks}`.padStart(10) +
         best.testTrades.toString().padStart(7) +
-        best.testMaxDD.toFixed(1).padStart(8) +
         best.testSharpe.toFixed(2).padStart(8),
       );
     }
@@ -529,7 +573,7 @@ function printWindowDetails(records: WFRecord[], activeStrategies: StrategyDef[]
 }
 
 function writeCSV(records: WFRecord[]) {
-  const header = "strategy,paramKey,paramValues,window,trainReturn,testReturn,testWinRate,testTrades,testMaxDD,testSharpe";
+  const header = "strategy,paramKey,paramValues,window,trainReturn,testReturnMed,testReturnMean,testReturnP25,testReturnP75,testWinRate,testTrades,activeStocks,totalStocks,testMaxDD,testSharpe";
   const rows = records.map((r) => [
     r.strategyId,
     `"${r.paramKey}"`,
@@ -537,8 +581,13 @@ function writeCSV(records: WFRecord[]) {
     `${r.trainLabel}→${r.testLabel}`,
     r.trainReturn.toFixed(2),
     r.testReturn.toFixed(2),
+    r.testReturnMean.toFixed(2),
+    r.testReturnP25.toFixed(2),
+    r.testReturnP75.toFixed(2),
     r.testWinRate.toFixed(1),
     r.testTrades,
+    r.testStocksWithTrades,
+    r.testTotalStocks,
     r.testMaxDD.toFixed(2),
     r.testSharpe.toFixed(2),
   ].join(","));
@@ -585,6 +634,21 @@ function median(arr: number[]): number {
   return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 }
 
+function mean(arr: number[]): number {
+  if (arr.length === 0) return 0;
+  return arr.reduce((a, b) => a + b, 0) / arr.length;
+}
+
+function percentile(arr: number[], p: number): number {
+  if (arr.length === 0) return 0;
+  const sorted = [...arr].sort((a, b) => a - b);
+  const idx = (p / 100) * (sorted.length - 1);
+  const lo = Math.floor(idx);
+  const hi = Math.ceil(idx);
+  if (lo === hi) return sorted[lo];
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
+}
+
 function sum(arr: number[]): number {
   return arr.reduce((a, b) => a + b, 0);
 }
@@ -605,7 +669,7 @@ function fmtPct(v: number): string {
 // ============================================================
 
 async function main() {
-  const opts = parseArgs();
+  const opts = parseCliArgs();
   const stocks = loadStocks(opts);
   const windows = generateWFWindows(opts.trainYears, opts.testYears);
 
@@ -631,16 +695,17 @@ async function main() {
   console.log("\n[パラメータグリッド]");
   let totalCombos = 0;
   for (const strat of opts.activeStrategies) {
-    const grid = generateParamGrid(strat);
+    const grid = generateParamGrid(strat, opts.noOptimize);
     totalCombos += grid.length;
     console.log(`  ${strat.name}: ${grid.length}組合せ`);
   }
   console.log(`  合計: ${totalCombos}組合せ`);
+  if (opts.noOptimize) console.log(`  ※ --no-optimize: デフォルトパラメータのみ`);
 
   // ウォークフォワード実行
   console.log("\n[ウォークフォワード実行]");
   const t0 = Date.now();
-  const records = runWalkForward(stockDataList, opts.activeStrategies, windows);
+  const records = runWalkForward(stockDataList, opts.activeStrategies, windows, opts.noOptimize);
   const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
   console.log(`  完了 (${elapsed}秒, ${records.length}レコード)`);
 

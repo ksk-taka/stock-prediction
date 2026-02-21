@@ -11,6 +11,7 @@
 
 import { readFileSync } from "fs";
 import { join } from "path";
+import { getArgs, parseFlag, hasFlag } from "@/lib/utils/cli";
 import { getHistoricalPrices } from "@/lib/api/yahooFinance";
 import { runBacktest } from "@/lib/backtest/engine";
 import { detectCupWithHandle } from "@/lib/utils/signals";
@@ -26,16 +27,13 @@ const EXCLUDE_SYMBOLS = new Set(["7817.T"]);
 
 // ── CLI引数 ──
 
-function parseArgs() {
-  const args = process.argv.slice(2);
-  const get = (flag: string) => {
-    const idx = args.indexOf(flag);
-    return idx >= 0 && idx + 1 < args.length ? args[idx + 1] : undefined;
-  };
-  const allStocks = args.includes("--all");
-  const favoritesOnly = !allStocks && !args.includes("--segment");
-  const segment = get("--segment") ?? "プライム";
-  const limit = get("--limit") ? parseInt(get("--limit")!, 10) : undefined;
+function parseCliArgs() {
+  const args = getArgs();
+  const allStocks = hasFlag(args, "--all");
+  const favoritesOnly = !allStocks && !hasFlag(args, "--segment");
+  const segment = parseFlag(args, "--segment") ?? "プライム";
+  const limitStr = parseFlag(args, "--limit");
+  const limit = limitStr ? parseInt(limitStr, 10) : undefined;
   return { allStocks, favoritesOnly, segment, limit };
 }
 
@@ -43,7 +41,7 @@ function parseArgs() {
 
 interface WatchlistStock { symbol: string; name: string; market: string; marketSegment?: string; favorite?: boolean; }
 
-function loadStocks(opts: ReturnType<typeof parseArgs>): WatchlistStock[] {
+function loadStocks(opts: ReturnType<typeof parseCliArgs>): WatchlistStock[] {
   const raw = readFileSync(join(process.cwd(), "data", "watchlist.json"), "utf-8");
   const watchlist = JSON.parse(raw) as { stocks: WatchlistStock[] };
   return watchlist.stocks.filter((s) => {
@@ -146,7 +144,7 @@ interface GridResult {
 }
 
 async function main() {
-  const opts = parseArgs();
+  const opts = parseCliArgs();
   let stocks = loadStocks(opts);
   if (opts.limit) stocks = stocks.slice(0, opts.limit);
 

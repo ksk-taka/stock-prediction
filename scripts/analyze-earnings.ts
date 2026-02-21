@@ -12,6 +12,7 @@
 import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 
+import { sleep, getArgs, hasFlag, getPositionalArg } from "@/lib/utils/cli";
 import { getEarningsTextWithXbrl, listAvailableEarnings } from "@/lib/utils/earningsReader";
 import { getQuote, getFinancialData } from "@/lib/api/yahooFinance";
 import { fetchFundamentalResearch } from "@/lib/api/webResearch";
@@ -20,16 +21,12 @@ import { setCachedValidation } from "@/lib/cache/fundamentalCache";
 
 // ---------- CLI引数 ----------
 
-const args = process.argv.slice(2);
-const showList = args.includes("--list");
-const runAll = args.includes("--all");
-const sendSlack = args.includes("--slack");
-const skipWeb = args.includes("--skip-web");
-const symbolArg = args.find((a) => !a.startsWith("--"));
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+const args = getArgs();
+const showList = hasFlag(args, "--list");
+const runAll = hasFlag(args, "--all");
+const sendSlack = hasFlag(args, "--slack");
+const skipWeb = hasFlag(args, "--skip-web");
+const symbolArg = getPositionalArg(args);
 
 // ---------- 単一銘柄の分析 ----------
 

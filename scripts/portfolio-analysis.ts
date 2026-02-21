@@ -14,11 +14,11 @@
 
 import { readFileSync } from "fs";
 import { join } from "path";
+import { getArgs, parseFlag, hasFlag } from "@/lib/utils/cli";
 import { strategies } from "@/lib/backtest/strategies";
 import { runBacktest } from "@/lib/backtest/engine";
 import { optimizedPresets } from "@/lib/backtest/presets";
 import type { PriceData } from "@/types";
-import type { EquityPoint } from "@/lib/backtest/types";
 import { loadCached10yr } from "./fetch-10yr-data";
 
 const INITIAL_CAPITAL = 1_000_000;
@@ -31,17 +31,13 @@ const DEFAULT_STRATEGIES = ["macd_trail", "rsi_reversal", "dip_buy"];
 // CLI引数
 // ============================================================
 
-function parseArgs() {
-  const args = process.argv.slice(2);
-  const get = (flag: string) => {
-    const idx = args.indexOf(flag);
-    return idx >= 0 && idx + 1 < args.length ? args[idx + 1] : undefined;
-  };
+function parseCliArgs() {
+  const args = getArgs();
 
-  const allStocks = args.includes("--all");
+  const allStocks = hasFlag(args, "--all");
   const favoritesOnly = !allStocks;
-  const strategyFilter = get("--strategies")?.split(",") ?? DEFAULT_STRATEGIES;
-  const periodStr = get("--period");
+  const strategyFilter = parseFlag(args, "--strategies")?.split(",") ?? DEFAULT_STRATEGIES;
+  const periodStr = parseFlag(args, "--period");
   const periodStart = periodStr?.split(",")[0] ?? "2016-01-01";
   const periodEnd = periodStr?.split(",")[1] ?? "2025-12-31";
 
@@ -57,7 +53,7 @@ function parseArgs() {
 interface WatchlistStock { symbol: string; name: string; market: string; marketSegment?: string; favorite?: boolean; }
 interface StockData { symbol: string; name: string; data: PriceData[]; }
 
-function loadStocks(opts: ReturnType<typeof parseArgs>): WatchlistStock[] {
+function loadStocks(opts: ReturnType<typeof parseCliArgs>): WatchlistStock[] {
   const raw = readFileSync(join(process.cwd(), "data", "watchlist.json"), "utf-8");
   const watchlist = JSON.parse(raw) as { stocks: WatchlistStock[] };
   return watchlist.stocks.filter((s) => {
@@ -669,7 +665,7 @@ function printResults(
 // ============================================================
 
 async function main() {
-  const opts = parseArgs();
+  const opts = parseCliArgs();
   const stocks = loadStocks(opts);
   const allData = loadAllStockData(stocks, opts.periodStart, opts.periodEnd);
 

@@ -18,6 +18,7 @@ dotenv.config({ path: ".env.local" });
 
 import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
+import { getArgs, parseFlag, hasFlag } from "@/lib/utils/cli";
 import { getHistoricalPricesJQ } from "@/lib/api/jquants";
 import { getCachedBars, setCachedBars } from "@/lib/cache/jquantsCache";
 import type { PriceData } from "@/types";
@@ -41,20 +42,18 @@ function getDataWindow(): { from: Date; to: Date } {
 
 // ── CLI引数 ──
 
-function parseArgs() {
-  const args = process.argv.slice(2);
-  const get = (flag: string) => {
-    const idx = args.indexOf(flag);
-    return idx >= 0 && idx + 1 < args.length ? args[idx + 1] : undefined;
-  };
+function parseCliArgs() {
+  const args = getArgs();
+  const code = parseFlag(args, "--code");
+  const limitStr = parseFlag(args, "--limit");
   return {
-    allStocks: args.includes("--all"),
-    favoritesOnly: !args.includes("--all") && !args.includes("--segment") && !get("--code"),
-    segment: get("--segment") ?? "プライム",
-    limit: get("--limit") ? parseInt(get("--limit")!, 10) : undefined,
-    force: args.includes("--force"),
-    code: get("--code"),
-    csv: args.includes("--csv"),
+    allStocks: hasFlag(args, "--all"),
+    favoritesOnly: !hasFlag(args, "--all") && !hasFlag(args, "--segment") && !code,
+    segment: parseFlag(args, "--segment") ?? "プライム",
+    limit: limitStr ? parseInt(limitStr, 10) : undefined,
+    force: hasFlag(args, "--force"),
+    code,
+    csv: hasFlag(args, "--csv"),
   };
 }
 
@@ -68,7 +67,7 @@ interface WatchlistStock {
   favorite?: boolean;
 }
 
-function loadStocks(opts: ReturnType<typeof parseArgs>): WatchlistStock[] {
+function loadStocks(opts: ReturnType<typeof parseCliArgs>): WatchlistStock[] {
   if (opts.code) {
     return [{ symbol: opts.code, name: opts.code, market: "JP" }];
   }
@@ -133,7 +132,7 @@ function exportCSV(results: { symbol: string; name: string; data: PriceData[] }[
 // ── メイン ──
 
 async function main() {
-  const opts = parseArgs();
+  const opts = parseCliArgs();
   let stocks = loadStocks(opts);
   if (opts.limit) stocks = stocks.slice(0, opts.limit);
 

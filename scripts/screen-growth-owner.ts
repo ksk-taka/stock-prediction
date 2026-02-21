@@ -118,7 +118,6 @@ async function screenFinancials(
           });
 
           const fd = summary.financialData as Record<string, unknown> | undefined;
-          const ks = summary.defaultKeyStatistics as Record<string, unknown> | undefined;
           const sd = summary.summaryDetail as Record<string, unknown> | undefined;
           const mh = summary.majorHoldersBreakdown as Record<string, unknown> | undefined;
 

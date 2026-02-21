@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzeSentiment } from "@/lib/api/llm";
 import { getCachedNews } from "@/lib/cache/newsCache";
-import { getCachedAnalysis, setCachedAnalysis } from "@/lib/cache/analysisCache";
+import { getCachedAnalysis } from "@/lib/cache/analysisCache";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;

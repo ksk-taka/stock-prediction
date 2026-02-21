@@ -16,7 +16,7 @@ import type { PriceData } from "@/types";
 import type { Period } from "@/lib/utils/date";
 import { strategies } from "@/lib/backtest/strategies";
 import { runBacktest } from "@/lib/backtest/engine";
-import type { BacktestResult, StrategyDef } from "@/lib/backtest/types";
+import type { BacktestResult } from "@/lib/backtest/types";
 
 type BacktestPeriod = "daily" | "weekly";
 const BACKTEST_PERIODS: { value: BacktestPeriod; label: string }[] = [
@@ -25,13 +25,12 @@ const BACKTEST_PERIODS: { value: BacktestPeriod; label: string }[] = [
 ];
 
 interface BacktestPanelProps {
-  symbol: string;
   pricesMap: Partial<Record<Period, PriceData[]>>;
   fetchPricesForPeriod: (period: Period) => Promise<void>;
   loadingMap: Partial<Record<Period, boolean>>;
 }
 
-export default function BacktestPanel({ symbol, pricesMap, fetchPricesForPeriod, loadingMap }: BacktestPanelProps) {
+export default function BacktestPanel({ pricesMap, fetchPricesForPeriod, loadingMap }: BacktestPanelProps) {
   const [selectedStrategyId, setSelectedStrategyId] = useState(strategies[0].id);
   const [paramValues, setParamValues] = useState<Record<string, number>>({});
   const [capital, setCapital] = useState(1000000);

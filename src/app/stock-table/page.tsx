@@ -3,7 +3,6 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
 import { formatMarketCap, getCapSize } from "@/lib/utils/format";
-import { isMarketOpen } from "@/lib/utils/date";
 import GroupAssignPopup from "@/components/GroupAssignPopup";
 import BatchGroupAssignPopup from "@/components/BatchGroupAssignPopup";
 

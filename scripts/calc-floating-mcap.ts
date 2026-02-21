@@ -21,6 +21,7 @@ import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 
 import { writeFileSync, mkdirSync, existsSync } from "fs";
+import { sleep, getArgs, parseFlag, hasFlag, parseIntFlag } from "@/lib/utils/cli";
 import { join } from "path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -53,22 +54,18 @@ interface CLIArgs {
   syncSupabase: boolean;
 }
 
-function parseArgs(): CLIArgs {
-  const args = process.argv.slice(2);
-  const get = (flag: string) => {
-    const idx = args.indexOf(flag);
-    return idx >= 0 && idx + 1 < args.length ? args[idx + 1] : undefined;
-  };
+function parseCliArgs(): CLIArgs {
+  const args = getArgs();
   return {
-    symbol: get("--symbol"),
-    all: args.includes("--all"),
-    csv: args.includes("--csv"),
-    dryRun: args.includes("--dry-run"),
-    debug: args.includes("--debug"),
-    searchDays: parseInt(get("--days") ?? "400", 10),
-    concurrency: parseInt(get("--concurrency") ?? "3", 10),
-    skipCached: args.includes("--skip-cached"),
-    syncSupabase: args.includes("--sync-supabase"),
+    symbol: parseFlag(args, "--symbol"),
+    all: hasFlag(args, "--all"),
+    csv: hasFlag(args, "--csv"),
+    dryRun: hasFlag(args, "--dry-run"),
+    debug: hasFlag(args, "--debug"),
+    searchDays: parseIntFlag(args, "--days", 400),
+    concurrency: parseIntFlag(args, "--concurrency", 3),
+    skipCached: hasFlag(args, "--skip-cached"),
+    syncSupabase: hasFlag(args, "--sync-supabase"),
   };
 }
 
@@ -119,12 +116,6 @@ async function getAllStocks(supabase: SupabaseClient): Promise<StockInfo[]> {
     if (rows.length < PAGE_SIZE) break;
   }
   return allStocks;
-}
-
-// ── ユーティリティ ──
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // ── XBRL パース (ZIP → 浮動株比率) ──
@@ -288,7 +279,7 @@ function dumpXbrlDebug(symbol: string, zipBuffer: Buffer, docId: string) {
 // ── メイン ──
 
 async function main() {
-  const args = parseArgs();
+  const args = parseCliArgs();
   const startTime = Date.now();
 
   // --sync-supabase: ファイルキャッシュからSupabaseに一括投入

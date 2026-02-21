@@ -27,7 +27,11 @@ export const maxDuration = 300;
 
 // ---------- 定数 ----------
 
-const ANALYSIS_DIR = join(process.cwd(), "data", "analysis");
+const ANALYSIS_DIR = join(
+  process.env.VERCEL ? "/tmp" : process.cwd(),
+  "data",
+  "analysis",
+);
 
 const SYSTEM_INSTRUCTION = `あなたは日本株の投資アナリストです。
 ユーザーから銘柄の定量データ（テキスト）と決算資料PDF（添付）が提供されます。

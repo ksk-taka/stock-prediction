@@ -131,15 +131,10 @@ function Section({
 // ============================================================
 
 function KeyFindings({ strategies }: { strategies: WFStrategyResult[] }) {
-  const recommended = strategies.filter((s) => getVerdict(s).label === "推奨");
-  const useful = strategies.filter((s) => getVerdict(s).label === "有用");
-  const noTrade = strategies.filter((s) => getVerdict(s).label === "取引なし");
-
   // データ駆動で上位戦略を抽出
   const sorted = [...strategies].sort((a, b) => b.stabilityScore - a.stabilityScore);
   const top3 = sorted.slice(0, 3);
   const bestReturn = [...strategies].sort((a, b) => b.testReturnMedian - a.testReturnMedian)[0];
-  const noTradeStrats = strategies.filter((s) => s.testReturnMedian === 0 && s.testReturnStd < 1);
 
   const positiveStrats = sorted.filter((s) => s.testReturnMedian > 0);
   const negativeStrats = sorted.filter((s) => s.testReturnMedian <= 0);
@@ -388,7 +383,7 @@ function StrategyRadar({
             <PolarGrid stroke="#374151" />
             <PolarAngleAxis dataKey="axis" tick={{ fontSize: 11, fill: "#9ca3af" }} />
             <PolarRadiusAxis domain={[0, 1]} tick={false} axisLine={false} />
-            {selected.map((s, i) => (
+            {selected.map((s) => (
               <Radar
                 key={s.strategyId}
                 name={s.strategyName}
@@ -1195,12 +1190,6 @@ function FavoritesYearlyHeatmap() {
 // Component: CWH × 52週高値フィルタ分析
 // ============================================================
 
-const CWH52W_GROUP_COLORS: Record<string, string> = {
-  "全CWHシグナル": "#94a3b8",     // gray
-  "52週高値付近のみ": "#22c55e",  // green
-  "52週高値以外": "#ef4444",      // red
-};
-
 function Cwh52wComparisonTable({ modes }: { modes: Cwh52wMode[] }) {
   return (
     <div className="overflow-x-auto">
@@ -1339,7 +1328,7 @@ function Cwh52wPortfolioCards({ modes }: { modes: Cwh52wMode[] }) {
 // ============================================================
 
 export default function ReportsPage() {
-  const { config, strategies, windows } = wfReportData;
+  const { config, strategies } = wfReportData;
   const [sortKey, setSortKey] = useState<SortKey>("score");
   const [radarIds, setRadarIds] = useState<Set<string>>(
     new Set(strategies.slice(0, 3).map((s) => s.strategyId)),

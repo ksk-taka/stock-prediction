@@ -216,7 +216,7 @@ async function main() {
     if (!bySymbol.has(t.symbol)) bySymbol.set(t.symbol, []);
     bySymbol.get(t.symbol)!.push(t);
   }
-  for (const [sym, trades] of [...bySymbol.entries()].sort((a, b) => b[1].reduce((s, t) => s + t.pct, 0) - a[1].reduce((s, t) => s + t.pct, 0))) {
+  for (const [, trades] of [...bySymbol.entries()].sort((a, b) => b[1].reduce((s, t) => s + t.pct, 0) - a[1].reduce((s, t) => s + t.pct, 0))) {
     const w = trades.filter(t => t.pct > 0).length;
     const total = trades.reduce((s, t) => s + t.pct, 0);
     console.log(`  ${trades[0].name.padEnd(14)} ${trades.length}件 ${w}W/${trades.length - w}L 合計${total >= 0 ? "+" : ""}${total.toFixed(1)}%`);

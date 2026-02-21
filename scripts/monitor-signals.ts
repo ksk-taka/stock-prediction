@@ -7,6 +7,7 @@
 import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 import { readFileSync } from "fs";
+import { sleep } from "@/lib/utils/cli";
 import { join } from "path";
 import type { WatchList } from "../src/types";
 
@@ -19,7 +20,6 @@ import { strategies, getStrategyParams } from "@/lib/backtest/strategies";
 import { getExitLevels } from "@/lib/utils/exitLevels";
 import {
   getNotificationConfig,
-  isStrategyEnabled,
   calculatePositionSize,
 } from "@/lib/config/notificationConfig";
 import {
@@ -43,10 +43,6 @@ import type { Signal } from "@/lib/backtest/types";
 import type { PeriodType } from "@/lib/backtest/presets";
 
 // ---------- ユーティリティ ----------
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 /** 直近N日以内のbuyシグナルインデックスを取得 */
 function findRecentBuySignals(

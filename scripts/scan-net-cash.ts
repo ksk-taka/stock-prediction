@@ -19,6 +19,7 @@ import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 
 import { readFileSync, writeFileSync } from "fs";
+import { getArgs, parseFlag, hasFlag } from "@/lib/utils/cli";
 import { join } from "path";
 import YahooFinance from "yahoo-finance2";
 import { yfQueue } from "@/lib/utils/requestQueue";
@@ -53,26 +54,22 @@ interface NetCashResult {
 
 // ── CLI Args ───────────────────────────────────────────────
 
-function parseArgs() {
-  const args = process.argv.slice(2);
-  const has = (flag: string) => args.includes(flag);
-  const get = (flag: string) => {
-    const idx = args.indexOf(flag);
-    return idx >= 0 && idx + 1 < args.length ? args[idx + 1] : undefined;
-  };
+function parseCliArgs() {
+  const args = getArgs();
+  const limitStr = parseFlag(args, "--limit");
   return {
-    favorites: has("--favorites"),
-    segment: get("--segment"),
-    csv: has("--csv"),
-    debug: has("--debug"),
-    limit: get("--limit") ? parseInt(get("--limit")!, 10) : undefined,
-    symbol: get("--symbol"),
+    favorites: hasFlag(args, "--favorites"),
+    segment: parseFlag(args, "--segment"),
+    csv: hasFlag(args, "--csv"),
+    debug: hasFlag(args, "--debug"),
+    limit: limitStr ? parseInt(limitStr, 10) : undefined,
+    symbol: parseFlag(args, "--symbol"),
   };
 }
 
 // ── Load Stocks ────────────────────────────────────────────
 
-function loadStocks(opts: ReturnType<typeof parseArgs>): WatchlistStock[] {
+function loadStocks(opts: ReturnType<typeof parseCliArgs>): WatchlistStock[] {
   const raw = readFileSync(join(process.cwd(), "data", "watchlist.json"), "utf-8");
   const watchlist = JSON.parse(raw) as { stocks: WatchlistStock[] };
   let stocks = watchlist.stocks.filter((s) => !EXCLUDE_SYMBOLS.has(s.symbol));
@@ -203,7 +200,7 @@ async function fetchNetCash(stock: WatchlistStock, debug: boolean): Promise<NetC
 // ── Main ───────────────────────────────────────────────────
 
 async function main() {
-  const opts = parseArgs();
+  const opts = parseCliArgs();
   const stocks = loadStocks(opts);
 
   console.log(`ネットキャッシュ比率スキャン開始: ${stocks.length} 銘柄`);

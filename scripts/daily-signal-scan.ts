@@ -16,6 +16,7 @@ dotenv.config({ path: ".env.local" });
 
 import YahooFinance from "yahoo-finance2";
 import { cleanupOldNotifications } from "@/lib/cache/signalNotificationCache";
+import { sleep, getArgs, hasFlag, parseIntFlag } from "@/lib/utils/cli";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { strategies, getStrategyParams } from "@/lib/backtest/strategies";
 import { getExitLevels } from "@/lib/utils/exitLevels";
@@ -57,23 +58,17 @@ interface CLIArgs {
   dryRun: boolean;
 }
 
-function parseArgs(): CLIArgs {
-  const args = process.argv.slice(2);
+function parseCliArgs(): CLIArgs {
+  const args = getArgs();
   return {
-    supabase: args.includes("--supabase"),
-    scanId: args.includes("--scan-id")
-      ? parseInt(args[args.indexOf("--scan-id") + 1], 10)
-      : undefined,
-    favoritesOnly: args.includes("--favorites-only"),
-    dryRun: args.includes("--dry-run"),
+    supabase: hasFlag(args, "--supabase"),
+    scanId: parseIntFlag(args, "--scan-id", -1) === -1 ? undefined : parseIntFlag(args, "--scan-id", -1),
+    favoritesOnly: hasFlag(args, "--favorites-only"),
+    dryRun: hasFlag(args, "--dry-run"),
   };
 }
 
 // ── ユーティリティ ──
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function createServiceClient(): SupabaseClient {
   return createClient(
@@ -284,7 +279,7 @@ async function updateProgress(
 // ── メイン処理 ──
 
 async function main() {
-  const args = parseArgs();
+  const args = parseCliArgs();
   const startTime = Date.now();
 
   console.log("=".repeat(60));
@@ -492,7 +487,7 @@ main().catch(async (err) => {
   console.error("Fatal error:", err);
 
   // scanId があれば failed に更新
-  const scanId = parseArgs().scanId;
+  const scanId = parseCliArgs().scanId;
   if (scanId) {
     try {
       const supabase = createServiceClient();

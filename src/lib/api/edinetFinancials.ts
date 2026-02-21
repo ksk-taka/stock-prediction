@@ -683,10 +683,6 @@ function fmtOku(n: number | null): string {
   return `${Math.round(oku).toLocaleString()}億円`;
 }
 
-function fmtPct(n: number, digits = 1): string {
-  return `${n >= 0 ? "+" : ""}${(n * 100).toFixed(digits)}%`;
-}
-
 /**
  * 財務データを LLM 分析用テキストにフォーマットする。
  * earningsReader.ts の PDF テキスト抽出のフォールバック/補完用。

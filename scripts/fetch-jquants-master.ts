@@ -13,6 +13,7 @@ import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 
 import { readFileSync, writeFileSync } from "fs";
+import { getArgs, parseFlag, hasFlag } from "@/lib/utils/cli";
 import { join } from "path";
 import { getMasterData } from "@/lib/api/jquants";
 import { fromJQuantsCode } from "@/types/jquants";
@@ -25,17 +26,13 @@ import { createClient } from "@supabase/supabase-js";
 
 // ── CLI引数 ──
 
-function parseArgs() {
-  const args = process.argv.slice(2);
-  const get = (flag: string) => {
-    const idx = args.indexOf(flag);
-    return idx >= 0 && idx + 1 < args.length ? args[idx + 1] : undefined;
-  };
+function parseCliArgs() {
+  const args = getArgs();
   return {
-    dryRun: args.includes("--dry-run"),
-    dump: args.includes("--dump"),
-    code: get("--code"),
-    force: args.includes("--force"),
+    dryRun: hasFlag(args, "--dry-run"),
+    dump: hasFlag(args, "--dump"),
+    code: parseFlag(args, "--code"),
+    force: hasFlag(args, "--force"),
   };
 }
 
@@ -72,7 +69,7 @@ function saveWatchlist(wl: Watchlist) {
 
 // ── マスタデータ取得 ──
 
-async function fetchMasterData(opts: ReturnType<typeof parseArgs>): Promise<JQuantsMasterItem[]> {
+async function fetchMasterData(opts: ReturnType<typeof parseCliArgs>): Promise<JQuantsMasterItem[]> {
   // 特定銘柄指定
   if (opts.code) {
     console.log(`銘柄コード ${opts.code} のマスタデータを取得...`);
@@ -211,7 +208,7 @@ async function syncTopixToSupabase(masterData: JQuantsMasterItem[]) {
 // ── メイン ──
 
 async function main() {
-  const opts = parseArgs();
+  const opts = parseCliArgs();
 
   console.log("=".repeat(60));
   console.log("J-Quants マスタデータ取得");

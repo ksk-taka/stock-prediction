@@ -118,7 +118,6 @@ async function main() {
 
   // 株価データ
   const price = quote.regularMarketPrice ?? 0;
-  const prevClose = quote.regularMarketPreviousClose ?? 0;
   const change = quote.regularMarketChange ?? 0;
   const changePct = quote.regularMarketChangePercent ?? 0;
   const dayHigh = quote.regularMarketDayHigh;

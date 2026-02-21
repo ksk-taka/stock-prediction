@@ -30,6 +30,7 @@ import { mkdirSync, existsSync, writeFileSync } from "fs";
 import { join } from "path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import * as cheerio from "cheerio";
+import { sleep, getArgs, parseFlag, hasFlag, parseIntFlag } from "@/lib/utils/cli";
 
 // ── 設定 ──
 
@@ -53,30 +54,22 @@ interface CLIArgs {
   dryRun: boolean;
 }
 
-function parseArgs(): CLIArgs {
-  const args = process.argv.slice(2);
-  const get = (flag: string) => {
-    const idx = args.indexOf(flag);
-    return idx >= 0 && idx + 1 < args.length ? args[idx + 1] : undefined;
-  };
+function parseCliArgs(): CLIArgs {
+  const args = getArgs();
   return {
-    symbol: get("--symbol"),
-    group: get("--group"),
-    kabutanOnly: args.includes("--kabutan-only"),
-    tdnetOnly: args.includes("--tdnet-only"),
-    edinetOnly: args.includes("--edinet-only"),
-    count: parseInt(get("--count") ?? "2", 10),
-    days: parseInt(get("--days") ?? "365", 10),
-    tdnetDays: parseInt(get("--tdnet-days") ?? "30", 10),
-    dryRun: args.includes("--dry-run"),
+    symbol: parseFlag(args, "--symbol"),
+    group: parseFlag(args, "--group"),
+    kabutanOnly: hasFlag(args, "--kabutan-only"),
+    tdnetOnly: hasFlag(args, "--tdnet-only"),
+    edinetOnly: hasFlag(args, "--edinet-only"),
+    count: parseIntFlag(args, "--count", 2),
+    days: parseIntFlag(args, "--days", 365),
+    tdnetDays: parseIntFlag(args, "--tdnet-days", 30),
+    dryRun: hasFlag(args, "--dry-run"),
   };
 }
 
 // ── ユーティリティ ──
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function formatDateHyphen(d: Date): string {
   const y = d.getFullYear();
@@ -565,7 +558,7 @@ async function downloadPDF(url: string): Promise<Buffer | null> {
 // ── メイン処理 ──
 
 async function main() {
-  const opts = parseArgs();
+  const opts = parseCliArgs();
   const edinetApiKey = process.env.EDINET_API_KEY;
   const onlyOne = opts.kabutanOnly || opts.tdnetOnly || opts.edinetOnly;
 

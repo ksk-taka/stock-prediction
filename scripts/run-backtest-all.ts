@@ -10,6 +10,7 @@
 
 import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
+import { getArgs, parseFlag, hasFlag } from "@/lib/utils/cli";
 import { getHistoricalPrices } from "@/lib/api/yahooFinance";
 import { strategies, getStrategyParams } from "@/lib/backtest/strategies";
 import { runBacktest } from "@/lib/backtest/engine";
@@ -18,20 +19,17 @@ import type { PeriodType } from "@/lib/backtest/presets";
 
 // ── CLI引数パース ──
 
-function parseArgs() {
-  const args = process.argv.slice(2);
-  const get = (flag: string) => {
-    const idx = args.indexOf(flag);
-    return idx >= 0 && idx + 1 < args.length ? args[idx + 1] : undefined;
-  };
+function parseCliArgs() {
+  const args = getArgs();
 
-  const segment = get("--segment") ?? "プライム";
-  const dailyOnly = args.includes("--daily-only");
-  const weeklyOnly = args.includes("--weekly-only");
-  const stratSet = get("--strategies") ?? "all"; // classic | dip | all
-  const limit = get("--limit") ? parseInt(get("--limit")!, 10) : undefined;
-  const favoritesOnly = args.includes("--favorites");
-  const allStocks = args.includes("--all");
+  const segment = parseFlag(args, "--segment") ?? "プライム";
+  const dailyOnly = hasFlag(args, "--daily-only");
+  const weeklyOnly = hasFlag(args, "--weekly-only");
+  const stratSet = parseFlag(args, "--strategies") ?? "all"; // classic | dip | all
+  const limitStr = parseFlag(args, "--limit");
+  const limit = limitStr ? parseInt(limitStr, 10) : undefined;
+  const favoritesOnly = hasFlag(args, "--favorites");
+  const allStocks = hasFlag(args, "--all");
 
   const periods: PeriodType[] = dailyOnly
     ? ["daily"]
@@ -183,7 +181,7 @@ async function processStock(
 // ── メイン ──
 
 async function main() {
-  const { segment, periods, activeStrategies, stratSet, limit, favoritesOnly, allStocks } = parseArgs();
+  const { segment, periods, activeStrategies, stratSet, limit, favoritesOnly, allStocks } = parseCliArgs();
   let stocks = loadStocks(segment, favoritesOnly, allStocks);
   if (limit) stocks = stocks.slice(0, limit);
 

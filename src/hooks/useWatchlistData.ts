@@ -3,9 +3,6 @@ import type { Stock, WatchlistGroup, SignalValidation } from "@/types";
 import type { StockQuote, StockStats, SignalSummary, NewHighInfo } from "@/types/watchlist";
 import { isJPMarketOpen, isUSMarketOpen } from "@/lib/utils/date";
 
-const BATCH_CHUNK = 200; // URL長制限を考慮
-
-
 // ── localStorage キャッシュ設定 ──
 const CACHE_KEY = "watchlist-cache-v2";
 const CACHE_VERSION = 2;

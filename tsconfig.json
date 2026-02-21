@@ -35,5 +35,17 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", "vitest.config.ts"]
+  "exclude": [
+    "node_modules",
+    "vitest.config.ts",
+    "scripts/_*",
+    "scripts/analyze-cwh-distribution.ts",
+    "scripts/backtest-yutai-premium.ts",
+    "scripts/cleanup-cnper-group.ts",
+    "scripts/register-1yr-growth.ts",
+    "scripts/register-cnper-low.ts",
+    "scripts/register-growth-groups.ts",
+    "scripts/review-analysis.ts",
+    "scripts/test-ma-cross.ts"
+  ]
 }

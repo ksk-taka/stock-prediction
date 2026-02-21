@@ -1005,7 +1005,6 @@ export default function StockDetailPage() {
         )}
         {activeTab === "backtest" && (
           <BacktestPanel
-            symbol={symbol}
             pricesMap={pricesMap}
             fetchPricesForPeriod={fetchPricesForPeriod}
             loadingMap={loadingMap}

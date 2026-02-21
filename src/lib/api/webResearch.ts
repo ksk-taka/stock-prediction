@@ -209,7 +209,7 @@ function buildFundamentalQuery(
  * Gemini Grounding でファンダメンタルズ情報を収集
  */
 export async function fetchFundamentalResearch(
-  symbol: string,
+  _symbol: string,
   name: string,
   ticker: string,
   stats: { pbr: number; per: number }

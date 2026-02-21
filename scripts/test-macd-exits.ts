@@ -5,7 +5,6 @@ const yf = new YahooFinance();
 interface PriceData {
   date: string; open: number; high: number; low: number; close: number; volume: number;
 }
-type Signal = "buy" | "sell" | "hold";
 
 // ── 指標計算 ──
 function calcEMA(data: PriceData[], period: number): (number | null)[] {
@@ -123,7 +122,7 @@ function exitBase(data: PriceData[]): Trade[] {
 
 // B) トレーリングストップ 8%: 高値から-8%で利確（DCは無視）
 function exitTrail(data: PriceData[], trailPct: number): Trade[] {
-  const { gcIndices, dcIndices } = detectMACDGoldenCross(data);
+  const { gcIndices } = detectMACDGoldenCross(data);
   const trades: Trade[] = [];
   let inPos = false, entryPrice = 0, entryIdx = 0, peakPrice = 0;
   for (let i = 0; i < data.length; i++) {

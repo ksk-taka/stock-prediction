@@ -41,7 +41,6 @@ function runAllInOut(
   let cash = initialCapital;
   let shares = 0;
   let peakEquity = initialCapital;
-  let buyPrice = 0;
 
   for (let i = 0; i < data.length; i++) {
     const d = data[i];
@@ -53,7 +52,6 @@ function runAllInOut(
       if (shares > 0) {
         const cost = shares * price;
         cash -= cost;
-        buyPrice = price;
         trades.push({
           date: d.date,
           type: "buy",
@@ -75,7 +73,6 @@ function runAllInOut(
         reason: "シグナル: 売り",
       });
       shares = 0;
-      buyPrice = 0;
     }
 
     const currentEquity = cash + shares * price;
@@ -275,7 +272,7 @@ function calcStats(
   };
 }
 
-function calcSharpeRatio(equity: EquityPoint[], data: PriceData[]): number {
+function calcSharpeRatio(equity: EquityPoint[], _data: PriceData[]): number {
   if (equity.length < 2) return 0;
 
   const dailyReturns: number[] = [];

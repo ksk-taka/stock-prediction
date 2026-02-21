@@ -23,6 +23,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import * as cheerio from "cheerio";
 import YahooFinance from "yahoo-finance2";
 import { yfQueue } from "@/lib/utils/requestQueue";
+import { sleep, getArgs, parseFlag, hasFlag } from "@/lib/utils/cli";
 
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
@@ -59,25 +60,23 @@ interface BreakoutStock extends KabutanStock {
 
 // ── CLI Args ───────────────────────────────────────────────
 
-function parseArgs() {
-  const args = process.argv.slice(2);
-  const get = (flag: string) => {
-    const idx = args.indexOf(flag);
-    return idx >= 0 && idx + 1 < args.length ? args[idx + 1] : undefined;
-  };
+function parseCliArgs() {
+  const args = getArgs();
 
-  const outputCsv = args.includes("--csv");
-  const perRangeStr = get("--per");
+  const outputCsv = hasFlag(args, "--csv");
+  const perRangeStr = parseFlag(args, "--per");
   const perRange = perRangeStr?.split(",").map(Number);
   const perMin = perRange?.[0] ?? undefined;
   const perMax = perRange?.[1] ?? undefined;
-  const marketFilter = get("--market");
-  const maxPages = get("--pages") ? parseInt(get("--pages")!, 10) : undefined;
-  const breakoutOnly = !args.includes("--all-ytd");
-  const debug = args.includes("--debug");
+  const marketFilter = parseFlag(args, "--market");
+  const maxPagesStr = parseFlag(args, "--pages");
+  const maxPages = maxPagesStr ? parseInt(maxPagesStr, 10) : undefined;
+  const breakoutOnly = !hasFlag(args, "--all-ytd");
+  const debug = hasFlag(args, "--debug");
 
-  const uploadToSupabase = args.includes("--supabase");
-  const scanId = get("--scan-id") ? parseInt(get("--scan-id")!, 10) : undefined;
+  const uploadToSupabase = hasFlag(args, "--supabase");
+  const scanIdStr = parseFlag(args, "--scan-id");
+  const scanId = scanIdStr ? parseInt(scanIdStr, 10) : undefined;
 
   return { outputCsv, perMin, perMax, marketFilter, maxPages, breakoutOnly, debug, uploadToSupabase, scanId };
 }
@@ -86,10 +85,6 @@ function parseArgs() {
 
 const KABUTAN_BASE_URL = "https://kabutan.jp/warning/";
 const KABUTAN_DELAY_MS = 800;
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 async function fetchKabutanPage(
   page: number,
@@ -783,7 +778,7 @@ async function markScanFailed(scanId: number, errorMsg: string): Promise<void> {
 // ── Main ───────────────────────────────────────────────────
 
 async function main() {
-  const { outputCsv, perMin, perMax, marketFilter, maxPages, breakoutOnly, debug, uploadToSupabase: doSupabase, scanId } = parseArgs();
+  const { outputCsv, perMin, perMax, marketFilter, maxPages, breakoutOnly, debug, uploadToSupabase: doSupabase, scanId } = parseCliArgs();
   const startTime = Date.now();
 
   console.log("=".repeat(60));
@@ -878,7 +873,7 @@ async function main() {
 
 main().catch(async (err) => {
   console.error("Fatal error:", err);
-  const { scanId, uploadToSupabase: doSupabase } = parseArgs();
+  const { scanId, uploadToSupabase: doSupabase } = parseCliArgs();
   if (doSupabase && scanId) {
     await markScanFailed(scanId, String(err));
   }

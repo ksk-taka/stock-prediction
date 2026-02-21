@@ -18,6 +18,7 @@
 import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 
+import { sleep } from "@/lib/utils/cli";
 import { execSync } from "child_process";
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
@@ -118,10 +119,6 @@ const symbols = args
   .map((s) => (s.includes(".T") ? s : `${s}.T`));
 
 // ---------- ユーティリティ ----------
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
-}
 
 /** プロンプトテキストから定量データを抽出 */
 function extractQuantFromPrompt(prompt: string) {

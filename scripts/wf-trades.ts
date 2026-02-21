@@ -14,6 +14,7 @@
 
 import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
+import { getArgs, parseFlag, hasFlag, parseIntFlag } from "@/lib/utils/cli";
 import { strategies } from "@/lib/backtest/strategies";
 import { runBacktest } from "@/lib/backtest/engine";
 import type { PriceData } from "@/types";
@@ -44,18 +45,14 @@ const WF_RECOMMENDED: Record<string, Record<string, number>> = {
 // CLI引数
 // ============================================================
 
-function parseArgs() {
-  const args = process.argv.slice(2);
-  const get = (flag: string) => {
-    const idx = args.indexOf(flag);
-    return idx >= 0 && idx + 1 < args.length ? args[idx + 1] : undefined;
-  };
+function parseCliArgs() {
+  const args = getArgs();
 
-  const allStocks = args.includes("--all");
+  const allStocks = hasFlag(args, "--all");
   const favoritesOnly = !allStocks;
-  const trainYears = get("--train-years") ? parseInt(get("--train-years")!, 10) : 3;
-  const testYears = get("--test-years") ? parseInt(get("--test-years")!, 10) : 1;
-  const strategyFilter = get("--strategies")?.split(",") ?? ["tabata_cwh", "cwh_trail"];
+  const trainYears = parseIntFlag(args, "--train-years", 3);
+  const testYears = parseIntFlag(args, "--test-years", 1);
+  const strategyFilter = parseFlag(args, "--strategies")?.split(",") ?? ["tabata_cwh", "cwh_trail"];
 
   const activeStrategies = strategies.filter((s) => strategyFilter.includes(s.id));
 
@@ -69,7 +66,7 @@ function parseArgs() {
 interface WatchlistStock { symbol: string; name: string; market: string; marketSegment?: string; favorite?: boolean; }
 interface StockData { symbol: string; name: string; data: PriceData[]; }
 
-function loadStocks(opts: ReturnType<typeof parseArgs>): WatchlistStock[] {
+function loadStocks(opts: ReturnType<typeof parseCliArgs>): WatchlistStock[] {
   const raw = readFileSync(join(process.cwd(), "data", "watchlist.json"), "utf-8");
   const watchlist = JSON.parse(raw) as { stocks: WatchlistStock[] };
   return watchlist.stocks.filter((s) => {
@@ -185,7 +182,7 @@ function extractRoundTrips(
 // ============================================================
 
 async function main() {
-  const opts = parseArgs();
+  const opts = parseCliArgs();
   const stocks = loadStocks(opts);
   const allData = loadAllStockData(stocks);
   const windows = generateWindows(opts.trainYears, opts.testYears);

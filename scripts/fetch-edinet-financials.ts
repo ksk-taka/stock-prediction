@@ -199,7 +199,6 @@ async function main() {
 
   const sorted = [...results.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   for (const [sym, data] of sorted) {
-    const name = (nameMap.get(sym) ?? "").slice(0, 8).padEnd(8);
     console.log(
       `  ${sym.padEnd(10)} ${fmtOku(data.netSales).padStart(8)} ${fmtOku(data.operatingIncome).padStart(10)}` +
       ` ${fmtOku(data.netIncome).padStart(8)} ${fmtOku(data.currentAssets).padStart(10)}` +

@@ -8,7 +8,6 @@ import type {
   KabuTokenResponse,
   KabuSendOrderRequest,
   KabuOrderResponse,
-  KabuCancelOrderRequest,
   KabuOrder,
   KabuPosition,
   KabuWalletCash,

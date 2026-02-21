@@ -535,14 +535,6 @@ const fixedStrategies = [
 ];
 
 // ── 評価スコア: 勝率 × trade頻度ボーナス + 収益考慮 ──
-// 主に勝率最大化。ただし最低取引数フィルタ（3回未満は除外）
-// 同率の場合、PFとtotalPctで差をつける
-function score(r: Result): number {
-  if (r.trades < 3) return -Infinity;
-  // 主軸: 勝率 (0-100) + PFボーナス (0-10) + 収益ボーナス (0-10)
-  return r.winRate + Math.min(r.pf, 5) * 2 + Math.min(Math.max(r.totalPct, 0), 100) * 0.1;
-}
-
 // ── メイン ──
 async function main() {
   const stocks = [
