@@ -205,9 +205,7 @@ export async function GET(request: NextRequest) {
       if (frHit) floatingRatioMap.set(sym, cached.floatingRatio ?? null);
 
       // いずれかがファイルキャッシュミスならSupabaseフォールバック対象
-      // floatingRatioはバッチスクリプトでのみ書き込まれるため、
-      // Vercel /tmpキャッシュには存在しない → Supabaseフォールバック必須
-      if (!ncHit || !roeHit || !divHit || !frHit) {
+      if (!ncHit || !roeHit || !divHit || !frHit || !pgHit || !crHit || !pegHit || !eqHit || !tdHit) {
         supabaseFallbackNeeded.push(sym);
       }
     }
@@ -223,6 +221,12 @@ export async function GET(request: NextRequest) {
           if (!roeMap.has(sym) && sbCache.roe !== undefined) roeMap.set(sym, sbCache.roe ?? null);
           if (!divMap.has(sym) && sbCache.dividend !== undefined) divMap.set(sym, sbCache.dividend);
           if (!floatingRatioMap.has(sym) && sbCache.floatingRatio !== undefined) floatingRatioMap.set(sym, sbCache.floatingRatio ?? null);
+          // 追加指標
+          if (!currentRatioMap.has(sym) && sbCache.currentRatio !== undefined) currentRatioMap.set(sym, sbCache.currentRatio ?? null);
+          if (!pegRatioMap.has(sym) && sbCache.pegRatio !== undefined) pegRatioMap.set(sym, sbCache.pegRatio ?? null);
+          if (!equityRatioMap.has(sym) && sbCache.equityRatio !== undefined) equityRatioMap.set(sym, sbCache.equityRatio ?? null);
+          if (!totalDebtMap.has(sym) && sbCache.totalDebt !== undefined) totalDebtMap.set(sym, sbCache.totalDebt ?? null);
+          if (!profitGrowthMap.has(sym) && sbCache.profitGrowthRate !== undefined) profitGrowthMap.set(sym, sbCache.profitGrowthRate ?? null);
         }
       }
     }

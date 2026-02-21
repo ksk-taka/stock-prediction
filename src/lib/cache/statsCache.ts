@@ -29,6 +29,12 @@ interface SupabaseStatsCacheRow {
   range_cached_at: string | null;
   floating_ratio: number | null;
   floating_ratio_cached_at: string | null;
+  current_ratio: number | null;
+  peg_ratio: number | null;
+  equity_ratio: number | null;
+  total_debt: number | null;
+  profit_growth_rate: number | null;
+  extra_metrics_cached_at: string | null;
   updated_at: string;
 }
 
@@ -622,6 +628,18 @@ export async function getStatsCacheFromSupabase(symbol: string): Promise<CachedS
       }
     }
 
+    // 追加指標（30日TTL）
+    if (row.extra_metrics_cached_at) {
+      const emTs = new Date(row.extra_metrics_cached_at).getTime();
+      if (now - emTs <= ROE_TTL) {
+        if (row.current_ratio !== null) result.currentRatio = row.current_ratio;
+        if (row.peg_ratio !== null) result.pegRatio = row.peg_ratio;
+        if (row.equity_ratio !== null) result.equityRatio = row.equity_ratio;
+        if (row.total_debt !== null) result.totalDebt = row.total_debt;
+        if (row.profit_growth_rate !== null) result.profitGrowthRate = row.profit_growth_rate;
+      }
+    }
+
     return result;
   } catch {
     return result;
@@ -654,6 +672,17 @@ export async function setStatsCacheToSupabase(symbol: string, updates: StatsPart
     if (updates.floatingRatio !== undefined) {
       upsertData.floating_ratio = updates.floatingRatio;
       upsertData.floating_ratio_cached_at = now;
+    }
+    // 追加指標（流動比率/PEG/自己資本比率/有利子負債/増益率）
+    if (updates.currentRatio !== undefined || updates.pegRatio !== undefined ||
+        updates.equityRatio !== undefined || updates.totalDebt !== undefined ||
+        updates.profitGrowthRate !== undefined) {
+      if (updates.currentRatio !== undefined) upsertData.current_ratio = updates.currentRatio;
+      if (updates.pegRatio !== undefined) upsertData.peg_ratio = updates.pegRatio;
+      if (updates.equityRatio !== undefined) upsertData.equity_ratio = updates.equityRatio;
+      if (updates.totalDebt !== undefined) upsertData.total_debt = updates.totalDebt;
+      if (updates.profitGrowthRate !== undefined) upsertData.profit_growth_rate = updates.profitGrowthRate;
+      upsertData.extra_metrics_cached_at = now;
     }
 
     await supabase
@@ -718,6 +747,18 @@ export async function getStatsCacheBatchFromSupabase(
         const frTs = new Date(row.floating_ratio_cached_at).getTime();
         if (now - frTs <= ROE_TTL) {
           result.floatingRatio = row.floating_ratio;
+        }
+      }
+
+      // 追加指標（30日TTL）
+      if (row.extra_metrics_cached_at) {
+        const emTs = new Date(row.extra_metrics_cached_at).getTime();
+        if (now - emTs <= ROE_TTL) {
+          if (row.current_ratio !== null) result.currentRatio = row.current_ratio;
+          if (row.peg_ratio !== null) result.pegRatio = row.peg_ratio;
+          if (row.equity_ratio !== null) result.equityRatio = row.equity_ratio;
+          if (row.total_debt !== null) result.totalDebt = row.total_debt;
+          if (row.profit_growth_rate !== null) result.profitGrowthRate = row.profit_growth_rate;
         }
       }
 
