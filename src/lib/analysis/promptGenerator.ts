@@ -9,6 +9,13 @@
  */
 
 import YahooFinance from "yahoo-finance2";
+import type {
+  YahooFinancialData,
+  YahooKeyStatistics,
+  YahooCalendarEvents,
+  YahooAssetProfile,
+  YahooBalanceSheetItem,
+} from "@/types/yahooFinanceExtended";
 
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
@@ -107,14 +114,10 @@ export async function generateAnalysisPrompt(symbol: string): Promise<string> {
         .catch(() => []),
     ]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const fd = (summary.financialData ?? {}) as any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ks = (summary.defaultKeyStatistics ?? {}) as any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const cal = (summary.calendarEvents ?? {}) as any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ap = (summary.assetProfile ?? {}) as any;
+  const fd = (summary.financialData ?? {}) as YahooFinancialData;
+  const ks = (summary.defaultKeyStatistics ?? {}) as YahooKeyStatistics;
+  const cal = (summary.calendarEvents ?? {}) as YahooCalendarEvents;
+  const ap = (summary.assetProfile ?? {}) as YahooAssetProfile;
 
   // 株価データ
   const price = quote.regularMarketPrice ?? 0;
@@ -190,8 +193,7 @@ export async function generateAnalysisPrompt(symbol: string): Promise<string> {
   let cnper: number | null = null;
 
   if (bsResult && bsResult.length > 0 && marketCap > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const bs = bsResult[bsResult.length - 1] as any;
+    const bs = bsResult[bsResult.length - 1] as YahooBalanceSheetItem;
     let bsCurrentAssets = (bs.currentAssets as number) ?? 0;
     let investmentInFA =
       (bs.investmentinFinancialAssets as number) ??

@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { readFileSync, writeFileSync, mkdirSync } from "fs";
+import { writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
 
 import { callGeminiWithPdf } from "@/lib/api/geminiPdf";
@@ -345,16 +345,8 @@ export async function POST(request: NextRequest) {
         let marketSegment: string | undefined;
         let hasYutai: boolean | undefined;
         try {
-          const wlRaw = readFileSync(
-            join(process.cwd(), "data", "watchlist.json"),
-            "utf-8",
-          );
-          const wlData = JSON.parse(wlRaw);
-          const stocks = (wlData.stocks ?? wlData) as {
-            symbol: string;
-            marketSegment?: string;
-          }[];
-          const found = stocks.find((s) => s.symbol === symbol);
+          const { getStockFromFile } = await import("@/lib/cache/watchlistFileCache");
+          const found = getStockFromFile(symbol);
           marketSegment = found?.marketSegment;
         } catch {
           // watchlist 読み込み失敗は無視

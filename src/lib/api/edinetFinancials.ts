@@ -304,13 +304,15 @@ function isSummaryCurrentYearContext(contextRef: string, type: "instant" | "dura
 
 // ── XBRL 数値パーサー ──
 
+// Cheerio要素型（ジェネリックセレクタ結果）
+type CheerioEl = Parameters<ReturnType<typeof cheerio.load>>[0];
+
 /**
  * XBRL 要素から数値を抽出する。
  * ix:nonFraction の scale 属性にも対応。
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function parseXbrlNumeric(
-  el: any,
+  el: CheerioEl,
   $: ReturnType<typeof cheerio.load>,
 ): number | null {
   const $el = $(el);
