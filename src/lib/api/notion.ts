@@ -513,7 +513,7 @@ export async function queryAnalysisByDateRange(
         pageUrl: page.url,
         symbol,
         companyName: extractRichText(props, "企業名"),
-        analysisDate: props?.["分析日"]?.date?.start?.slice(0, 10) ?? "",
+        analysisDate: ((props?.["分析日"] as { date?: { start?: string } })?.date?.start ?? "").slice(0, 10),
         price: extractNumber(props, "株価") ?? 0,
         shortTermDecision: extractSelect(props, "短期判定"),
         midTermDecision: extractSelect(props, "中期判定"),
@@ -530,7 +530,7 @@ export async function queryAnalysisByDateRange(
         confidence: extractSelect(props, "確信度"),
       });
     }
-    startCursor = data.has_more ? data.next_cursor : undefined;
+    startCursor = data.has_more ? (data.next_cursor ?? undefined) : undefined;
   } while (startCursor);
 
   return results;
@@ -562,7 +562,7 @@ export async function getPageBlockTitles(pageId: string): Promise<string[]> {
         }
       }
     }
-    startCursor = data.has_more ? data.next_cursor : undefined;
+    startCursor = data.has_more ? (data.next_cursor ?? undefined) : undefined;
   } while (startCursor);
 
   return titles;

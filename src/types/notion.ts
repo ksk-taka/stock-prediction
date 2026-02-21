@@ -9,7 +9,7 @@
 // ---------- リッチテキスト ----------
 
 export interface NotionRichTextItem {
-  type: "text";
+  type?: "text";
   text: {
     content: string;
     link?: { url: string } | null;
