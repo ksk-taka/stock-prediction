@@ -6,6 +6,12 @@
  * 環境変数: NOTION_API_KEY, NOTION_DATABASE_ID
  */
 
+import type {
+  NotionBlock,
+  NotionPropertiesInput,
+  NotionRichTextItem,
+} from "@/types/notion";
+
 // ---------- 型定義 ----------
 
 export interface NotionAnalysisEntry {
@@ -92,13 +98,11 @@ function notionHeaders(): Record<string, string> {
 
 // ---------- プロパティ構築（共通） ----------
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildProperties(entry: NotionAnalysisEntry, includeTitle: boolean): Record<string, any> {
+function buildProperties(entry: NotionAnalysisEntry, includeTitle: boolean): NotionPropertiesInput {
   const truncate = (s: string, max = 2000) =>
     s.length > max ? s.slice(0, max - 3) + "..." : s;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const props: Record<string, any> = {};
+  const props: NotionPropertiesInput = {};
 
   if (includeTitle) {
     props["銘柄コード"] = { title: [{ text: { content: entry.symbol } }] };
@@ -183,13 +187,8 @@ function buildProperties(entry: NotionAnalysisEntry, includeTitle: boolean): Rec
 
 // ---------- Markdown → Notion Blocks 変換 ----------
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type NotionBlock = Record<string, any>;
-
-function richText(
-  content: string,
-): { type: string; text: { content: string } }[] {
-  const chunks: { type: string; text: { content: string } }[] = [];
+function richText(content: string): NotionRichTextItem[] {
+  const chunks: NotionRichTextItem[] = [];
   for (let i = 0; i < content.length; i += 2000) {
     chunks.push({
       type: "text",
@@ -417,6 +416,392 @@ export function isNotionConfigured(): boolean {
   return !!(process.env.NOTION_API_KEY && process.env.NOTION_DATABASE_ID);
 }
 
+// ---------- 検証用: DB日付範囲クエリ ----------
+
+export interface AnalysisPageSummary {
+  pageId: string;
+  pageUrl: string;
+  symbol: string;
+  companyName: string;
+  analysisDate: string;
+  price: number;
+  shortTermDecision: string | null;
+  midTermDecision: string | null;
+  longTermDecision: string | null;
+  shortTermBuy: number | null;
+  shortTermTP: number | null;
+  shortTermSL: number | null;
+  midTermBuy: number | null;
+  midTermTP: number | null;
+  midTermSL: number | null;
+  longTermBuy: number | null;
+  longTermTP: number | null;
+  longTermSL: number | null;
+  confidence: string | null;
+}
+
+function extractNumber(props: Record<string, unknown>, key: string): number | null {
+  const prop = props?.[key] as { number?: number } | undefined;
+  const val = prop?.number;
+  return val != null && isFinite(val) ? val : null;
+}
+
+function extractSelect(props: Record<string, unknown>, key: string): string | null {
+  const prop = props?.[key] as { select?: { name?: string } } | undefined;
+  return prop?.select?.name ?? null;
+}
+
+function extractRichText(props: Record<string, unknown>, key: string): string {
+  const prop = props?.[key] as { rich_text?: Array<{ plain_text?: string }> } | undefined;
+  const rt = prop?.rich_text;
+  if (!Array.isArray(rt)) return "";
+  return rt.map((t) => t.plain_text ?? "").join("");
+}
+
+/**
+ * 分析日が指定範囲内かつ GO 判定がある全ページを取得
+ */
+export async function queryAnalysisByDateRange(
+  fromDate: string,
+  toDate: string,
+): Promise<AnalysisPageSummary[]> {
+  const dbId = process.env.NOTION_DATABASE_ID;
+  if (!dbId) return [];
+
+  const results: AnalysisPageSummary[] = [];
+  let startCursor: string | undefined;
+
+  do {
+    const body: Record<string, unknown> = {
+      filter: {
+        and: [
+          { property: "分析日", date: { on_or_after: fromDate } },
+          { property: "分析日", date: { on_or_before: toDate } },
+          {
+            or: [
+              { property: "短期判定", select: { equals: "GO" } },
+              { property: "中期判定", select: { equals: "GO" } },
+              { property: "長期判定", select: { equals: "GO" } },
+            ],
+          },
+        ],
+      },
+      page_size: 100,
+    };
+    if (startCursor) body.start_cursor = startCursor;
+
+    const res = await fetch(
+      `https://api.notion.com/v1/databases/${dbId}/query`,
+      { method: "POST", headers: notionHeaders(), body: JSON.stringify(body) },
+    );
+    if (!res.ok) {
+      console.warn(`[Notion] queryAnalysisByDateRange failed: ${res.status}`);
+      break;
+    }
+    const data = await res.json() as { results?: Array<{ id: string; url: string; properties: Record<string, unknown> }>; has_more?: boolean; next_cursor?: string | null };
+    for (const page of data.results ?? []) {
+      const props = page.properties;
+      const titleProp = props?.["銘柄コード"] as { title?: Array<{ plain_text?: string }> } | undefined;
+      const titleArr = titleProp?.title;
+      const symbol = Array.isArray(titleArr)
+        ? titleArr.map((t) => t.plain_text ?? "").join("")
+        : "";
+      if (!symbol) continue;
+
+      results.push({
+        pageId: page.id,
+        pageUrl: page.url,
+        symbol,
+        companyName: extractRichText(props, "企業名"),
+        analysisDate: props?.["分析日"]?.date?.start?.slice(0, 10) ?? "",
+        price: extractNumber(props, "株価") ?? 0,
+        shortTermDecision: extractSelect(props, "短期判定"),
+        midTermDecision: extractSelect(props, "中期判定"),
+        longTermDecision: extractSelect(props, "長期判定"),
+        shortTermBuy: extractNumber(props, "短期買値"),
+        shortTermTP: extractNumber(props, "短期利確"),
+        shortTermSL: extractNumber(props, "短期損切"),
+        midTermBuy: extractNumber(props, "中期買値"),
+        midTermTP: extractNumber(props, "中期利確"),
+        midTermSL: extractNumber(props, "中期損切"),
+        longTermBuy: extractNumber(props, "長期買値"),
+        longTermTP: extractNumber(props, "長期利確"),
+        longTermSL: extractNumber(props, "長期損切"),
+        confidence: extractSelect(props, "確信度"),
+      });
+    }
+    startCursor = data.has_more ? data.next_cursor : undefined;
+  } while (startCursor);
+
+  return results;
+}
+
+// ---------- 検証用: ページ内トグルタイトル取得 ----------
+
+/**
+ * ページ直下のトグルブロックタイトル一覧を返す（冪等性チェック用）
+ */
+export async function getPageBlockTitles(pageId: string): Promise<string[]> {
+  const titles: string[] = [];
+  let startCursor: string | undefined;
+
+  do {
+    const url = startCursor
+      ? `https://api.notion.com/v1/blocks/${pageId}/children?page_size=100&start_cursor=${startCursor}`
+      : `https://api.notion.com/v1/blocks/${pageId}/children?page_size=100`;
+    const res = await fetch(url, { headers: notionHeaders() });
+    if (!res.ok) break;
+    const data = await res.json() as { results?: Array<{ type: string; toggle?: { rich_text?: Array<{ plain_text?: string }> } }>; has_more?: boolean; next_cursor?: string | null };
+    for (const block of data.results ?? []) {
+      if (block.type === "toggle") {
+        const rt = block.toggle?.rich_text;
+        if (Array.isArray(rt)) {
+          titles.push(
+            rt.map((t) => t.plain_text ?? "").join(""),
+          );
+        }
+      }
+    }
+    startCursor = data.has_more ? data.next_cursor : undefined;
+  } while (startCursor);
+
+  return titles;
+}
+
+// ---------- 検証用: シンプルトグル追加 ----------
+
+/**
+ * 軽量なトグルブロックを追加（検証結果用）
+ */
+export async function appendSimpleToggle(
+  pageId: string,
+  title: string,
+  bodyLines: string[],
+): Promise<void> {
+  const children: NotionBlock[] = bodyLines.map((line) => ({
+    object: "block",
+    type: "bulleted_list_item",
+    bulleted_list_item: { rich_text: richText(line) },
+  }));
+
+  const toggleBlock: NotionBlock = {
+    object: "block",
+    type: "toggle",
+    toggle: {
+      rich_text: richText(title),
+      children: children.slice(0, 100),
+    },
+  };
+
+  const res = await fetch(
+    `https://api.notion.com/v1/blocks/${pageId}/children`,
+    {
+      method: "PATCH",
+      headers: notionHeaders(),
+      body: JSON.stringify({ children: [toggleBlock] }),
+    },
+  );
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    console.warn(`[Notion] 検証トグル追加失敗: ${res.status} ${errBody.slice(0, 200)}`);
+  }
+}
+
+// ---------- 検証用: プロパティ更新 ----------
+
+export interface ReviewPropertyUpdate {
+  reviewDate: string;
+  shortTermResult?: string;
+  shortTermReturnPct?: number;
+  midTermResult?: string;
+  midTermReturnPct?: number;
+  longTermResult?: string;
+  longTermReturnPct?: number;
+}
+
+/**
+ * 検証結果プロパティを更新
+ */
+export async function updateReviewProperties(
+  pageId: string,
+  update: ReviewPropertyUpdate,
+): Promise<void> {
+  const props: NotionPropertiesInput = {
+    "検証日": { date: { start: update.reviewDate } },
+  };
+  if (update.shortTermResult) {
+    props["短期結果"] = { select: { name: update.shortTermResult } };
+  }
+  if (update.shortTermReturnPct != null) {
+    props["短期騰落率"] = { number: Math.round(update.shortTermReturnPct * 100) / 100 };
+  }
+  if (update.midTermResult) {
+    props["中期結果"] = { select: { name: update.midTermResult } };
+  }
+  if (update.midTermReturnPct != null) {
+    props["中期騰落率"] = { number: Math.round(update.midTermReturnPct * 100) / 100 };
+  }
+  if (update.longTermResult) {
+    props["長期結果"] = { select: { name: update.longTermResult } };
+  }
+  if (update.longTermReturnPct != null) {
+    props["長期騰落率"] = { number: Math.round(update.longTermReturnPct * 100) / 100 };
+  }
+
+  const res = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+    method: "PATCH",
+    headers: notionHeaders(),
+    body: JSON.stringify({ properties: props }),
+  });
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    console.warn(`[Notion] 検証プロパティ更新失敗: ${res.status} ${errBody.slice(0, 200)}`);
+  }
+}
+
+// ---------- 検証記録DB: バッチサマリー作成 ----------
+
+export interface ReviewBatchSummary {
+  title: string; // "2026-02-18 分析 → 1w検証"
+  analysisDate: string;
+  reviewDate: string;
+  reviewLabel: string; // 1w / 2w / 3w / 4w / custom
+  totalPages: number;
+  goJudgments: number;
+  shortGo: number;
+  midGo: number;
+  longGo: number;
+  tpHit: number;
+  slHit: number;
+  notReached: number;
+  undecided: number;
+  winRate: number; // %
+  avgReturn: number; // %
+}
+
+export async function createReviewBatchSummary(
+  summary: ReviewBatchSummary,
+  bodyBlocks?: NotionBlock[],
+): Promise<void> {
+  const dbId = process.env.NOTION_REVIEW_DATABASE_ID;
+  if (!dbId) {
+    console.warn("[Notion] NOTION_REVIEW_DATABASE_ID が未設定です");
+    return;
+  }
+
+  // Notion の % フォーマットは小数を期待 (0.4444 → 44.44%)
+  const props: NotionPropertiesInput = {
+    "タイトル": { title: [{ type: "text", text: { content: summary.title } }] },
+    "分析日": { date: { start: summary.analysisDate } },
+    "検証日": { date: { start: summary.reviewDate } },
+    "検証ラベル": { select: { name: summary.reviewLabel } },
+    "分析件数": { number: summary.totalPages },
+    "GO判定数": { number: summary.goJudgments },
+    "短期GO": { number: summary.shortGo },
+    "中期GO": { number: summary.midGo },
+    "長期GO": { number: summary.longGo },
+    "利確到達": { number: summary.tpHit },
+    "損切到達": { number: summary.slHit },
+    "買値未到達": { number: summary.notReached },
+    "未決着": { number: summary.undecided },
+    "勝率": { number: Math.round(summary.winRate * 100) / 10000 },
+    "平均騰落率": { number: Math.round(summary.avgReturn * 100) / 10000 },
+  };
+
+  const body: { parent: { database_id: string }; properties: NotionPropertiesInput; children?: NotionBlock[] } = {
+    parent: { database_id: dbId },
+    properties: props,
+  };
+  if (bodyBlocks && bodyBlocks.length > 0) {
+    body.children = bodyBlocks.slice(0, 100); // Notion上限100ブロック
+  }
+
+  const res = await fetch("https://api.notion.com/v1/pages", {
+    method: "POST",
+    headers: notionHeaders(),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    console.warn(`[Notion] 検証記録サマリー作成失敗: ${res.status} ${errBody.slice(0, 200)}`);
+  }
+}
+
+/** 検証記録ページ用のブロックを構築するヘルパー */
+export function buildReviewBlocks(sections: { heading: string; lines: string[] }[]): NotionBlock[] {
+  const blocks: NotionBlock[] = [];
+  for (const section of sections) {
+    blocks.push({
+      object: "block",
+      type: "heading_3",
+      heading_3: { rich_text: richText(section.heading) },
+    });
+    for (const line of section.lines) {
+      blocks.push({
+        object: "block",
+        type: "bulleted_list_item",
+        bulleted_list_item: { rich_text: richText(line) },
+      });
+    }
+  }
+  return blocks;
+}
+
+// ---------- メイン関数 ----------
+
+/**
+ * Notion API のバリデーションエラーから存在しないプロパティ名を抽出
+ */
+function extractMissingProperty(errBody: string): string | null {
+  // "XXX is not a property that exists." パターン
+  const match = errBody.match(/"message":"(.+?) is not a property that exists\."/);
+  return match ? match[1] : null;
+}
+
+/**
+ * プロパティを送信し、存在しないプロパティがあれば除外してリトライ
+ */
+async function sendWithPropertyRetry(
+  url: string,
+  method: "POST" | "PATCH",
+  body: Record<string, unknown>,
+  maxRetries = 3,
+): Promise<Response> {
+  const props = body.properties as NotionPropertiesInput;
+  const removed: string[] = [];
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const res = await fetch(url, {
+      method,
+      headers: notionHeaders(),
+      body: JSON.stringify(body),
+    });
+
+    if (res.ok) {
+      if (removed.length > 0) {
+        console.warn(`[Notion] DB に存在しないプロパティを除外: ${removed.join(", ")}`);
+      }
+      return res;
+    }
+
+    const errBody = await res.text().catch(() => "");
+    const missing = extractMissingProperty(errBody);
+
+    if (res.status === 400 && missing && props[missing] != null && attempt < maxRetries) {
+      delete props[missing];
+      removed.push(missing);
+      continue;
+    }
+
+    // リトライ不能なエラー
+    const errRes = new Response(errBody, { status: res.status, statusText: res.statusText });
+    return errRes;
+  }
+
+  // ここには到達しないが型安全のため
+  throw new Error("[Notion] リトライ上限超過");
+}
+
 export async function createAnalysisPage(
   entry: NotionAnalysisEntry,
 ): Promise<{ id: string; url: string }> {
@@ -435,25 +820,25 @@ export async function createAnalysisPage(
     pageId = existing.id;
     pageUrl = existing.url;
     // プロパティ更新（titleは更新しない）
-    const res = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
-      method: "PATCH",
-      headers: notionHeaders(),
-      body: JSON.stringify({ properties: buildProperties(entry, false) }),
-    });
+    const res = await sendWithPropertyRetry(
+      `https://api.notion.com/v1/pages/${pageId}`,
+      "PATCH",
+      { properties: buildProperties(entry, false) },
+    );
     if (!res.ok) {
       const errBody = await res.text().catch(() => "");
       console.warn(`[Notion] プロパティ更新失敗: ${res.status} ${errBody.slice(0, 200)}`);
     }
   } else {
     console.log(`[Notion] 新規ページ作成: ${entry.symbol}`);
-    const res = await fetch("https://api.notion.com/v1/pages", {
-      method: "POST",
-      headers: notionHeaders(),
-      body: JSON.stringify({
+    const res = await sendWithPropertyRetry(
+      "https://api.notion.com/v1/pages",
+      "POST",
+      {
         parent: { database_id: dbId },
         properties: buildProperties(entry, true),
-      }),
-    });
+      },
+    );
     if (!res.ok) {
       const errBody = await res.text().catch(() => "");
       throw new Error(
