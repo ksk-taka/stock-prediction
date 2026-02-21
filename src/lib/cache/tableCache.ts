@@ -5,7 +5,7 @@
 import { get, set, del } from "idb-keyval";
 
 const CACHE_KEY = "stock-table-v2";
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 2; // PSR/PEG計算改善に伴いキャッシュ無効化
 const CACHE_TTL = 6 * 60 * 60 * 1000; // 6時間
 
 // page.tsx 側と同じ型 (re-export用にここでも定義)

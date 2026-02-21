@@ -11,6 +11,7 @@ import type { PriceData } from "@/types";
 import { isMarketOpen } from "@/lib/utils/date";
 import { getCachedMaster } from "@/lib/cache/jquantsCache";
 import { NIKKEI225_CODES } from "@/data/nikkei225";
+import { getCachedEdinetFinancials } from "@/lib/cache/edinetCache";
 
 interface PriceBar {
   date: string;
@@ -195,6 +196,7 @@ export async function GET(request: NextRequest) {
     const equityRatioMap = new Map<string, number | null>();
     const totalDebtMap = new Map<string, number | null>();
     const profitGrowthMap = new Map<string, number | null>();
+    const psrMap = new Map<string, number | null>();
     const floatingRatioMap = new Map<string, number | null>();
     const metricsMissing: { sym: string; marketCap: number }[] = []; // NC率またはROEがミス
     const divMissing: string[] = [];
@@ -227,6 +229,9 @@ export async function GET(request: NextRequest) {
       if (eqHit) equityRatioMap.set(sym, cached.equityRatio ?? null);
       if (tdHit) totalDebtMap.set(sym, cached.totalDebt ?? null);
       if (pgHit) profitGrowthMap.set(sym, cached.profitGrowthRate ?? null);
+
+      const psrHit = cached.psr !== undefined;
+      if (psrHit) psrMap.set(sym, cached.psr ?? null);
 
       const frHit = cached.floatingRatio !== undefined;
       if (frHit) floatingRatioMap.set(sym, cached.floatingRatio ?? null);
@@ -321,7 +326,7 @@ export async function GET(request: NextRequest) {
 
     for (const r of metricsResults) {
       if (r.status === "fulfilled") {
-        const { sym, ncRatio, roe, fiscalYearEnd, currentRatio, pegRatio, equityRatio, totalDebt, profitGrowthRate } = r.value;
+        const { sym, ncRatio, roe, fiscalYearEnd, currentRatio, pegRatio, equityRatio, totalDebt, profitGrowthRate, psr: metricsPsr } = r.value;
         ncMap.set(sym, ncRatio);
         roeMap.set(sym, roe);
         fyeMap.set(sym, fiscalYearEnd);
@@ -330,6 +335,7 @@ export async function GET(request: NextRequest) {
         equityRatioMap.set(sym, equityRatio);
         totalDebtMap.set(sym, totalDebt);
         profitGrowthMap.set(sym, profitGrowthRate);
+        psrMap.set(sym, metricsPsr);
         const update = cacheUpdates.get(sym) ?? {};
         update.nc = ncRatio;
         update.roe = roe;
@@ -339,6 +345,7 @@ export async function GET(request: NextRequest) {
         update.equityRatio = equityRatio;
         update.totalDebt = totalDebt;
         update.profitGrowthRate = profitGrowthRate;
+        update.psr = metricsPsr;
         cacheUpdates.set(sym, update);
       }
     }
@@ -486,9 +493,27 @@ export async function GET(request: NextRequest) {
         fcfHistory: fcfHistoryMap.get(sym) ?? null,
         // 流動比率
         currentRatio: currentRatioMap.get(sym) ?? null,
-        // 追加指標
-        psr: q?.psr ?? null,
-        pegRatio: pegRatioMap.get(sym) ?? null,
+        // 追加指標 (フォールバック: YF quote → quoteSummary totalRevenue → EDINET売上高)
+        psr: q?.psr ?? psrMap.get(sym) ?? (() => {
+          if (q?.marketCap && q.marketCap > 0) {
+            try {
+              const edinet = getCachedEdinetFinancials(sym);
+              if (edinet?.netSales && edinet.netSales > 0) {
+                return Math.round((q.marketCap / edinet.netSales) * 100) / 100;
+              }
+            } catch { /* EDINET cache not available */ }
+          }
+          return null;
+        })(),
+        pegRatio: pegRatioMap.get(sym) ?? (() => {
+          const per = q?.per;
+          const growth = profitGrowthMap.get(sym);
+          if (per != null && per > 0 && growth != null && growth > 0) {
+            const peg = per / growth;
+            if (peg > 0 && peg < 100) return Math.round(peg * 100) / 100;
+          }
+          return null;
+        })(),
         equityRatio: equityRatioMap.get(sym) ?? null,
         totalDebt: totalDebtMap.get(sym) ?? null,
         profitGrowthRate: profitGrowthMap.get(sym) ?? null,

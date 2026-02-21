@@ -225,10 +225,11 @@ export interface FinancialMetrics {
   equityRatio: number | null;      // 自己資本比率 (%)
   totalDebt: number | null;        // 有利子負債 (円)
   profitGrowthRate: number | null;  // 増益率 (%, YoY EBIT growth)
+  psr: number | null;              // PSR (= marketCap / totalRevenue)
 }
 
 export async function getFinancialMetrics(symbol: string, marketCap: number): Promise<FinancialMetrics> {
-  const result: FinancialMetrics = { ncRatio: null, roe: null, fiscalYearEnd: null, currentRatio: null, pegRatio: null, equityRatio: null, totalDebt: null, profitGrowthRate: null };
+  const result: FinancialMetrics = { ncRatio: null, roe: null, fiscalYearEnd: null, currentRatio: null, pegRatio: null, equityRatio: null, totalDebt: null, profitGrowthRate: null, psr: null };
 
   try {
     const period1 = new Date();
@@ -329,6 +330,12 @@ export async function getFinancialMetrics(symbol: string, marketCap: number): Pr
       result.pegRatio = Math.round(pegVal * 100) / 100;
     }
 
+    // PSR（financialData.totalRevenue → 計算）
+    const totalRevenue = (fd as Record<string, unknown> | undefined)?.totalRevenue as number | null ?? null;
+    if (totalRevenue != null && totalRevenue > 0 && marketCap > 0) {
+      result.psr = Math.round((marketCap / totalRevenue) * 100) / 100;
+    }
+
     // 自己資本比率（financialData.debtToEquity → 計算）
     const debtToEquity = (fd as Record<string, unknown> | undefined)?.debtToEquity as number | null ?? null;
     if (debtToEquity != null && debtToEquity >= 0) {
@@ -341,12 +348,19 @@ export async function getFinancialMetrics(symbol: string, marketCap: number): Pr
       result.totalDebt = tdVal;
     }
 
-    // 増益率: TTM EBIT YoY成長率
-    if (statements && statements.length >= 5) {
-      const getEbit = (q: unknown): number | null => {
+    // 増益率: financialData.earningsGrowth 優先、なければ四半期TTM計算
+    const earningsGrowth = (fd as Record<string, unknown> | undefined)?.earningsGrowth as number | null ?? null;
+    if (earningsGrowth != null) {
+      // earningsGrowth は小数 (e.g., -0.423 = -42.3%)
+      result.profitGrowthRate = Math.round(earningsGrowth * 1000) / 10;
+    } else if (statements && statements.length >= 5) {
+      // フォールバック: 四半期TTM比較
+      const getProfit = (q: unknown): number | null => {
         const rec = q as Record<string, unknown>;
-        return (rec.ebit as number | undefined) ??
-               (rec.operatingIncome as number | undefined) ?? null;
+        const ebit = rec.ebit as number | undefined;
+        if (ebit != null && ebit !== 0) return ebit;
+        return (rec.operatingIncome as number | undefined) ??
+               (rec.netIncome as number | undefined) ?? null;
       };
 
       const currentQuarters = statements.slice(0, 4);
@@ -357,13 +371,13 @@ export async function getFinancialMetrics(symbol: string, marketCap: number): Pr
         let currentValid = true, priorValid = true;
 
         for (const q of currentQuarters) {
-          const ebit = getEbit(q);
-          if (ebit != null) currentTTM += ebit;
+          const profit = getProfit(q);
+          if (profit != null) currentTTM += profit;
           else currentValid = false;
         }
         for (const q of priorQuarters) {
-          const ebit = getEbit(q);
-          if (ebit != null) priorTTM += ebit;
+          const profit = getProfit(q);
+          if (profit != null) priorTTM += profit;
           else priorValid = false;
         }
 
@@ -423,7 +437,7 @@ export async function getDividendHistory(
       yf.historical(symbol, {
         period1,
         period2: new Date(),
-        events: "dividends" as "dividends",
+        events: "dividends" as const,
       })
     );
 
