@@ -2,10 +2,11 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import type { Stock, WatchlistGroup, SignalValidation } from "@/types";
 import type { StockQuote, StockStats, SignalSummary, NewHighInfo } from "@/types/watchlist";
 import { isJPMarketOpen, isUSMarketOpen } from "@/lib/utils/date";
+import { get, set } from "idb-keyval";
 
-// ── localStorage キャッシュ設定 ──
-const CACHE_KEY = "watchlist-cache-v2";
-const CACHE_VERSION = 2;
+// ── IndexedDB キャッシュ設定 ──
+const CACHE_KEY = "watchlist-cache-v3";
+const CACHE_VERSION = 1;
 
 // TTL設定（データ種別ごと）
 const TTL_QUOTES_MARKET = 5 * 60 * 1000;       // 株価: 場中5分
@@ -28,19 +29,36 @@ function getQuotesTTL(): number {
   return isJPMarketOpen() || isUSMarketOpen() ? TTL_QUOTES_MARKET : TTL_QUOTES_CLOSED;
 }
 
-function loadCache(): { cache: Partial<WatchlistCache>; quotesExpired: boolean } | null {
+async function loadCache(): Promise<{ cache: Partial<WatchlistCache>; quotesExpired: boolean } | null> {
   if (typeof window === "undefined") return null;
   try {
-    const saved = localStorage.getItem(CACHE_KEY);
-    if (!saved) return null;
-    const cache: WatchlistCache = JSON.parse(saved);
+    // 旧 localStorage からの移行 (一度だけ)
+    const legacy = localStorage.getItem("watchlist-cache-v2");
+    if (legacy) {
+      try {
+        const parsed = JSON.parse(legacy) as WatchlistCache;
+        if (parsed.version === 2) {
+          const migrated: WatchlistCache = { ...parsed, version: CACHE_VERSION };
+          await set(CACHE_KEY, migrated);
+          localStorage.removeItem("watchlist-cache-v2");
+          const now = Date.now();
+          const staticExpired = now - migrated.staticTimestamp > TTL_STATIC;
+          if (staticExpired) return null;
+          const quotesExpired = now - migrated.quotesTimestamp > getQuotesTTL();
+          return { cache: migrated, quotesExpired };
+        }
+      } catch { /* ignore */ }
+      localStorage.removeItem("watchlist-cache-v2");
+    }
+
+    const cache = await get<WatchlistCache>(CACHE_KEY);
+    if (!cache) return null;
     if (cache.version !== CACHE_VERSION) return null;
 
     const now = Date.now();
     const staticExpired = now - cache.staticTimestamp > TTL_STATIC;
     const quotesExpired = now - cache.quotesTimestamp > getQuotesTTL();
 
-    // 静的データも期限切れなら全キャッシュ無効
     if (staticExpired) return null;
 
     return { cache, quotesExpired };
@@ -63,27 +81,23 @@ function slimSignals(signals: Record<string, SignalSummary>): Record<string, Sig
     result[symbol] = {
       activeSignals: { daily: activeDaily, weekly: [] },
       recentSignals: { daily: recentDaily, weekly: [] },
-      // validations は除外（LLM分析テキストが大きい）
     };
   }
   return result;
 }
 
-function saveCache(
+async function saveCache(
   data: Omit<WatchlistCache, "version" | "quotesTimestamp" | "staticTimestamp">,
   updateQuotes: boolean = true
-): void {
+): Promise<void> {
   if (typeof window === "undefined") return;
   try {
     // 既存キャッシュのタイムスタンプを保持
     let prevQuotesTs = Date.now();
-    let prevStaticTs = Date.now();
     try {
-      const prev = localStorage.getItem(CACHE_KEY);
+      const prev = await get<WatchlistCache>(CACHE_KEY);
       if (prev) {
-        const parsed = JSON.parse(prev) as WatchlistCache;
-        prevQuotesTs = parsed.quotesTimestamp ?? prevQuotesTs;
-        prevStaticTs = parsed.staticTimestamp ?? prevStaticTs;
+        prevQuotesTs = prev.quotesTimestamp ?? prevQuotesTs;
       }
     } catch { /* ignore */ }
 
@@ -94,23 +108,8 @@ function saveCache(
       quotesTimestamp: updateQuotes ? Date.now() : prevQuotesTs,
       staticTimestamp: Date.now(),
     };
-    const json = JSON.stringify(cache);
-
-    localStorage.setItem(CACHE_KEY, json);
-  } catch (e) {
-
-    try {
-      localStorage.removeItem(CACHE_KEY);
-      const cache: WatchlistCache = {
-        ...data,
-        signals: slimSignals(data.signals),
-        version: CACHE_VERSION,
-        quotesTimestamp: Date.now(),
-        staticTimestamp: Date.now(),
-      };
-      localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-    } catch { /* ignore */ }
-  }
+    await set(CACHE_KEY, cache);
+  } catch { /* ignore */ }
 }
 
 interface UseWatchlistDataReturn {
@@ -169,35 +168,36 @@ export function useWatchlistData(): UseWatchlistDataReturn {
   // 株価のみ再取得が必要かどうか
   const quotesNeedRefreshRef = useRef(false);
 
-  // マウント時にlocalStorageから復元
+  // マウント時にIndexedDBから復元
   useEffect(() => {
-    const result = loadCache();
-    if (result) {
-      const { cache, quotesExpired } = result;
-      if (cache.stocks) setStocks(cache.stocks);
-      if (cache.stats) setStats(cache.stats);
-      if (cache.signals) {
-        setSignals(cache.signals);
-        Object.keys(cache.signals).forEach((sym) => signalsFetchedRef.current.add(sym));
-        setInitialSignalLoadComplete(true);
-      }
-      if (cache.allGroups) setAllGroups(cache.allGroups);
-      if (cache.newHighsMap) setNewHighsMap(cache.newHighsMap);
+    loadCache().then((result) => {
+      if (result) {
+        const { cache, quotesExpired } = result;
+        if (cache.stocks) setStocks(cache.stocks);
+        if (cache.stats) setStats(cache.stats);
+        if (cache.signals) {
+          setSignals(cache.signals);
+          Object.keys(cache.signals).forEach((sym) => signalsFetchedRef.current.add(sym));
+          setInitialSignalLoadComplete(true);
+        }
+        if (cache.allGroups) setAllGroups(cache.allGroups);
+        if (cache.newHighsMap) setNewHighsMap(cache.newHighsMap);
 
-      if (!quotesExpired && cache.quotes) {
-        setQuotes(cache.quotes);
-      } else {
-        quotesNeedRefreshRef.current = true;
-      }
+        if (!quotesExpired && cache.quotes) {
+          setQuotes(cache.quotes);
+        } else {
+          quotesNeedRefreshRef.current = true;
+        }
 
-      if (cache.stocks && cache.stocks.length > 0) {
-        setLoading(false);
+        if (cache.stocks && cache.stocks.length > 0) {
+          setLoading(false);
+        }
       }
-    }
-    setCacheRestored(true);
+      setCacheRestored(true);
+    });
   }, []);
 
-  // データ変更時にlocalStorageに保存
+  // データ変更時にIndexedDBに保存
   const saveCacheRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!cacheRestored) return;
