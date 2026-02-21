@@ -78,6 +78,10 @@ interface StockTableRow {
   topixScale: string | null;
   isNikkei225: boolean;
   firstTradeDate: string | null;
+  // 浮動株
+  sharesOutstanding: number | null;
+  floatingRatio: number | null;
+  floatingMarketCap: number | null;
 }
 
 interface MergedRow extends StockTableRow {
@@ -126,6 +130,8 @@ const COLUMNS: ColumnDef[] = [
   { key: "equityRatio", label: "自己資本比率", group: "指標", align: "right", defaultVisible: false },
   { key: "totalDebt", label: "有利子負債", group: "指標", align: "right", defaultVisible: false },
   { key: "profitGrowthRate", label: "増益率", group: "指標", align: "right", defaultVisible: false },
+  { key: "floatingRatio", label: "浮動株比率", group: "指標", align: "right", defaultVisible: false },
+  { key: "floatingMarketCap", label: "浮動株時価総額", group: "指標", align: "right", defaultVisible: false },
   { key: "dividendYield", label: "配当利回り", group: "配当", align: "right", defaultVisible: true },
   { key: "latestDividend", label: "配当額", group: "配当", align: "right", defaultVisible: false },
   { key: "previousDividend", label: "前回配当", group: "配当", align: "right", defaultVisible: false },
@@ -572,6 +578,9 @@ export default function StockTablePage() {
         topixScale: td?.topixScale ?? null,
         isNikkei225: td?.isNikkei225 ?? false,
         firstTradeDate: td?.firstTradeDate ?? null,
+        sharesOutstanding: td?.sharesOutstanding ?? null,
+        floatingRatio: td?.floatingRatio ?? null,
+        floatingMarketCap: td?.floatingMarketCap ?? null,
       };
     });
 
@@ -1011,6 +1020,11 @@ export default function StockTablePage() {
             {row.profitGrowthRate > 0 ? "+" : ""}{row.profitGrowthRate.toFixed(1)}%
           </span>
         );
+      case "floatingRatio":
+        if (row.floatingRatio == null) return "－";
+        return `${(row.floatingRatio * 100).toFixed(1)}%`;
+      case "floatingMarketCap":
+        return row.floatingMarketCap ? formatMarketCap(row.floatingMarketCap) : "－";
       case "dividendYield": {
         if (row.dividendYield == null) return "－";
         const yieldPct = Math.round(row.dividendYield * 1000) / 10; // 小数→%変換

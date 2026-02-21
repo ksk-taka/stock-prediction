@@ -168,6 +168,7 @@ export async function GET(request: NextRequest) {
     const equityRatioMap = new Map<string, number | null>();
     const totalDebtMap = new Map<string, number | null>();
     const profitGrowthMap = new Map<string, number | null>();
+    const floatingRatioMap = new Map<string, number | null>();
     const metricsMissing: { sym: string; marketCap: number }[] = []; // NC率またはROEがミス
     const divMissing: string[] = [];
     const supabaseFallbackNeeded: string[] = []; // ファイルキャッシュミスのシンボル
@@ -199,6 +200,8 @@ export async function GET(request: NextRequest) {
       if (eqHit) equityRatioMap.set(sym, cached.equityRatio ?? null);
       if (tdHit) totalDebtMap.set(sym, cached.totalDebt ?? null);
       if (pgHit) profitGrowthMap.set(sym, cached.profitGrowthRate ?? null);
+
+      if (cached.floatingRatio !== undefined) floatingRatioMap.set(sym, cached.floatingRatio ?? null);
 
       // いずれかがファイルキャッシュミスならSupabaseフォールバック対象
       if (!ncHit || !roeHit || !divHit) {
@@ -456,6 +459,16 @@ export async function GET(request: NextRequest) {
         topixScale: topixMap.get(sym) ?? null,
         isNikkei225: NIKKEI225_CODES.has(sym.replace(".T", "")),
         firstTradeDate: q?.firstTradeDate ?? null,
+        // 浮動株
+        sharesOutstanding: q?.sharesOutstanding ?? null,
+        floatingRatio: floatingRatioMap.get(sym) ?? null,
+        floatingMarketCap: (() => {
+          const fr = floatingRatioMap.get(sym);
+          const so = q?.sharesOutstanding;
+          const price = q?.price;
+          if (fr != null && so && price) return price * so * fr;
+          return null;
+        })(),
       };
     });
 
