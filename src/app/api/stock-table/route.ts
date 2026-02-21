@@ -115,8 +115,18 @@ export async function GET(request: NextRequest) {
   const symbols = symbolsParam.split(",").slice(0, 50);
 
   try {
-    // 1. Yahoo Finance バッチquote
-    const quotes = await getQuoteBatch(symbols);
+    // 1. Yahoo Finance バッチquote（429レートリミット時は空で続行）
+    let quotes: Awaited<ReturnType<typeof getQuoteBatch>> = [];
+    try {
+      quotes = await getQuoteBatch(symbols);
+    } catch (e: unknown) {
+      const code = (e as { code?: number }).code;
+      if (code === 429) {
+        console.warn("[stock-table] Yahoo Finance 429 rate limit, continuing with cached data");
+      } else {
+        throw e; // 429以外は再throw
+      }
+    }
     const quoteMap = new Map(quotes.map((q) => [q.symbol, q]));
 
     // 1b. J-Quants master → TOPIX ScaleCat マップ
