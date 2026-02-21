@@ -35,6 +35,7 @@ interface SupabaseStatsCacheRow {
   total_debt: number | null;
   profit_growth_rate: number | null;
   extra_metrics_cached_at: string | null;
+  topix_scale: string | null;
   updated_at: string;
 }
 
@@ -55,6 +56,7 @@ export interface CachedStatsAllResult {
   totalDebt: number | null | undefined;
   profitGrowthRate: number | null | undefined;
   floatingRatio: number | null | undefined;
+  topixScale: string | null | undefined;
 }
 
 interface StatsCacheEntry {
@@ -326,6 +328,7 @@ export interface StatsPartialUpdate {
   totalDebt?: number | null;
   profitGrowthRate?: number | null;
   floatingRatio?: number | null;
+  topixScale?: string | null;
 }
 
 export function setCachedStatsPartial(symbol: string, updates: StatsPartialUpdate): void {
@@ -489,6 +492,7 @@ export function getCachedStatsAll(
     totalDebt: undefined,
     profitGrowthRate: undefined,
     floatingRatio: undefined,
+    topixScale: undefined,
   };
 
   // 決算日が直近の場合、ROEは常に再取得（PER/EPS/ROEが更新される可能性）
@@ -581,7 +585,7 @@ export function getCachedStatsAll(
  * ファイルキャッシュがない場合にのみ呼び出される
  */
 export async function getStatsCacheFromSupabase(symbol: string): Promise<CachedStatsAllResult> {
-  const result: CachedStatsAllResult = { nc: undefined, dividend: undefined, roe: undefined, fiscalYearEnd: undefined, roeHistory: undefined, fcfHistory: undefined, currentRatio: undefined, pegRatio: undefined, equityRatio: undefined, totalDebt: undefined, profitGrowthRate: undefined, floatingRatio: undefined };
+  const result: CachedStatsAllResult = { nc: undefined, dividend: undefined, roe: undefined, fiscalYearEnd: undefined, roeHistory: undefined, fcfHistory: undefined, currentRatio: undefined, pegRatio: undefined, equityRatio: undefined, totalDebt: undefined, profitGrowthRate: undefined, floatingRatio: undefined, topixScale: undefined };
 
   try {
     const supabase = createServiceClient();
@@ -640,6 +644,11 @@ export async function getStatsCacheFromSupabase(symbol: string): Promise<CachedS
       }
     }
 
+    // TOPIX規模区分（TTLなし - マスタデータは安定）
+    if (row.topix_scale) {
+      result.topixScale = row.topix_scale;
+    }
+
     return result;
   } catch {
     return result;
@@ -684,6 +693,9 @@ export async function setStatsCacheToSupabase(symbol: string, updates: StatsPart
       if (updates.profitGrowthRate !== undefined) upsertData.profit_growth_rate = updates.profitGrowthRate;
       upsertData.extra_metrics_cached_at = now;
     }
+    if (updates.topixScale !== undefined) {
+      upsertData.topix_scale = updates.topixScale;
+    }
 
     await supabase
       .from("stats_cache")
@@ -716,7 +728,7 @@ export async function getStatsCacheBatchFromSupabase(
     const now = Date.now();
 
     for (const row of data as SupabaseStatsCacheRow[]) {
-      const result: CachedStatsAllResult = { nc: undefined, dividend: undefined, roe: undefined, fiscalYearEnd: undefined, roeHistory: undefined, fcfHistory: undefined, currentRatio: undefined, pegRatio: undefined, equityRatio: undefined, totalDebt: undefined, profitGrowthRate: undefined, floatingRatio: undefined };
+      const result: CachedStatsAllResult = { nc: undefined, dividend: undefined, roe: undefined, fiscalYearEnd: undefined, roeHistory: undefined, fcfHistory: undefined, currentRatio: undefined, pegRatio: undefined, equityRatio: undefined, totalDebt: undefined, profitGrowthRate: undefined, floatingRatio: undefined, topixScale: undefined };
 
       // NC率（7日TTL）
       if (row.nc_cached_at && row.nc_ratio !== null) {
@@ -760,6 +772,11 @@ export async function getStatsCacheBatchFromSupabase(
           if (row.total_debt !== null) result.totalDebt = row.total_debt;
           if (row.profit_growth_rate !== null) result.profitGrowthRate = row.profit_growth_rate;
         }
+      }
+
+      // TOPIX規模区分（TTLなし）
+      if (row.topix_scale) {
+        result.topixScale = row.topix_scale;
       }
 
       resultMap.set(row.symbol, result);

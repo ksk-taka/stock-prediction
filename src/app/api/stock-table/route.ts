@@ -227,6 +227,8 @@ export async function GET(request: NextRequest) {
           if (!equityRatioMap.has(sym) && sbCache.equityRatio !== undefined) equityRatioMap.set(sym, sbCache.equityRatio ?? null);
           if (!totalDebtMap.has(sym) && sbCache.totalDebt !== undefined) totalDebtMap.set(sym, sbCache.totalDebt ?? null);
           if (!profitGrowthMap.has(sym) && sbCache.profitGrowthRate !== undefined) profitGrowthMap.set(sym, sbCache.profitGrowthRate ?? null);
+          // TOPIX規模区分
+          if (!topixMap.has(sym) && sbCache.topixScale) topixMap.set(sym, sbCache.topixScale);
         }
       }
     }

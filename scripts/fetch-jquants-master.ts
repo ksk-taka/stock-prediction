@@ -21,6 +21,7 @@ import {
   getCachedMaster,
   setCachedMaster,
 } from "@/lib/cache/jquantsCache";
+import { createClient } from "@supabase/supabase-js";
 
 // ── CLI引数 ──
 
@@ -178,6 +179,35 @@ function updateWatchlist(wl: Watchlist, masterMap: Map<string, JQuantsMasterItem
   return updated;
 }
 
+// ── Supabase TOPIX同期 ──
+
+async function syncTopixToSupabase(masterData: JQuantsMasterItem[]) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    console.log("  ⚠️  Supabase環境変数なし → topix_scale同期スキップ");
+    return;
+  }
+
+  const supabase = createClient(url, key);
+  const items = masterData.filter((d) => d.ScaleCat && d.ScaleCat !== "-");
+  console.log(`\n🔄 TOPIX規模区分を Supabase に同期 (${items.length}件)...`);
+
+  // 100件ずつバッチupsert
+  const BATCH = 100;
+  let synced = 0;
+  for (let i = 0; i < items.length; i += BATCH) {
+    const batch = items.slice(i, i + BATCH).map((d) => ({
+      symbol: `${d.Code.slice(0, 4)}.T`,
+      topix_scale: d.ScaleCat,
+    }));
+    await supabase.from("stats_cache").upsert(batch, { onConflict: "symbol" });
+    synced += batch.length;
+    if (synced % 500 === 0) process.stdout.write(`  ${synced}件...\r`);
+  }
+  console.log(`  ✅ ${synced}件の topix_scale を同期完了`);
+}
+
 // ── メイン ──
 
 async function main() {
@@ -235,6 +265,11 @@ async function main() {
     console.log(`\n${updated} 銘柄のセクター情報を更新しました`);
   } else {
     console.log("\n更新対象の銘柄はありませんでした");
+  }
+
+  // Supabase stats_cache に topix_scale を同期（Vercelフォールバック用）
+  if (!opts.dryRun) {
+    await syncTopixToSupabase(masterData);
   }
 
   console.log("=".repeat(60));
