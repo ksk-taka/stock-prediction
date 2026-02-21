@@ -134,7 +134,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 2. Supabase price_history からレンジ計算 + シャープレシオ算出
-    let rangeMap = new Map<string, ReturnType<typeof computeRanges>>();
+    const rangeMap = new Map<string, ReturnType<typeof computeRanges>>();
     const sharpeMap = new Map<string, number | null>();
     try {
       const supabase = createServiceClient();
@@ -201,10 +201,13 @@ export async function GET(request: NextRequest) {
       if (tdHit) totalDebtMap.set(sym, cached.totalDebt ?? null);
       if (pgHit) profitGrowthMap.set(sym, cached.profitGrowthRate ?? null);
 
-      if (cached.floatingRatio !== undefined) floatingRatioMap.set(sym, cached.floatingRatio ?? null);
+      const frHit = cached.floatingRatio !== undefined;
+      if (frHit) floatingRatioMap.set(sym, cached.floatingRatio ?? null);
 
       // いずれかがファイルキャッシュミスならSupabaseフォールバック対象
-      if (!ncHit || !roeHit || !divHit) {
+      // floatingRatioはバッチスクリプトでのみ書き込まれるため、
+      // Vercel /tmpキャッシュには存在しない → Supabaseフォールバック必須
+      if (!ncHit || !roeHit || !divHit || !frHit) {
         supabaseFallbackNeeded.push(sym);
       }
     }
@@ -219,6 +222,7 @@ export async function GET(request: NextRequest) {
           if (!ncMap.has(sym) && sbCache.nc !== undefined) ncMap.set(sym, sbCache.nc ?? null);
           if (!roeMap.has(sym) && sbCache.roe !== undefined) roeMap.set(sym, sbCache.roe ?? null);
           if (!divMap.has(sym) && sbCache.dividend !== undefined) divMap.set(sym, sbCache.dividend);
+          if (!floatingRatioMap.has(sym) && sbCache.floatingRatio !== undefined) floatingRatioMap.set(sym, sbCache.floatingRatio ?? null);
         }
       }
     }

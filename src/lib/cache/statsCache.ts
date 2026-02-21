@@ -27,6 +27,8 @@ interface SupabaseStatsCacheRow {
   month_high: number | null;
   month_low: number | null;
   range_cached_at: string | null;
+  floating_ratio: number | null;
+  floating_ratio_cached_at: string | null;
   updated_at: string;
 }
 
@@ -612,6 +614,14 @@ export async function getStatsCacheFromSupabase(symbol: string): Promise<CachedS
       }
     }
 
+    // 浮動株比率（30日TTL）
+    if (row.floating_ratio_cached_at && row.floating_ratio !== null) {
+      const frTs = new Date(row.floating_ratio_cached_at).getTime();
+      if (now - frTs <= ROE_TTL) {
+        result.floatingRatio = row.floating_ratio;
+      }
+    }
+
     return result;
   } catch {
     return result;
@@ -640,6 +650,10 @@ export async function setStatsCacheToSupabase(symbol: string, updates: StatsPart
     if (updates.roe !== undefined) {
       upsertData.roe = updates.roe;
       upsertData.roe_cached_at = now;
+    }
+    if (updates.floatingRatio !== undefined) {
+      upsertData.floating_ratio = updates.floatingRatio;
+      upsertData.floating_ratio_cached_at = now;
     }
 
     await supabase
@@ -696,6 +710,14 @@ export async function getStatsCacheBatchFromSupabase(
         const roeTs = new Date(row.roe_cached_at).getTime();
         if (now - roeTs <= ROE_TTL) {
           result.roe = row.roe;
+        }
+      }
+
+      // 浮動株比率（30日TTL）
+      if (row.floating_ratio_cached_at && row.floating_ratio !== null) {
+        const frTs = new Date(row.floating_ratio_cached_at).getTime();
+        if (now - frTs <= ROE_TTL) {
+          result.floatingRatio = row.floating_ratio;
         }
       }
 

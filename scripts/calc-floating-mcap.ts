@@ -33,7 +33,7 @@ import {
   findXbrlFiles as findXbrlFilesFromModule,
   type ShareholderEntry,
 } from "../src/lib/api/edinetXbrl";
-import { setCachedStatsPartial } from "../src/lib/cache/statsCache";
+import { setCachedStatsPartial, getCachedStatsAll, setStatsCacheToSupabase } from "../src/lib/cache/statsCache";
 
 // ── 設定 ──
 
@@ -49,6 +49,8 @@ interface CLIArgs {
   debug: boolean;
   searchDays: number;
   concurrency: number;
+  skipCached: boolean;
+  syncSupabase: boolean;
 }
 
 function parseArgs(): CLIArgs {
@@ -65,6 +67,8 @@ function parseArgs(): CLIArgs {
     debug: args.includes("--debug"),
     searchDays: parseInt(get("--days") ?? "400", 10),
     concurrency: parseInt(get("--concurrency") ?? "3", 10),
+    skipCached: args.includes("--skip-cached"),
+    syncSupabase: args.includes("--sync-supabase"),
   };
 }
 
@@ -287,6 +291,28 @@ async function main() {
   const args = parseArgs();
   const startTime = Date.now();
 
+  // --sync-supabase: ファイルキャッシュからSupabaseに一括投入
+  if (args.syncSupabase) {
+    const supabase = createServiceClient();
+    console.log("📋 全銘柄をSupabaseから取得中...");
+    const allStocksForSync = await getAllStocks(supabase);
+    console.log(`🔄 ${allStocksForSync.length}銘柄のファイルキャッシュ → Supabase同期`);
+    let synced = 0;
+    let skipped = 0;
+    for (const { symbol } of allStocksForSync) {
+      const cached = getCachedStatsAll(symbol);
+      if (cached.floatingRatio !== undefined && cached.floatingRatio !== null) {
+        await setStatsCacheToSupabase(symbol, { floatingRatio: cached.floatingRatio });
+        synced++;
+        if (synced % 100 === 0) process.stdout.write(`  ${synced}件同期済み\r`);
+      } else {
+        skipped++;
+      }
+    }
+    console.log(`  ✅ ${synced}件同期 / ${skipped}件スキップ (${((Date.now() - startTime) / 1000).toFixed(1)}秒)`);
+    return;
+  }
+
   const apiKey = process.env.EDINET_API_KEY;
   if (!apiKey) {
     console.error("EDINET_API_KEY が設定されていません (.env.local に追加)");
@@ -306,6 +332,19 @@ async function main() {
     } else {
       console.log("📋 お気に入り銘柄をSupabaseから取得中...");
       stocks = await getFavoriteStocks(supabase);
+    }
+  }
+
+  // --skip-cached: キャッシュ済み銘柄をスキップ
+  if (args.skipCached && stocks.length > 1) {
+    const before = stocks.length;
+    stocks = stocks.filter((s) => {
+      const cached = getCachedStatsAll(s.symbol);
+      return cached.floatingRatio === undefined;
+    });
+    const skipped = before - stocks.length;
+    if (skipped > 0) {
+      console.log(`⏭️  ${skipped}件キャッシュ済み → スキップ (残り${stocks.length}件)`);
     }
   }
 
