@@ -18,13 +18,13 @@ import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 
 import { writeFileSync } from "fs";
+import { getArgs, parseFlag, hasFlag, parseIntFlag } from "@/lib/utils/cli";
 import { join } from "path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   getEdinetFinancials,
   getEdinetFinancialsBatch,
   formatFinancialsForLLM,
-  type EdinetFinancialData,
 } from "../src/lib/api/edinetFinancials";
 
 // ── CLI引数 ──
@@ -38,19 +38,15 @@ interface CLIArgs {
   searchDays: number;
 }
 
-function parseArgs(): CLIArgs {
-  const args = process.argv.slice(2);
-  const get = (flag: string) => {
-    const idx = args.indexOf(flag);
-    return idx >= 0 && idx + 1 < args.length ? args[idx + 1] : undefined;
-  };
+function parseCliArgs(): CLIArgs {
+  const args = getArgs();
   return {
-    symbol: get("--symbol"),
-    all: args.includes("--all"),
-    csv: args.includes("--csv"),
-    dryRun: args.includes("--dry-run"),
-    force: args.includes("--force"),
-    searchDays: parseInt(get("--days") ?? "400", 10),
+    symbol: parseFlag(args, "--symbol"),
+    all: hasFlag(args, "--all"),
+    csv: hasFlag(args, "--csv"),
+    dryRun: hasFlag(args, "--dry-run"),
+    force: hasFlag(args, "--force"),
+    searchDays: parseIntFlag(args, "--days", 400),
   };
 }
 
@@ -113,7 +109,7 @@ function fmtOku(n: number | null): string {
 }
 
 async function main() {
-  const args = parseArgs();
+  const args = parseCliArgs();
   const startTime = Date.now();
 
   const apiKey = process.env.EDINET_API_KEY;
