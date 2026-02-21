@@ -131,6 +131,23 @@ export async function GET(request: NextRequest) {
           topixMap.set(sym, item.ScaleCat);
         }
       }
+    } else {
+      // Vercel: master ファイルキャッシュなし → Supabase から topix_scale を直接取得
+      try {
+        const sbTopix = createServiceClient();
+        const { data: topixRows } = await sbTopix
+          .from("stats_cache")
+          .select("symbol, topix_scale")
+          .in("symbol", symbols)
+          .not("topix_scale", "is", null);
+        if (topixRows) {
+          for (const row of topixRows) {
+            topixMap.set(row.symbol, row.topix_scale);
+          }
+        }
+      } catch {
+        // ignore
+      }
     }
 
     // 2. Supabase price_history からレンジ計算 + シャープレシオ算出
