@@ -147,6 +147,50 @@ export async function getEarningsText(
 }
 
 /**
+ * 決算資料テキストを取得（XBRL 補完付き）
+ * PDF テキスト抽出が不十分な場合、EDINET XBRL から構造化データを追加
+ */
+export async function getEarningsTextWithXbrl(
+  symbol: string,
+  maxChars: number = 80000,
+): Promise<{ text: string; sources: string[]; totalChars: number } | null> {
+  // 1. 既存のPDFテキスト取得
+  const pdfResult = await getEarningsText(symbol, maxChars);
+
+  // 2. XBRL 財務データを補完
+  try {
+    const { getCachedEdinetFinancials } = await import("@/lib/cache/edinetCache");
+    const { formatFinancialsForLLM } = await import("@/lib/api/edinetFinancials");
+    const edinetData = getCachedEdinetFinancials(symbol);
+
+    if (edinetData) {
+      const xbrlText = formatFinancialsForLLM(edinetData);
+
+      if (pdfResult) {
+        // PDFテキストの前にXBRL定量データを追加
+        const combined = `【XBRL構造化データ（${edinetData.fiscalYearEnd}期）】\n${xbrlText}\n\n${pdfResult.text}`;
+        return {
+          text: combined.slice(0, maxChars),
+          sources: [`XBRL(${edinetData.docId})`, ...pdfResult.sources],
+          totalChars: combined.length,
+        };
+      } else {
+        // PDFなしの場合はXBRLデータのみ返す
+        return {
+          text: `【XBRL構造化データ（${edinetData.fiscalYearEnd}期）】\n${xbrlText}`,
+          sources: [`XBRL(${edinetData.docId})`],
+          totalChars: xbrlText.length,
+        };
+      }
+    }
+  } catch {
+    // EDINET cache/module not available, fall through
+  }
+
+  return pdfResult;
+}
+
+/**
  * 決算資料が利用可能な銘柄一覧を取得
  */
 export function listAvailableEarnings(): {

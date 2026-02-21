@@ -152,15 +152,32 @@ async function fetchNetCash(stock: WatchlistStock, debug: boolean): Promise<NetC
     }
 
     // 流動資産
-    const currentAssets = (bs.currentAssets as number) ?? 0;
+    let currentAssets = (bs.currentAssets as number) ?? 0;
     // 投資有価証券の近似: investmentinFinancialAssets > availableForSaleSecurities > investmentsAndAdvances
-    const investmentInFA =
+    let investmentInFA =
       (bs.investmentinFinancialAssets as number) ??
       (bs.availableForSaleSecurities as number) ??
       (bs.investmentsAndAdvances as number) ??
       0;
     // 負債合計
-    const totalLiabilities = (bs.totalLiabilitiesNetMinorityInterest as number) ?? 0;
+    let totalLiabilities = (bs.totalLiabilitiesNetMinorityInterest as number) ?? 0;
+
+    // EDINET XBRL フォールバック: YFで投資有価証券が0の場合に補完
+    if (investmentInFA === 0) {
+      try {
+        const { getCachedEdinetFinancials } = await import("../src/lib/cache/edinetCache");
+        const edinet = getCachedEdinetFinancials(stock.symbol);
+        if (edinet?.investmentSecurities != null && edinet.investmentSecurities > 0) {
+          investmentInFA = edinet.investmentSecurities;
+        }
+        if (currentAssets === 0 && edinet?.currentAssets != null) {
+          currentAssets = edinet.currentAssets;
+        }
+        if (totalLiabilities === 0 && edinet?.totalLiabilities != null) {
+          totalLiabilities = edinet.totalLiabilities;
+        }
+      } catch { /* EDINET cache not available */ }
+    }
 
     const netCash = currentAssets + investmentInFA * 0.7 - totalLiabilities;
     const netCashRatio = (netCash / marketCap) * 100;

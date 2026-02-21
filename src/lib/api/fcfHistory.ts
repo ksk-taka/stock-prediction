@@ -51,6 +51,22 @@ export async function getFcfHistory(symbol: string): Promise<FcfHistoryEntry[]> 
       }
     }
 
+    // EDINET XBRL 補完: YFで取得できなかった年度を追加
+    try {
+      const { getCachedEdinetFinancials } = await import("@/lib/cache/edinetCache");
+      const edinet = getCachedEdinetFinancials(symbol);
+      if (edinet && edinet.fiscalYearEnd && (edinet.operatingCashFlow != null || edinet.freeCashFlow != null)) {
+        const edinetYear = new Date(edinet.fiscalYearEnd).getFullYear();
+        const hasYear = entries.some(e => e.year === edinetYear);
+        if (!hasYear) {
+          const ocf = edinet.operatingCashFlow ?? 0;
+          const capex = edinet.capitalExpenditure ?? 0;
+          const fcf = edinet.freeCashFlow ?? (ocf + capex);
+          entries.push({ year: edinetYear, fcf, ocf, capex });
+        }
+      }
+    } catch { /* EDINET cache not available */ }
+
     // 新しい年度順にソート、最大5件
     entries.sort((a, b) => b.year - a.year);
     return entries.slice(0, 5);

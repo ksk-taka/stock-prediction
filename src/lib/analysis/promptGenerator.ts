@@ -192,18 +192,35 @@ export async function generateAnalysisPrompt(symbol: string): Promise<string> {
   if (bsResult && bsResult.length > 0 && marketCap > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const bs = bsResult[bsResult.length - 1] as any;
-    const currentAssets = (bs.currentAssets as number) ?? 0;
-    const investmentInFA =
+    let bsCurrentAssets = (bs.currentAssets as number) ?? 0;
+    let investmentInFA =
       (bs.investmentinFinancialAssets as number) ??
       (bs.availableForSaleSecurities as number) ??
       (bs.investmentsAndAdvances as number) ??
       0;
-    const totalLiabilities =
+    let bsTotalLiabilities =
       (bs.totalLiabilitiesNetMinorityInterest as number) ?? 0;
 
-    if (currentAssets !== 0 || totalLiabilities !== 0) {
+    // EDINET XBRL フォールバック
+    if (investmentInFA === 0) {
+      try {
+        const { getCachedEdinetFinancials } = await import("@/lib/cache/edinetCache");
+        const edinet = getCachedEdinetFinancials(symbol);
+        if (edinet?.investmentSecurities != null && edinet.investmentSecurities > 0) {
+          investmentInFA = edinet.investmentSecurities;
+        }
+        if (bsCurrentAssets === 0 && edinet?.currentAssets != null) {
+          bsCurrentAssets = edinet.currentAssets;
+        }
+        if (bsTotalLiabilities === 0 && edinet?.totalLiabilities != null) {
+          bsTotalLiabilities = edinet.totalLiabilities;
+        }
+      } catch { /* EDINET cache not available */ }
+    }
+
+    if (bsCurrentAssets !== 0 || bsTotalLiabilities !== 0) {
       const netCash =
-        currentAssets + investmentInFA * 0.7 - totalLiabilities;
+        bsCurrentAssets + investmentInFA * 0.7 - bsTotalLiabilities;
       ncRatio = Math.round((netCash / marketCap) * 1000) / 10;
       if (per != null) {
         cnper = Math.round(per * (1 - ncRatio / 100) * 100) / 100;
@@ -392,6 +409,24 @@ export async function generateAnalysisPrompt(symbol: string): Promise<string> {
 - 増配傾向: ${dividendTrendText}
 - シャープレシオ: 6ヶ月 ${sharpe6m != null ? fmt(sharpe6m, 2) : "N/A"} / 1年 ${sharpe1y != null ? fmt(sharpe1y, 2) : "N/A"} / 3年 ${sharpe3y != null ? fmt(sharpe3y, 2) : "N/A"} (> 1.0 で優秀、< 0 はリターン負)
 `;
+
+  // EDINET 有報確定値セクション（キャッシュがあれば追加）
+  try {
+    const { getCachedEdinetFinancials } = await import("@/lib/cache/edinetCache");
+    const edinetData = getCachedEdinetFinancials(symbol);
+    if (edinetData) {
+      prompt += `\n# EDINET 有報 確定値 (${edinetData.fiscalYearEnd}期, ${edinetData.filingDate}提出)\n`;
+      if (edinetData.netSales != null) prompt += `- 売上高: ${fmtYen(edinetData.netSales)}\n`;
+      if (edinetData.operatingIncome != null) prompt += `- 営業利益: ${fmtYen(edinetData.operatingIncome)}\n`;
+      if (edinetData.netIncome != null) prompt += `- 純利益: ${fmtYen(edinetData.netIncome)}\n`;
+      if (edinetData.investmentSecurities != null) prompt += `- 投資有価証券: ${fmtYen(edinetData.investmentSecurities)}\n`;
+      if (edinetData.operatingCashFlow != null) prompt += `- 営業CF: ${fmtYen(edinetData.operatingCashFlow)}\n`;
+      if (edinetData.freeCashFlow != null) prompt += `- FCF: ${fmtYen(edinetData.freeCashFlow)}\n`;
+      if (edinetData.netIncome != null && edinetData.stockholdersEquity != null && edinetData.stockholdersEquity > 0) {
+        prompt += `- ROE(算出): ${((edinetData.netIncome / edinetData.stockholdersEquity) * 100).toFixed(1)}%\n`;
+      }
+    }
+  } catch { /* EDINET cache not available */ }
 
   if (numberOfAnalysts && numberOfAnalysts > 0) {
     prompt += `

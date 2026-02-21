@@ -37,7 +37,7 @@ import { fetchNewsAndSentiment, fetchFundamentalResearch } from "@/lib/api/webRe
 import { analyzeSentiment, validateSignal } from "@/lib/api/llm";
 import { setCachedValidation, getCachedValidation } from "@/lib/cache/fundamentalCache";
 import { setCachedNews } from "@/lib/cache/newsCache";
-import { getEarningsText } from "@/lib/utils/earningsReader";
+import { getEarningsTextWithXbrl } from "@/lib/utils/earningsReader";
 import type { PriceData, NewsItem } from "@/types";
 import type { Signal } from "@/lib/backtest/types";
 import type { PeriodType } from "@/lib/backtest/presets";
@@ -176,7 +176,7 @@ async function analyzeSignal(
     if (withEarnings) {
       console.log(`    [分析] 決算資料読み込み中...`);
       try {
-        const earnings = await getEarningsText(symbol);
+        const earnings = await getEarningsTextWithXbrl(symbol);
         if (earnings) {
           earningsContext = `\n\n### 決算資料 (${earnings.sources.join(", ")})\n${earnings.text}`;
           console.log(`    [分析] 決算資料: ${earnings.sources.length}件 (${earnings.totalChars.toLocaleString()}文字)`);

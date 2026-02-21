@@ -74,6 +74,20 @@ export async function getRoeHistory(symbol: string): Promise<RoeHistoryEntry[]> 
       }
     }
 
+    // EDINET XBRL 補完: YFで取得できなかった年度を追加
+    try {
+      const { getCachedEdinetFinancials } = await import("@/lib/cache/edinetCache");
+      const edinet = getCachedEdinetFinancials(symbol);
+      if (edinet?.netIncome != null && edinet?.stockholdersEquity != null && edinet.stockholdersEquity > 0 && edinet.fiscalYearEnd) {
+        const edinetYear = new Date(edinet.fiscalYearEnd).getFullYear();
+        const hasYear = entries.some(e => e.year === edinetYear);
+        if (!hasYear) {
+          const roe = Math.round((edinet.netIncome / edinet.stockholdersEquity) * 10000) / 10000;
+          entries.push({ year: edinetYear, roe });
+        }
+      }
+    } catch { /* EDINET cache not available */ }
+
     // 新しい年度順にソート、最大5件
     entries.sort((a, b) => b.year - a.year);
     return entries.slice(0, 5);

@@ -178,13 +178,30 @@ export async function getSimpleNetCashRatio(symbol: string, marketCap: number): 
     if (!bsResult || bsResult.length === 0) return null;
 
     const bs = bsResult[bsResult.length - 1] as Record<string, unknown>;
-    const currentAssets = (bs.currentAssets as number) ?? 0;
-    const investmentInFA =
+    let currentAssets = (bs.currentAssets as number) ?? 0;
+    let investmentInFA =
       (bs.investmentinFinancialAssets as number) ??
       (bs.availableForSaleSecurities as number) ??
       (bs.investmentsAndAdvances as number) ??
       0;
-    const totalLiabilities = (bs.totalLiabilitiesNetMinorityInterest as number) ?? 0;
+    let totalLiabilities = (bs.totalLiabilitiesNetMinorityInterest as number) ?? 0;
+
+    // EDINET XBRL フォールバック: YFで投資有価証券が0の場合に補完
+    if (investmentInFA === 0) {
+      try {
+        const { getCachedEdinetFinancials } = await import("@/lib/cache/edinetCache");
+        const edinet = getCachedEdinetFinancials(symbol);
+        if (edinet?.investmentSecurities != null && edinet.investmentSecurities > 0) {
+          investmentInFA = edinet.investmentSecurities;
+        }
+        if (currentAssets === 0 && edinet?.currentAssets != null) {
+          currentAssets = edinet.currentAssets;
+        }
+        if (totalLiabilities === 0 && edinet?.totalLiabilities != null) {
+          totalLiabilities = edinet.totalLiabilities;
+        }
+      } catch { /* EDINET cache not available */ }
+    }
 
     if (currentAssets === 0 && totalLiabilities === 0) return null;
 
@@ -234,13 +251,30 @@ export async function getFinancialMetrics(symbol: string, marketCap: number): Pr
     // NC比率の計算
     if (bsResult && bsResult.length > 0 && marketCap > 0) {
       const bs = bsResult[bsResult.length - 1] as Record<string, unknown>;
-      const currentAssets = (bs.currentAssets as number) ?? 0;
-      const investmentInFA =
+      let currentAssets = (bs.currentAssets as number) ?? 0;
+      let investmentInFA =
         (bs.investmentinFinancialAssets as number) ??
         (bs.availableForSaleSecurities as number) ??
         (bs.investmentsAndAdvances as number) ??
         0;
-      const totalLiabilities = (bs.totalLiabilitiesNetMinorityInterest as number) ?? 0;
+      let totalLiabilities = (bs.totalLiabilitiesNetMinorityInterest as number) ?? 0;
+
+      // EDINET XBRL フォールバック
+      if (investmentInFA === 0) {
+        try {
+          const { getCachedEdinetFinancials } = await import("@/lib/cache/edinetCache");
+          const edinet = getCachedEdinetFinancials(symbol);
+          if (edinet?.investmentSecurities != null && edinet.investmentSecurities > 0) {
+            investmentInFA = edinet.investmentSecurities;
+          }
+          if (currentAssets === 0 && edinet?.currentAssets != null) {
+            currentAssets = edinet.currentAssets;
+          }
+          if (totalLiabilities === 0 && edinet?.totalLiabilities != null) {
+            totalLiabilities = edinet.totalLiabilities;
+          }
+        } catch { /* EDINET cache not available */ }
+      }
 
       if (currentAssets !== 0 || totalLiabilities !== 0) {
         const netCash = currentAssets + investmentInFA * 0.7 - totalLiabilities;
@@ -520,6 +554,7 @@ export async function getQuoteBatch(symbols: string[]) {
       yearLow: (r.fiftyTwoWeekLow as number) ?? null,
       marketCap: (r.marketCap as number) ?? 0,
       dividendYield: (r.trailingAnnualDividendYield as number) ?? null,
+      sharesOutstanding: (r.sharesOutstanding as number) ?? null,
       psr: (r.priceToSalesTrailing12Months as number) ?? null,
       earningsDate:
         earningsTs instanceof Date

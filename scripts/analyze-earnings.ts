@@ -12,7 +12,7 @@
 import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 
-import { getEarningsText, listAvailableEarnings } from "@/lib/utils/earningsReader";
+import { getEarningsTextWithXbrl, listAvailableEarnings } from "@/lib/utils/earningsReader";
 import { getQuote, getFinancialData } from "@/lib/api/yahooFinance";
 import { fetchFundamentalResearch } from "@/lib/api/webResearch";
 import { validateSignal } from "@/lib/api/llm";
@@ -40,7 +40,7 @@ async function analyzeWithEarnings(symbol: string): Promise<void> {
 
   // Step 1: 決算資料テキスト抽出
   console.log("\n[1/4] 決算資料読み込み中...");
-  const earnings = await getEarningsText(symbol);
+  const earnings = await getEarningsTextWithXbrl(symbol);
   if (!earnings) {
     console.log(
       `  → ${symbol} の決算資料が見つかりません (data/earnings/ を確認)`,
