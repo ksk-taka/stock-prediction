@@ -158,11 +158,10 @@ const COLUMNS: ColumnDef[] = [
 const BATCH_SIZE = 50;
 const TABLE_DATA_CACHE_KEY = "stock-table-v1";
 const TABLE_DATA_CACHE_VERSION = 2;
-const TABLE_DATA_CACHE_TTL_MARKET = 15 * 60 * 1000; // 場中: 15分
-const TABLE_DATA_CACHE_TTL_CLOSED = 6 * 60 * 60 * 1000; // 場外: 6時間
+const TABLE_DATA_CACHE_TTL = 6 * 60 * 60 * 1000; // 6時間（場中・場外共通）
 
 function getTableCacheTTL(): number {
-  return isMarketOpen("JP") ? TABLE_DATA_CACHE_TTL_MARKET : TABLE_DATA_CACHE_TTL_CLOSED;
+  return TABLE_DATA_CACHE_TTL;
 }
 
 // ── 決算発表日フィルタ プリセット ──
