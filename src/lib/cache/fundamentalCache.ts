@@ -1,21 +1,16 @@
 import fs from "fs";
 import path from "path";
 import type { FundamentalResearchData, FundamentalAnalysis, SignalValidation } from "@/types";
-import { getCacheBaseDir } from "./cacheDir";
+import { ensureCacheDir, TTL } from "./cacheUtils";
 
-const CACHE_DIR = path.join(getCacheBaseDir(), "fundamental");
-const RESEARCH_TTL = 12 * 60 * 60 * 1000; // 12時間
-const ANALYSIS_TTL = 24 * 60 * 60 * 1000; // 24時間
-const VALIDATION_TTL = 7 * 24 * 60 * 60 * 1000; // 7日間
-
-function ensureDir() {
-  if (!fs.existsSync(CACHE_DIR)) {
-    fs.mkdirSync(CACHE_DIR, { recursive: true });
-  }
-}
+const CACHE_SUBDIR = "fundamental";
+const RESEARCH_TTL = TTL.HOURS_12; // 12時間
+const ANALYSIS_TTL = TTL.HOURS_24; // 24時間
+const VALIDATION_TTL = TTL.DAYS_7; // 7日間
 
 function cacheFile(symbol: string, type: "research" | "analysis"): string {
-  return path.join(CACHE_DIR, `${symbol.replace(".", "_")}_${type}.json`);
+  const dir = ensureCacheDir(CACHE_SUBDIR);
+  return path.join(dir, `${symbol.replace(".", "_")}_${type}.json`);
 }
 
 // --- Perplexity Research Cache ---
@@ -26,7 +21,6 @@ interface ResearchCacheEntry {
 }
 
 export function getCachedResearch(symbol: string): FundamentalResearchData | null {
-  ensureDir();
   const file = cacheFile(symbol, "research");
   if (!fs.existsSync(file)) return null;
 
@@ -41,8 +35,7 @@ export function getCachedResearch(symbol: string): FundamentalResearchData | nul
 
 export function setCachedResearch(symbol: string, data: FundamentalResearchData): void {
   try {
-    ensureDir();
-    const file = cacheFile(symbol, "research");
+      const file = cacheFile(symbol, "research");
     const entry: ResearchCacheEntry = { data, cachedAt: Date.now() };
     fs.writeFileSync(file, JSON.stringify(entry), "utf-8");
   } catch {
@@ -58,7 +51,6 @@ interface AnalysisCacheEntry {
 }
 
 export function getCachedFundamentalAnalysis(symbol: string): FundamentalAnalysis | null {
-  ensureDir();
   const file = cacheFile(symbol, "analysis");
   if (!fs.existsSync(file)) return null;
 
@@ -73,8 +65,7 @@ export function getCachedFundamentalAnalysis(symbol: string): FundamentalAnalysi
 
 export function setCachedFundamentalAnalysis(symbol: string, data: FundamentalAnalysis): void {
   try {
-    ensureDir();
-    const file = cacheFile(symbol, "analysis");
+      const file = cacheFile(symbol, "analysis");
     const entry: AnalysisCacheEntry = { data, cachedAt: Date.now() };
     fs.writeFileSync(file, JSON.stringify(entry), "utf-8");
     // 履歴にも追記
@@ -93,11 +84,11 @@ export interface FundamentalHistoryEntry {
 }
 
 function historyFile(symbol: string): string {
-  return path.join(CACHE_DIR, `${symbol.replace(".", "_")}_history.json`);
+  const dir = ensureCacheDir(CACHE_SUBDIR);
+  return path.join(dir, `${symbol.replace(".", "_")}_history.json`);
 }
 
 export function getFundamentalHistory(symbol: string): FundamentalHistoryEntry[] {
-  ensureDir();
   const file = historyFile(symbol);
   if (!fs.existsSync(file)) return [];
   try {
@@ -135,11 +126,11 @@ interface ValidationCacheEntry {
 }
 
 function validationFile(symbol: string, strategyId: string): string {
-  return path.join(CACHE_DIR, `${symbol.replace(".", "_")}_validation_${strategyId}.json`);
+  const dir = ensureCacheDir(CACHE_SUBDIR);
+  return path.join(dir, `${symbol.replace(".", "_")}_validation_${strategyId}.json`);
 }
 
 export function getCachedValidation(symbol: string, strategyId: string): SignalValidation | null {
-  ensureDir();
   const file = validationFile(symbol, strategyId);
   if (!fs.existsSync(file)) return null;
   try {
@@ -153,8 +144,7 @@ export function getCachedValidation(symbol: string, strategyId: string): SignalV
 
 export function setCachedValidation(symbol: string, strategyId: string, data: SignalValidation): void {
   try {
-    ensureDir();
-    const file = validationFile(symbol, strategyId);
+      const file = validationFile(symbol, strategyId);
     const entry: ValidationCacheEntry = { data, cachedAt: Date.now() };
     fs.writeFileSync(file, JSON.stringify(entry), "utf-8");
   } catch {
@@ -163,14 +153,14 @@ export function setCachedValidation(symbol: string, strategyId: string, data: Si
 }
 
 export function getAllCachedValidations(symbol: string): Record<string, SignalValidation> {
-  ensureDir();
   const prefix = `${symbol.replace(".", "_")}_validation_`;
   const result: Record<string, SignalValidation> = {};
   try {
-    const files = fs.readdirSync(CACHE_DIR).filter((f) => f.startsWith(prefix) && f.endsWith(".json"));
+    const dir = ensureCacheDir(CACHE_SUBDIR);
+    const files = fs.readdirSync(dir).filter((f) => f.startsWith(prefix) && f.endsWith(".json"));
     for (const f of files) {
       const strategyId = f.replace(prefix, "").replace(".json", "");
-      const entry: ValidationCacheEntry = JSON.parse(fs.readFileSync(path.join(CACHE_DIR, f), "utf-8"));
+      const entry: ValidationCacheEntry = JSON.parse(fs.readFileSync(path.join(dir, f), "utf-8"));
       if (Date.now() - entry.cachedAt <= VALIDATION_TTL) {
         result[strategyId] = entry.data;
       }

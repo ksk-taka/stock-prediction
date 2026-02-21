@@ -1,14 +1,14 @@
 import fs from "fs";
 import path from "path";
-import { getCacheBaseDir } from "./cacheDir";
+import { ensureCacheDir, TTL as CacheTTL } from "./cacheUtils";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { DividendSummary } from "@/types";
 
-const CACHE_DIR = path.join(getCacheBaseDir(), "stats");
-const TTL = 24 * 60 * 60 * 1000; // 24時間（1日1回更新）
-const NC_TTL = 7 * 24 * 60 * 60 * 1000; // 7日間（四半期データなので長め）
-const DIVIDEND_TTL = 30 * 24 * 60 * 60 * 1000; // 30日間（配当は年2回程度なので長めに）
-const ROE_TTL = 30 * 24 * 60 * 60 * 1000; // 30日間（四半期決算ごとに更新）
+const CACHE_SUBDIR = "stats";
+const TTL = CacheTTL.HOURS_24; // 24時間（1日1回更新）
+const NC_TTL = CacheTTL.DAYS_7; // 7日間（四半期データなので長め）
+const DIVIDEND_TTL = CacheTTL.DAYS_30; // 30日間（配当は年2回程度なので長めに）
+const ROE_TTL = CacheTTL.DAYS_30; // 30日間（四半期決算ごとに更新）
 const EARNINGS_INVALIDATION_DAYS = 3; // 決算発表日前後N日以内はキャッシュ無効化
 
 // Supabase stats_cache テーブルの行型
@@ -91,14 +91,9 @@ interface StatsCacheEntry {
   floatingRatioCachedAt?: number; // 浮動株比率タイムスタンプ（30日TTL）
 }
 
-function ensureDir() {
-  if (!fs.existsSync(CACHE_DIR)) {
-    fs.mkdirSync(CACHE_DIR, { recursive: true });
-  }
-}
-
 function cacheFile(symbol: string): string {
-  return path.join(CACHE_DIR, `${symbol.replace(".", "_")}.json`);
+  const dir = ensureCacheDir(CACHE_SUBDIR);
+  return path.join(dir, `${symbol.replace(".", "_")}.json`);
 }
 
 /**
@@ -123,7 +118,6 @@ export function isNearEarningsDate(earningsDate: Date | string | number | null |
  */
 export function invalidateStatsCache(symbol: string): boolean {
   try {
-    ensureDir();
     const file = cacheFile(symbol);
     if (fs.existsSync(file)) {
       fs.unlinkSync(file);
@@ -137,7 +131,6 @@ export function invalidateStatsCache(symbol: string): boolean {
 
 export function getCachedStats(symbol: string): Omit<StatsCacheEntry, "cachedAt" | "ncCachedAt"> | null {
   try {
-    ensureDir();
     const file = cacheFile(symbol);
     if (!fs.existsSync(file)) return null;
 
@@ -158,7 +151,6 @@ export function getCachedStats(symbol: string): Omit<StatsCacheEntry, "cachedAt"
  */
 export function getCachedNcRatio(symbol: string): number | null | undefined {
   try {
-    ensureDir();
     const file = cacheFile(symbol);
     if (!fs.existsSync(file)) return undefined;
 
@@ -177,7 +169,6 @@ export function setCachedStats(
   data: Omit<StatsCacheEntry, "cachedAt" | "ncCachedAt" | "dividendCachedAt">
 ): void {
   try {
-    ensureDir();
     const file = cacheFile(symbol);
     const now = Date.now();
     const entry: StatsCacheEntry = { ...data, cachedAt: now, ncCachedAt: now, dividendCachedAt: now };
@@ -193,7 +184,6 @@ export function setCachedStats(
  */
 export function setCachedNcOnly(symbol: string, ncRatio: number | null): void {
   try {
-    ensureDir();
     const file = cacheFile(symbol);
     let entry: StatsCacheEntry;
     try {
@@ -222,7 +212,6 @@ export function setCachedNcOnly(symbol: string, ncRatio: number | null): void {
  */
 export function getCachedDividendSummary(symbol: string): DividendSummary | null | undefined {
   try {
-    ensureDir();
     const file = cacheFile(symbol);
     if (!fs.existsSync(file)) return undefined;
 
@@ -241,7 +230,6 @@ export function getCachedDividendSummary(symbol: string): DividendSummary | null
  */
 export function setCachedDividendOnly(symbol: string, summary: DividendSummary | null): void {
   try {
-    ensureDir();
     const file = cacheFile(symbol);
     let entry: StatsCacheEntry;
     try {
@@ -270,7 +258,6 @@ export function setCachedDividendOnly(symbol: string, summary: DividendSummary |
  */
 export function getCachedRoe(symbol: string): number | null | undefined {
   try {
-    ensureDir();
     const file = cacheFile(symbol);
     if (!fs.existsSync(file)) return undefined;
 
@@ -289,7 +276,6 @@ export function getCachedRoe(symbol: string): number | null | undefined {
  */
 export function setCachedRoeOnly(symbol: string, roe: number | null): void {
   try {
-    ensureDir();
     const file = cacheFile(symbol);
     let entry: StatsCacheEntry;
     try {
@@ -333,7 +319,6 @@ export interface StatsPartialUpdate {
 
 export function setCachedStatsPartial(symbol: string, updates: StatsPartialUpdate): void {
   try {
-    ensureDir();
     const file = cacheFile(symbol);
     const now = Date.now();
 
@@ -423,7 +408,6 @@ export function getCachedStatsFull(symbol: string): {
   fcfHistory?: { year: number; fcf: number; ocf: number; capex: number }[] | null;
 } | null {
   try {
-    ensureDir();
     const file = cacheFile(symbol);
     if (!fs.existsSync(file)) return null;
 
@@ -499,7 +483,6 @@ export function getCachedStatsAll(
   const nearEarnings = isNearEarningsDate(earningsDate);
 
   try {
-    ensureDir();
     const file = cacheFile(symbol);
     if (!fs.existsSync(file)) return result;
 

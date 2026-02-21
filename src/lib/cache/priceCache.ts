@@ -2,22 +2,17 @@ import fs from "fs";
 import path from "path";
 import type { PriceData } from "@/types";
 import { isMarketOpen } from "@/lib/utils/date";
-import { getCacheBaseDir } from "./cacheDir";
+import { ensureCacheDir, TTL } from "./cacheUtils";
 
-const CACHE_DIR = path.join(getCacheBaseDir(), "prices");
-
-function ensureDir() {
-  if (!fs.existsSync(CACHE_DIR)) {
-    fs.mkdirSync(CACHE_DIR, { recursive: true });
-  }
-}
+const CACHE_SUBDIR = "prices";
 
 function cacheFile(symbol: string, period: string): string {
-  return path.join(CACHE_DIR, `${symbol.replace(".", "_")}_${period}.json`);
+  const dir = ensureCacheDir(CACHE_SUBDIR);
+  return path.join(dir, `${symbol.replace(".", "_")}_${period}.json`);
 }
 
 function getTTL(market: "JP" | "US"): number {
-  return isMarketOpen(market) ? 5 * 60 * 1000 : 24 * 60 * 60 * 1000;
+  return isMarketOpen(market) ? TTL.MINUTES_5 : TTL.HOURS_24;
 }
 
 interface CacheEntry {
@@ -31,7 +26,6 @@ export function getCachedPrices(
   market: "JP" | "US"
 ): PriceData[] | null {
   try {
-    ensureDir();
     const file = cacheFile(symbol, period);
     if (!fs.existsSync(file)) return null;
 
@@ -50,7 +44,6 @@ export function setCachedPrices(
   data: PriceData[]
 ): void {
   try {
-    ensureDir();
     const file = cacheFile(symbol, period);
     const entry: CacheEntry = { data, cachedAt: Date.now() };
     fs.writeFileSync(file, JSON.stringify(entry), "utf-8");

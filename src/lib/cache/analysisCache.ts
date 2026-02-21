@@ -1,19 +1,14 @@
 import fs from "fs";
 import path from "path";
 import type { LLMAnalysis, SentimentData } from "@/types";
-import { getCacheBaseDir } from "./cacheDir";
+import { ensureCacheDir, TTL } from "./cacheUtils";
 
-const CACHE_DIR = path.join(getCacheBaseDir(), "analysis");
-const ANALYSIS_CACHE_TTL = 24 * 60 * 60 * 1000; // 1日
-
-function ensureDir() {
-  if (!fs.existsSync(CACHE_DIR)) {
-    fs.mkdirSync(CACHE_DIR, { recursive: true });
-  }
-}
+const CACHE_SUBDIR = "analysis";
+const ANALYSIS_CACHE_TTL = TTL.HOURS_24; // 1日
 
 function cacheFile(symbol: string): string {
-  return path.join(CACHE_DIR, `${symbol.replace(".", "_")}.json`);
+  const dir = ensureCacheDir(CACHE_SUBDIR);
+  return path.join(dir, `${symbol.replace(".", "_")}.json`);
 }
 
 interface AnalysisCacheEntry {
@@ -24,7 +19,6 @@ interface AnalysisCacheEntry {
 
 export function getCachedAnalysis(symbol: string): AnalysisCacheEntry | null {
   try {
-    ensureDir();
     const file = cacheFile(symbol);
     if (!fs.existsSync(file)) return null;
 
@@ -43,7 +37,6 @@ export function setCachedAnalysis(
   sentiment: SentimentData
 ): void {
   try {
-    ensureDir();
     const file = cacheFile(symbol);
     const entry: AnalysisCacheEntry = {
       analysis,

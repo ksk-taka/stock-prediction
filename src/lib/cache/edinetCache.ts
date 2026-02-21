@@ -7,25 +7,20 @@
 
 import fs from "fs";
 import path from "path";
-import { getCacheBaseDir } from "./cacheDir";
+import { ensureCacheDir, TTL as CacheTTL } from "./cacheUtils";
 import type { EdinetFinancialData } from "@/lib/api/edinetFinancials";
 
-const CACHE_DIR = path.join(getCacheBaseDir(), "edinet");
-const TTL = 90 * 24 * 60 * 60 * 1000; // 90日
+const CACHE_SUBDIR = "edinet";
+const TTL = CacheTTL.DAYS_90; // 90日
 
 interface CacheEntry {
   data: EdinetFinancialData;
   cachedAt: number;
 }
 
-function ensureDir() {
-  if (!fs.existsSync(CACHE_DIR)) {
-    fs.mkdirSync(CACHE_DIR, { recursive: true });
-  }
-}
-
 function cacheFile(symbol: string): string {
-  return path.join(CACHE_DIR, `${symbol.replace(".", "_")}.json`);
+  const dir = ensureCacheDir(CACHE_SUBDIR);
+  return path.join(dir, `${symbol.replace(".", "_")}.json`);
 }
 
 /**
@@ -33,7 +28,6 @@ function cacheFile(symbol: string): string {
  */
 export function isEdinetCacheValid(symbol: string): boolean {
   try {
-    ensureDir();
     const file = cacheFile(symbol);
     if (!fs.existsSync(file)) return false;
 
@@ -51,7 +45,6 @@ export function isEdinetCacheValid(symbol: string): boolean {
  */
 export function getCachedEdinetFinancials(symbol: string): EdinetFinancialData | null {
   try {
-    ensureDir();
     const file = cacheFile(symbol);
     if (!fs.existsSync(file)) return null;
 
@@ -70,7 +63,6 @@ export function getCachedEdinetFinancials(symbol: string): EdinetFinancialData |
  */
 export function setCachedEdinetFinancials(symbol: string, data: EdinetFinancialData): void {
   try {
-    ensureDir();
     const file = cacheFile(symbol);
     const entry: CacheEntry = {
       data,

@@ -1,19 +1,14 @@
 import fs from "fs";
 import path from "path";
 import type { NewsItem } from "@/types";
-import { getCacheBaseDir } from "./cacheDir";
+import { ensureCacheDir, TTL } from "./cacheUtils";
 
-const CACHE_DIR = path.join(getCacheBaseDir(), "news");
-const NEWS_CACHE_TTL = 6 * 60 * 60 * 1000; // 6時間
-
-function ensureDir() {
-  if (!fs.existsSync(CACHE_DIR)) {
-    fs.mkdirSync(CACHE_DIR, { recursive: true });
-  }
-}
+const CACHE_SUBDIR = "news";
+const NEWS_CACHE_TTL = TTL.HOURS_6; // 6時間
 
 function cacheFile(symbol: string): string {
-  return path.join(CACHE_DIR, `${symbol.replace(".", "_")}.json`);
+  const dir = ensureCacheDir(CACHE_SUBDIR);
+  return path.join(dir, `${symbol.replace(".", "_")}.json`);
 }
 
 interface NewsCacheEntry {
@@ -25,8 +20,7 @@ interface NewsCacheEntry {
 
 export function getCachedNews(symbol: string): NewsCacheEntry | null {
   try {
-    ensureDir();
-    const file = cacheFile(symbol);
+      const file = cacheFile(symbol);
     if (!fs.existsSync(file)) return null;
 
     const entry: NewsCacheEntry = JSON.parse(fs.readFileSync(file, "utf-8"));
@@ -45,8 +39,7 @@ export function setCachedNews(
   analystRating: string
 ): void {
   try {
-    ensureDir();
-    const file = cacheFile(symbol);
+      const file = cacheFile(symbol);
     const entry: NewsCacheEntry = {
       news,
       snsOverview,

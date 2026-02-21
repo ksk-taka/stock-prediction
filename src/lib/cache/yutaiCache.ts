@@ -5,26 +5,21 @@
 
 import fs from "fs";
 import path from "path";
-import { getCacheBaseDir } from "./cacheDir";
+import { ensureCacheDir, TTL } from "./cacheUtils";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { YutaiInfo } from "@/types/yutai";
 
-const CACHE_DIR = path.join(getCacheBaseDir(), "yutai");
-const YUTAI_TTL = 180 * 24 * 60 * 60 * 1000; // 180日
+const CACHE_SUBDIR = "yutai";
+const YUTAI_TTL = TTL.DAYS_180; // 180日
 
 interface YutaiCacheEntry {
   data: YutaiInfo;
   cachedAt: number;
 }
 
-function ensureDir() {
-  if (!fs.existsSync(CACHE_DIR)) {
-    fs.mkdirSync(CACHE_DIR, { recursive: true });
-  }
-}
-
 function cacheFile(symbol: string): string {
-  return path.join(CACHE_DIR, `${symbol.replace(".", "_")}.json`);
+  const dir = ensureCacheDir(CACHE_SUBDIR);
+  return path.join(dir, `${symbol.replace(".", "_")}.json`);
 }
 
 /**
@@ -33,7 +28,6 @@ function cacheFile(symbol: string): string {
  */
 export function getCachedYutai(symbol: string): YutaiInfo | null {
   try {
-    ensureDir();
     const file = cacheFile(symbol);
     if (!fs.existsSync(file)) return null;
 
@@ -50,7 +44,6 @@ export function getCachedYutai(symbol: string): YutaiInfo | null {
  */
 export function setCachedYutai(symbol: string, data: YutaiInfo): void {
   try {
-    ensureDir();
     const file = cacheFile(symbol);
     const entry: YutaiCacheEntry = { data, cachedAt: Date.now() };
     fs.writeFileSync(file, JSON.stringify(entry), "utf-8");
