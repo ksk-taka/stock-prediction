@@ -628,48 +628,43 @@ export function useWatchlistData(): UseWatchlistDataReturn {
     try {
       const allSymbols = stocks.map((s) => s.symbol);
 
-      // 1. 株式テーブルのlocalStorageキャッシュから一括読み出し
+      // 1. 株式テーブルのIndexedDBキャッシュから一括読み出し
       const cachedQuotes: Record<string, StockQuote> = {};
       const cachedStats: Record<string, StockStats> = {};
       const missingSymbols: string[] = [];
 
       try {
-        const saved = localStorage.getItem("stock-table-v1");
-        if (saved) {
-          const { version, data, timestamp } = JSON.parse(saved);
-          const ttl = (isJPMarketOpen() || isUSMarketOpen()) ? 15 * 60 * 1000 : 6 * 60 * 60 * 1000;
-          if (version === 1 && Date.now() - timestamp < ttl && data) {
-            for (const sym of allSymbols) {
-              const row = data[sym];
-              if (row && row.simpleNcRatio !== undefined) {
-                cachedQuotes[sym] = {
-                  symbol: sym,
-                  price: row.price ?? 0,
-                  changePercent: row.changePercent ?? 0,
-                };
-                cachedStats[sym] = {
-                  per: row.per ?? null,
-                  pbr: row.pbr ?? null,
-                  roe: row.roe ?? null,
-                  eps: row.eps ?? null,
-                  simpleNcRatio: row.simpleNcRatio ?? null,
-                  marketCap: row.marketCap ?? null,
-                  sharpe1y: row.sharpe1y ?? null,
-                  latestDividend: row.latestDividend ?? null,
-                  latestIncrease: row.latestIncrease ?? null,
-                  hasYutai: row.hasYutai ?? undefined,
-                  yutaiContent: row.yutaiContent ?? undefined,
-                  recordDate: row.recordDate ?? undefined,
-                  sellRecommendDate: row.sellRecommendDate ?? undefined,
-                  daysUntilSell: row.daysUntilSell ?? undefined,
-                  roeHistory: row.roeHistory ?? undefined,
-                };
-              } else {
-                missingSymbols.push(sym);
-              }
+        const { getTableCache } = await import("@/lib/cache/tableCache");
+        const tableCache = await getTableCache();
+        if (tableCache && tableCache.size > 0) {
+          for (const sym of allSymbols) {
+            const row = tableCache.get(sym);
+            if (row && row.simpleNcRatio !== undefined) {
+              cachedQuotes[sym] = {
+                symbol: sym,
+                price: row.price ?? 0,
+                changePercent: row.changePercent ?? 0,
+              };
+              cachedStats[sym] = {
+                per: row.per ?? null,
+                pbr: row.pbr ?? null,
+                roe: row.roe ?? null,
+                eps: row.eps ?? null,
+                simpleNcRatio: row.simpleNcRatio ?? null,
+                marketCap: row.marketCap ?? null,
+                sharpe1y: row.sharpe1y ?? null,
+                latestDividend: row.latestDividend ?? null,
+                latestIncrease: row.latestIncrease ?? null,
+                hasYutai: row.hasYutai ?? undefined,
+                yutaiContent: row.yutaiContent ?? undefined,
+                recordDate: row.recordDate ?? undefined,
+                sellRecommendDate: row.sellRecommendDate ?? undefined,
+                daysUntilSell: row.daysUntilSell ?? undefined,
+                roeHistory: row.roeHistory ?? undefined,
+              };
+            } else {
+              missingSymbols.push(sym);
             }
-          } else {
-            missingSymbols.push(...allSymbols);
           }
         } else {
           missingSymbols.push(...allSymbols);

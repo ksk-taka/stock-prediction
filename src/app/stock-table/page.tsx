@@ -3,6 +3,8 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
 import { formatMarketCap, getCapSize } from "@/lib/utils/format";
+import { getTableCache, setTableCache } from "@/lib/cache/tableCache";
+import type { StockTableRow } from "@/lib/cache/tableCache";
 import GroupAssignPopup from "@/components/GroupAssignPopup";
 import BatchGroupAssignPopup from "@/components/BatchGroupAssignPopup";
 
@@ -22,65 +24,6 @@ interface Stock {
   marketSegment?: string;
   favorite?: boolean;
   groupIds?: number[];
-}
-
-interface StockTableRow {
-  symbol: string;
-  name: string;
-  price: number;
-  changePercent: number;
-  volume: number;
-  per: number | null;
-  eps: number | null;
-  pbr: number | null;
-  simpleNcRatio: number | null;
-  cnPer: number | null;
-  dayHigh: number | null;
-  dayLow: number | null;
-  weekHigh: number | null;
-  weekLow: number | null;
-  monthHigh: number | null;
-  monthLow: number | null;
-  yearHigh: number | null;
-  yearLow: number | null;
-  lastYearHigh: number | null;
-  lastYearLow: number | null;
-  earningsDate: string | null;
-  fiscalYearEnd: string | null;
-  marketCap: number | null;
-  sharpe1y: number | null;
-  roe: number | null;
-  latestDividend: number | null;
-  previousDividend: number | null;
-  latestIncrease: number | null;
-  // 株主優待
-  hasYutai: boolean | null;
-  yutaiContent: string | null;
-  recordDate: string | null;
-  sellRecommendDate: string | null;
-  daysUntilSell: number | null;
-  // 配当利回り
-  dividendYield: number | null;
-  // ROE推移
-  roeHistory: { year: number; roe: number }[] | null;
-  // FCF推移
-  fcfHistory: { year: number; fcf: number; ocf: number; capex: number }[] | null;
-  // 流動比率
-  currentRatio: number | null;
-  // 追加指標
-  psr: number | null;
-  pegRatio: number | null;
-  equityRatio: number | null;
-  totalDebt: number | null;
-  profitGrowthRate: number | null;
-  // TOPIX / N225 / 上場日
-  topixScale: string | null;
-  isNikkei225: boolean;
-  firstTradeDate: string | null;
-  // 浮動株
-  sharesOutstanding: number | null;
-  floatingRatio: number | null;
-  floatingMarketCap: number | null;
 }
 
 interface MergedRow extends StockTableRow {
@@ -155,13 +98,6 @@ const COLUMNS: ColumnDef[] = [
 ];
 
 const BATCH_SIZE = 50;
-const TABLE_DATA_CACHE_KEY = "stock-table-v1";
-const TABLE_DATA_CACHE_VERSION = 2;
-const TABLE_DATA_CACHE_TTL = 6 * 60 * 60 * 1000; // 6時間（場中・場外共通）
-
-function getTableCacheTTL(): number {
-  return TABLE_DATA_CACHE_TTL;
-}
 
 // ── 決算発表日フィルタ プリセット ──
 
@@ -276,50 +212,20 @@ export default function StockTablePage() {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [loadingStocks, setLoadingStocks] = useState(true);
 
-  // テーブルデータ (localStorageからリストア - タブ間・再訪問で共有)
+  // テーブルデータ (IndexedDBからリストア - タブ間・再訪問で共有)
   const [tableData, setTableData] = useState<Map<string, StockTableRow>>(new Map());
   const [cacheRestored, setCacheRestored] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
 
-  // マウント時にlocalStorageから復元（SSRでは実行されない）
+  // マウント時にIndexedDBから復元
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(TABLE_DATA_CACHE_KEY);
-      if (saved) {
-        const { version, data, timestamp } = JSON.parse(saved);
-        if (version === TABLE_DATA_CACHE_VERSION && Date.now() - timestamp < getTableCacheTTL()) {
-          setTableData(new Map(Object.entries(data) as [string, StockTableRow][]));
-        }
-      }
-    } catch { /* ignore */ }
-    setCacheRestored(true);
+    getTableCache().then((cached) => {
+      if (cached) setTableData(cached);
+      setCacheRestored(true);
+    });
   }, []);
   const [loadedCount, setLoadedCount] = useState(0);
   const [fetchTotal, setFetchTotal] = useState(0); // 実際にフェッチする件数
-
-  // localStorageに保存するヘルパー（fetch完了時のみ呼ぶ）
-  const saveToLocalStorage = useCallback((data: Map<string, StockTableRow>) => {
-    if (data.size === 0) return;
-    const obj: Record<string, StockTableRow> = {};
-    data.forEach((v, k) => { obj[k] = v; });
-    try {
-      localStorage.setItem(TABLE_DATA_CACHE_KEY, JSON.stringify({
-        version: TABLE_DATA_CACHE_VERSION,
-        data: obj,
-        timestamp: Date.now(),
-      }));
-    } catch {
-      // 容量超過時: 古いキャッシュをクリアして再試行
-      try {
-        localStorage.removeItem(TABLE_DATA_CACHE_KEY);
-        localStorage.setItem(TABLE_DATA_CACHE_KEY, JSON.stringify({
-          version: TABLE_DATA_CACHE_VERSION,
-          data: obj,
-          timestamp: Date.now(),
-        }));
-      } catch { /* ignore */ }
-    }
-  }, []);
 
   // フィルタ・ソート
   const [allGroups, setAllGroups] = useState<WatchlistGroup[]>([]);
@@ -508,14 +414,14 @@ export default function StockTablePage() {
       // 最終チェック: このfetchがまだ最新なら完了
       if (fetchGenRef.current === gen) {
         setLoadingData(false);
-        saveToLocalStorage(existing);
+        setTableCache(existing);
       }
     },
-    [saveToLocalStorage],
+    [],
   );
 
   // フィルタが変わったらデータ取得（未取得分のみ）
-  // cacheRestored を待つことで、localStorage復元前にfetchが走るのを防ぐ
+  // cacheRestored を待つことで、IndexedDB復元前にfetchが走るのを防ぐ
   useEffect(() => {
     if (loadingStocks || !cacheRestored) return;
     const syms = filteredStocks.map((s) => s.symbol);

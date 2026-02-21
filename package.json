@@ -7,6 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
     "monitor:signals": "npx tsx scripts/monitor-signals.ts",
     "monitor:signals:dry": "npx tsx scripts/monitor-signals.ts --dry-run",
     "monitor:signals:fast": "npx tsx scripts/monitor-signals.ts --skip-analysis",
@@ -64,7 +68,8 @@
     "fetch:yutai:dry": "npx tsx scripts/fetch-yutai.ts --dry-run",
     "edinet:financials": "npx tsx scripts/fetch-edinet-financials.ts",
     "edinet:financials:all": "npx tsx scripts/fetch-edinet-financials.ts --all",
-    "edinet:financials:csv": "npx tsx scripts/fetch-edinet-financials.ts --csv"
+    "edinet:financials:csv": "npx tsx scripts/fetch-edinet-financials.ts --csv",
+    "prepare": "husky"
   },
   "dependencies": {
     "@slack/bolt": "^4.6.0",
@@ -74,12 +79,19 @@
     "cheerio": "^1.2.0",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.4",
+    "idb-keyval": "^6.2.2",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "recharts": "^3.7.0",
     "unpdf": "^1.4.0",
     "yahoo-finance2": "^3.13.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "vitest related --run"
+    ]
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -88,12 +100,18 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/sharp": "^0.31.1",
+    "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/ui": "^3.2.4",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "happy-dom": "^17.6.3",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.4.3",
     "sharp": "^0.34.5",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5",
+    "vitest": "^3.2.4",
     "xlsx": "^0.18.5"
   }
 }
