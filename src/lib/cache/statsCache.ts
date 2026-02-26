@@ -55,6 +55,7 @@ export interface CachedStatsAllResult {
   equityRatio: number | null | undefined;
   totalDebt: number | null | undefined;
   profitGrowthRate: number | null | undefined;
+  prevProfitGrowthRate: number | null | undefined;
   psr: number | null | undefined;
   floatingRatio: number | null | undefined;
   topixScale: string | null | undefined;
@@ -80,6 +81,7 @@ interface StatsCacheEntry {
   equityRatio?: number | null;
   totalDebt?: number | null;
   profitGrowthRate?: number | null;
+  prevProfitGrowthRate?: number | null;
   psr?: number | null;
   floatingRatio?: number | null;
   cachedAt: number;
@@ -315,6 +317,7 @@ export interface StatsPartialUpdate {
   equityRatio?: number | null;
   totalDebt?: number | null;
   profitGrowthRate?: number | null;
+  prevProfitGrowthRate?: number | null;
   psr?: number | null;
   floatingRatio?: number | null;
   topixScale?: string | null;
@@ -367,11 +370,12 @@ export function setCachedStatsPartial(symbol: string, updates: StatsPartialUpdat
     }
     if (updates.pegRatio !== undefined || updates.equityRatio !== undefined ||
         updates.totalDebt !== undefined || updates.profitGrowthRate !== undefined ||
-        updates.psr !== undefined) {
+        updates.prevProfitGrowthRate !== undefined || updates.psr !== undefined) {
       if (updates.pegRatio !== undefined) entry.pegRatio = updates.pegRatio;
       if (updates.equityRatio !== undefined) entry.equityRatio = updates.equityRatio;
       if (updates.totalDebt !== undefined) entry.totalDebt = updates.totalDebt;
       if (updates.profitGrowthRate !== undefined) entry.profitGrowthRate = updates.profitGrowthRate;
+      if (updates.prevProfitGrowthRate !== undefined) entry.prevProfitGrowthRate = updates.prevProfitGrowthRate;
       if (updates.psr !== undefined) entry.psr = updates.psr;
       entry.extraMetricsCachedAt = now;
     }
@@ -480,6 +484,7 @@ export function getCachedStatsAll(
     equityRatio: undefined,
     totalDebt: undefined,
     profitGrowthRate: undefined,
+    prevProfitGrowthRate: undefined,
     psr: undefined,
     floatingRatio: undefined,
     topixScale: undefined,
@@ -550,6 +555,7 @@ export function getCachedStatsAll(
         if (entry.equityRatio !== undefined) result.equityRatio = entry.equityRatio;
         if (entry.totalDebt !== undefined) result.totalDebt = entry.totalDebt;
         if (entry.profitGrowthRate !== undefined) result.profitGrowthRate = entry.profitGrowthRate;
+        if (entry.prevProfitGrowthRate !== undefined) result.prevProfitGrowthRate = entry.prevProfitGrowthRate;
         if (entry.psr !== undefined) result.psr = entry.psr;
       }
     }
@@ -575,7 +581,7 @@ export function getCachedStatsAll(
  * ファイルキャッシュがない場合にのみ呼び出される
  */
 export async function getStatsCacheFromSupabase(symbol: string): Promise<CachedStatsAllResult> {
-  const result: CachedStatsAllResult = { nc: undefined, dividend: undefined, roe: undefined, fiscalYearEnd: undefined, roeHistory: undefined, fcfHistory: undefined, currentRatio: undefined, pegRatio: undefined, equityRatio: undefined, totalDebt: undefined, profitGrowthRate: undefined, psr: undefined, floatingRatio: undefined, topixScale: undefined };
+  const result: CachedStatsAllResult = { nc: undefined, dividend: undefined, roe: undefined, fiscalYearEnd: undefined, roeHistory: undefined, fcfHistory: undefined, currentRatio: undefined, pegRatio: undefined, equityRatio: undefined, totalDebt: undefined, profitGrowthRate: undefined, prevProfitGrowthRate: undefined, psr: undefined, floatingRatio: undefined, topixScale: undefined };
 
   try {
     const supabase = createServiceClient();
@@ -675,12 +681,13 @@ export async function setStatsCacheToSupabase(symbol: string, updates: StatsPart
     // 追加指標（流動比率/PEG/自己資本比率/有利子負債/増益率）
     if (updates.currentRatio !== undefined || updates.pegRatio !== undefined ||
         updates.equityRatio !== undefined || updates.totalDebt !== undefined ||
-        updates.profitGrowthRate !== undefined) {
+        updates.profitGrowthRate !== undefined || updates.prevProfitGrowthRate !== undefined) {
       if (updates.currentRatio !== undefined) upsertData.current_ratio = updates.currentRatio;
       if (updates.pegRatio !== undefined) upsertData.peg_ratio = updates.pegRatio;
       if (updates.equityRatio !== undefined) upsertData.equity_ratio = updates.equityRatio;
       if (updates.totalDebt !== undefined) upsertData.total_debt = updates.totalDebt;
       if (updates.profitGrowthRate !== undefined) upsertData.profit_growth_rate = updates.profitGrowthRate;
+      // prevProfitGrowthRate はファイルキャッシュのみ (Supabaseカラム未追加)
       upsertData.extra_metrics_cached_at = now;
     }
     if (updates.topixScale !== undefined) {
@@ -718,7 +725,7 @@ export async function getStatsCacheBatchFromSupabase(
     const now = Date.now();
 
     for (const row of data as SupabaseStatsCacheRow[]) {
-      const result: CachedStatsAllResult = { nc: undefined, dividend: undefined, roe: undefined, fiscalYearEnd: undefined, roeHistory: undefined, fcfHistory: undefined, currentRatio: undefined, pegRatio: undefined, equityRatio: undefined, totalDebt: undefined, profitGrowthRate: undefined, psr: undefined, floatingRatio: undefined, topixScale: undefined };
+      const result: CachedStatsAllResult = { nc: undefined, dividend: undefined, roe: undefined, fiscalYearEnd: undefined, roeHistory: undefined, fcfHistory: undefined, currentRatio: undefined, pegRatio: undefined, equityRatio: undefined, totalDebt: undefined, profitGrowthRate: undefined, prevProfitGrowthRate: undefined, psr: undefined, floatingRatio: undefined, topixScale: undefined };
 
       // NC率（7日TTL）
       if (row.nc_cached_at && row.nc_ratio !== null) {

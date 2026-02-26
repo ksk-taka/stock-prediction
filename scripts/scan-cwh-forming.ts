@@ -23,6 +23,8 @@ import YahooFinance from "yahoo-finance2";
 import { RequestQueue } from "@/lib/utils/requestQueue";
 import { createServiceClient } from "@/lib/supabase/service";
 import { detectCupWithHandleForming, type CwhFormingPattern } from "@/lib/utils/signals";
+import { calcSharpeRatioFromPrices } from "@/lib/utils/indicators";
+import { getFinancialMetrics } from "@/lib/api/yahooFinance";
 import { sleep, getArgs, hasFlag, parseFlag, parseIntFlag } from "@/lib/utils/cli";
 import type { PriceData } from "@/types";
 
@@ -42,6 +44,7 @@ interface StockInfo {
 interface ScanResult {
   stock: StockInfo;
   pattern: CwhFormingPattern;
+  prices: PriceData[];
 }
 
 export interface CwhFormingRow {
@@ -59,6 +62,13 @@ export interface CwhFormingRow {
   leftRimDate: string;
   bottomDate: string;
   rightRimDate: string;
+  // 財務指標 (enrichment phase)
+  marketCap: number | null;
+  sharpe1y: number | null;
+  roe: number | null;
+  equityRatio: number | null;
+  profitGrowthRate: number | null;
+  prevProfitGrowthRate: number | null;
 }
 
 // ── CLI ──
@@ -194,7 +204,7 @@ async function main() {
         for (const pattern of patterns) {
           if (READY_ONLY && pattern.stage !== "handle_ready") continue;
           if (pattern.distanceToBreakoutPct > MAX_DISTANCE) continue;
-          results.push({ stock, pattern });
+          results.push({ stock, pattern, prices });
         }
       } catch {
         errors++;
@@ -267,23 +277,92 @@ async function main() {
     console.log("CWH形成中の銘柄は見つかりませんでした。");
   }
 
+  // ── 財務指標エンリッチメント ──
+  console.log(`\n📈 財務指標を取得中 (${results.length}銘柄)...`);
+
+  if (DO_SUPABASE && SCAN_ID) {
+    await updateProgress(SCAN_ID, { stage: "enriching", current: 0, total: results.length, message: "財務指標を取得中..." });
+  }
+
+  // 1. バッチquoteで時価総額を取得
+  const marketCapMap = new Map<string, number | null>();
+  const QUOTE_BATCH = 50;
+  const symbols = results.map((r) => r.stock.symbol);
+  for (let qi = 0; qi < symbols.length; qi += QUOTE_BATCH) {
+    const batch = symbols.slice(qi, qi + QUOTE_BATCH);
+    try {
+      const quotes = await yfQueue.add(() => yf.quote(batch));
+      for (const q of quotes) {
+        if (q.symbol) {
+          marketCapMap.set(q.symbol, (q as Record<string, unknown>).marketCap as number ?? null);
+        }
+      }
+    } catch { /* skip */ }
+    if (qi + QUOTE_BATCH < symbols.length) await sleep(200);
+  }
+
+  // 2. シャープレシオを価格データから計算
+  const sharpeMap = new Map<string, number | null>();
+  for (const r of results) {
+    sharpeMap.set(r.stock.symbol, calcSharpeRatioFromPrices(r.prices));
+  }
+
+  // 3. getFinancialMetrics で ROE/自己資本比率/増益率/前期増益率
+  const metricsMap = new Map<string, { roe: number | null; equityRatio: number | null; profitGrowthRate: number | null; prevProfitGrowthRate: number | null }>();
+  let enriched = 0;
+  const ENRICH_BATCH = 10;
+  for (let ei = 0; ei < results.length; ei += ENRICH_BATCH) {
+    const batch = results.slice(ei, ei + ENRICH_BATCH);
+    await Promise.all(batch.map(async (r) => {
+      try {
+        const mc = marketCapMap.get(r.stock.symbol) ?? 0;
+        const metrics = await getFinancialMetrics(r.stock.symbol, mc);
+        metricsMap.set(r.stock.symbol, {
+          roe: metrics.roe,
+          equityRatio: metrics.equityRatio,
+          profitGrowthRate: metrics.profitGrowthRate,
+          prevProfitGrowthRate: metrics.prevProfitGrowthRate,
+        });
+      } catch { /* skip */ }
+      enriched++;
+      if (enriched % 50 === 0) {
+        process.stdout.write(`\r   エンリッチ: ${enriched}/${results.length}`);
+      }
+    }));
+    if (ei + ENRICH_BATCH < results.length) await sleep(200);
+  }
+  console.log(`\r   エンリッチ完了: ${enriched}/${results.length}`);
+
   // データ行を生成
-  const rows: CwhFormingRow[] = results.map((r) => ({
-    symbol: r.stock.symbol,
-    name: r.stock.name,
-    marketSegment: r.stock.marketSegment ?? "",
-    stage: r.pattern.stage,
-    currentPrice: Math.round(r.pattern.currentPrice),
-    breakoutPrice: Math.round(r.pattern.breakoutPrice),
-    distancePct: Math.round(r.pattern.distanceToBreakoutPct * 10) / 10,
-    pullbackPct: Math.round(r.pattern.pullbackPct * 10) / 10,
-    handleDays: r.pattern.handleDays,
-    cupDays: r.pattern.cupDays,
-    cupDepthPct: Math.round(r.pattern.cupDepthPct * 10) / 10,
-    leftRimDate: r.pattern.leftRimDate,
-    bottomDate: r.pattern.bottomDate,
-    rightRimDate: r.pattern.rightRimDate,
-  }));
+  const rows: CwhFormingRow[] = results.map((r) => {
+    const sym = r.stock.symbol;
+    const mc = marketCapMap.get(sym) ?? null;
+    const metrics = metricsMap.get(sym);
+    // ROEは小数 (e.g., 0.15) → %表示 (15.0)
+    const roeVal = metrics?.roe != null ? Math.round(metrics.roe * 1000) / 10 : null;
+    return {
+      symbol: sym,
+      name: r.stock.name,
+      marketSegment: r.stock.marketSegment ?? "",
+      stage: r.pattern.stage,
+      currentPrice: Math.round(r.pattern.currentPrice),
+      breakoutPrice: Math.round(r.pattern.breakoutPrice),
+      distancePct: Math.round(r.pattern.distanceToBreakoutPct * 10) / 10,
+      pullbackPct: Math.round(r.pattern.pullbackPct * 10) / 10,
+      handleDays: r.pattern.handleDays,
+      cupDays: r.pattern.cupDays,
+      cupDepthPct: Math.round(r.pattern.cupDepthPct * 10) / 10,
+      leftRimDate: r.pattern.leftRimDate,
+      bottomDate: r.pattern.bottomDate,
+      rightRimDate: r.pattern.rightRimDate,
+      marketCap: mc,
+      sharpe1y: sharpeMap.get(sym) ?? null,
+      roe: roeVal,
+      equityRatio: metrics?.equityRatio ?? null,
+      profitGrowthRate: metrics?.profitGrowthRate ?? null,
+      prevProfitGrowthRate: metrics?.prevProfitGrowthRate ?? null,
+    };
+  });
 
   // JSON出力 (ローカル用)
   const jsonPath = join(process.cwd(), "data", "cwh-forming.json");

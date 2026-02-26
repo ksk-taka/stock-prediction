@@ -196,6 +196,7 @@ export async function GET(request: NextRequest) {
     const equityRatioMap = new Map<string, number | null>();
     const totalDebtMap = new Map<string, number | null>();
     const profitGrowthMap = new Map<string, number | null>();
+    const prevProfitGrowthMap = new Map<string, number | null>();
     const psrMap = new Map<string, number | null>();
     const floatingRatioMap = new Map<string, number | null>();
     const metricsMissing: { sym: string; marketCap: number }[] = []; // NC率またはROEがミス
@@ -229,6 +230,7 @@ export async function GET(request: NextRequest) {
       if (eqHit) equityRatioMap.set(sym, cached.equityRatio ?? null);
       if (tdHit) totalDebtMap.set(sym, cached.totalDebt ?? null);
       if (pgHit) profitGrowthMap.set(sym, cached.profitGrowthRate ?? null);
+      if (cached.prevProfitGrowthRate !== undefined) prevProfitGrowthMap.set(sym, cached.prevProfitGrowthRate ?? null);
 
       const psrHit = cached.psr !== undefined;
       if (psrHit) psrMap.set(sym, cached.psr ?? null);
@@ -259,6 +261,7 @@ export async function GET(request: NextRequest) {
           if (!equityRatioMap.has(sym) && sbCache.equityRatio !== undefined) equityRatioMap.set(sym, sbCache.equityRatio ?? null);
           if (!totalDebtMap.has(sym) && sbCache.totalDebt !== undefined) totalDebtMap.set(sym, sbCache.totalDebt ?? null);
           if (!profitGrowthMap.has(sym) && sbCache.profitGrowthRate !== undefined) profitGrowthMap.set(sym, sbCache.profitGrowthRate ?? null);
+          if (!prevProfitGrowthMap.has(sym) && sbCache.prevProfitGrowthRate !== undefined) prevProfitGrowthMap.set(sym, sbCache.prevProfitGrowthRate ?? null);
           // TOPIX規模区分
           if (!topixMap.has(sym) && sbCache.topixScale) topixMap.set(sym, sbCache.topixScale);
         }
@@ -326,7 +329,7 @@ export async function GET(request: NextRequest) {
 
     for (const r of metricsResults) {
       if (r.status === "fulfilled") {
-        const { sym, ncRatio, roe, fiscalYearEnd, currentRatio, pegRatio, equityRatio, totalDebt, profitGrowthRate, psr: metricsPsr } = r.value;
+        const { sym, ncRatio, roe, fiscalYearEnd, currentRatio, pegRatio, equityRatio, totalDebt, profitGrowthRate, prevProfitGrowthRate, psr: metricsPsr } = r.value;
         ncMap.set(sym, ncRatio);
         roeMap.set(sym, roe);
         fyeMap.set(sym, fiscalYearEnd);
@@ -335,6 +338,7 @@ export async function GET(request: NextRequest) {
         equityRatioMap.set(sym, equityRatio);
         totalDebtMap.set(sym, totalDebt);
         profitGrowthMap.set(sym, profitGrowthRate);
+        prevProfitGrowthMap.set(sym, prevProfitGrowthRate);
         psrMap.set(sym, metricsPsr);
         const update = cacheUpdates.get(sym) ?? {};
         update.nc = ncRatio;
@@ -345,6 +349,7 @@ export async function GET(request: NextRequest) {
         update.equityRatio = equityRatio;
         update.totalDebt = totalDebt;
         update.profitGrowthRate = profitGrowthRate;
+        update.prevProfitGrowthRate = prevProfitGrowthRate;
         update.psr = metricsPsr;
         cacheUpdates.set(sym, update);
       }
@@ -517,6 +522,7 @@ export async function GET(request: NextRequest) {
         equityRatio: equityRatioMap.get(sym) ?? null,
         totalDebt: totalDebtMap.get(sym) ?? null,
         profitGrowthRate: profitGrowthMap.get(sym) ?? null,
+        prevProfitGrowthRate: prevProfitGrowthMap.get(sym) ?? null,
         // TOPIX / N225 / 上場日
         topixScale: topixMap.get(sym) ?? null,
         isNikkei225: NIKKEI225_CODES.has(sym.replace(".T", "")),

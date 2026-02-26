@@ -224,12 +224,13 @@ export interface FinancialMetrics {
   pegRatio: number | null;
   equityRatio: number | null;      // 自己資本比率 (%)
   totalDebt: number | null;        // 有利子負債 (円)
-  profitGrowthRate: number | null;  // 増益率 (%, YoY EBIT growth)
-  psr: number | null;              // PSR (= marketCap / totalRevenue)
+  profitGrowthRate: number | null;      // 増益率 (%, YoY EBIT growth)
+  prevProfitGrowthRate: number | null;  // 前期の増益率 (%, 前々期→前期)
+  psr: number | null;                   // PSR (= marketCap / totalRevenue)
 }
 
 export async function getFinancialMetrics(symbol: string, marketCap: number): Promise<FinancialMetrics> {
-  const result: FinancialMetrics = { ncRatio: null, roe: null, fiscalYearEnd: null, currentRatio: null, pegRatio: null, equityRatio: null, totalDebt: null, profitGrowthRate: null, psr: null };
+  const result: FinancialMetrics = { ncRatio: null, roe: null, fiscalYearEnd: null, currentRatio: null, pegRatio: null, equityRatio: null, totalDebt: null, profitGrowthRate: null, prevProfitGrowthRate: null, psr: null };
 
   try {
     const period1 = new Date();
@@ -245,7 +246,7 @@ export async function getFinancialMetrics(symbol: string, marketCap: number): Pr
         })
       ),
       yfQueue.add(() =>
-        yf.quoteSummary(symbol, { modules: ["incomeStatementHistoryQuarterly", "defaultKeyStatistics", "financialData"] })
+        yf.quoteSummary(symbol, { modules: ["incomeStatementHistoryQuarterly", "incomeStatementHistory", "defaultKeyStatistics", "financialData"] })
       ),
     ]);
 
@@ -386,6 +387,28 @@ export async function getFinancialMetrics(symbol: string, marketCap: number): Pr
             ((currentTTM - priorTTM) / Math.abs(priorTTM)) * 1000
           ) / 10;
         }
+      }
+    }
+
+    // 前期の増益率: 年次損益計算書から計算 (前々期→前期の増益率)
+    const annualStatements = isResult?.incomeStatementHistory?.incomeStatementHistory;
+    if (annualStatements && annualStatements.length >= 3) {
+      const getAnnualProfit = (s: unknown): number | null => {
+        const rec = s as Record<string, unknown>;
+        const ebit = rec.ebit as number | undefined;
+        if (ebit != null && ebit !== 0) return ebit;
+        return (rec.operatingIncome as number | undefined) ??
+               (rec.netIncome as number | undefined) ?? null;
+      };
+
+      // annualStatements[0] = 直近期, [1] = 前期, [2] = 前々期
+      const prevProfit = getAnnualProfit(annualStatements[1]);
+      const prevPrevProfit = getAnnualProfit(annualStatements[2]);
+
+      if (prevProfit != null && prevPrevProfit != null && Math.abs(prevPrevProfit) > 0) {
+        result.prevProfitGrowthRate = Math.round(
+          ((prevProfit - prevPrevProfit) / Math.abs(prevPrevProfit)) * 1000
+        ) / 10;
       }
     }
   } catch {

@@ -18,6 +18,13 @@ interface CwhStock {
   leftRimDate: string;
   bottomDate: string;
   rightRimDate: string;
+  // 財務指標
+  marketCap: number | null;
+  sharpe1y: number | null;
+  roe: number | null;
+  equityRatio: number | null;
+  profitGrowthRate: number | null;
+  prevProfitGrowthRate: number | null;
 }
 
 type SortKey = keyof CwhStock;
@@ -32,6 +39,12 @@ const COLUMNS: { key: SortKey; label: string; align: "left" | "right"; tooltip?:
   { key: "breakoutPrice", label: "BO価格", align: "right", tooltip: "ブレイクアウト価格（右リム高値）" },
   { key: "distancePct", label: "BO距離%", align: "right", tooltip: "現在値からブレイクアウト価格までの距離\n小さいほどブレイクアウトに近い" },
   { key: "pullbackPct", label: "押し目%", align: "right", tooltip: "ハンドル部分の押し目率（右リムからの最大下落%）\n1-12%が有効なハンドル" },
+  { key: "marketCap", label: "時価総額", align: "right", tooltip: "時価総額（億円）" },
+  { key: "sharpe1y", label: "SR", align: "right", tooltip: "シャープレシオ（1年、年率化）" },
+  { key: "roe", label: "ROE%", align: "right", tooltip: "ROE（自己資本利益率）" },
+  { key: "equityRatio", label: "自己資本%", align: "right", tooltip: "自己資本比率" },
+  { key: "profitGrowthRate", label: "増益率%", align: "right", tooltip: "直近期の増益率（YoY）" },
+  { key: "prevProfitGrowthRate", label: "前期増益%", align: "right", tooltip: "前期の増益率（前々期→前期）" },
   { key: "handleDays", label: "ハンドル日", align: "right", tooltip: "右リムからの経過日数" },
   { key: "cupDays", label: "カップ日", align: "right", tooltip: "左リムから右リムまでの日数（15-120日）" },
   { key: "cupDepthPct", label: "深さ%", align: "right", tooltip: "カップの深さ（リムから底までの下落率%）\n8-50%が有効" },
@@ -74,6 +87,18 @@ export default function CwhFormingPage() {
   const [cupDepthMax, setCupDepthMax] = useState("");
   const [priceMin, setPriceMin] = useState("");
   const [priceMax, setPriceMax] = useState("");
+  const [mcapMin, setMcapMin] = useState("");
+  const [mcapMax, setMcapMax] = useState("");
+  const [sharpeMin, setSharpeMin] = useState("");
+  const [sharpeMax, setSharpeMax] = useState("");
+  const [roeMin, setRoeMin] = useState("");
+  const [roeMax, setRoeMax] = useState("");
+  const [eqRatioMin, setEqRatioMin] = useState("");
+  const [eqRatioMax, setEqRatioMax] = useState("");
+  const [growthMin, setGrowthMin] = useState("");
+  const [growthMax, setGrowthMax] = useState("");
+  const [prevGrowthMin, setPrevGrowthMin] = useState("");
+  const [prevGrowthMax, setPrevGrowthMax] = useState("");
 
   // スキャン関連
   const [scanning, setScanning] = useState(false);
@@ -204,17 +229,19 @@ export default function CwhFormingPage() {
       list = list.filter((s) => s.stage === stageFilter);
     }
 
-    // 範囲フィルタ共通ヘルパー
+    // 範囲フィルタ共通ヘルパー (null値はフィルタ対象外 = 通過)
     const rangeFilter = (
       items: CwhStock[],
-      getter: (s: CwhStock) => number,
+      getter: (s: CwhStock) => number | null,
       min: string,
       max: string,
     ): CwhStock[] => {
       const lo = min !== "" ? parseFloat(min) : NaN;
       const hi = max !== "" ? parseFloat(max) : NaN;
+      if (isNaN(lo) && isNaN(hi)) return items;
       return items.filter((s) => {
         const v = getter(s);
+        if (v == null) return false; // フィルタ設定時、null値は除外
         if (!isNaN(lo) && v < lo) return false;
         if (!isNaN(hi) && v > hi) return false;
         return true;
@@ -227,6 +254,12 @@ export default function CwhFormingPage() {
     list = rangeFilter(list, (s) => s.cupDays, cupDaysMin, cupDaysMax);
     list = rangeFilter(list, (s) => s.cupDepthPct, cupDepthMin, cupDepthMax);
     list = rangeFilter(list, (s) => s.currentPrice, priceMin, priceMax);
+    list = rangeFilter(list, (s) => s.marketCap != null ? s.marketCap / 1e8 : null, mcapMin, mcapMax); // 億円換算
+    list = rangeFilter(list, (s) => s.sharpe1y, sharpeMin, sharpeMax);
+    list = rangeFilter(list, (s) => s.roe, roeMin, roeMax);
+    list = rangeFilter(list, (s) => s.equityRatio, eqRatioMin, eqRatioMax);
+    list = rangeFilter(list, (s) => s.profitGrowthRate, growthMin, growthMax);
+    list = rangeFilter(list, (s) => s.prevProfitGrowthRate, prevGrowthMin, prevGrowthMax);
 
     // ソート
     list = [...list].sort((a, b) => {
@@ -245,14 +278,15 @@ export default function CwhFormingPage() {
     });
 
     return list;
-  }, [stocks, search, marketFilter, stageFilter, sortKey, sortDir, distanceMin, distanceMax, pullbackMin, pullbackMax, handleDaysMin, handleDaysMax, cupDaysMin, cupDaysMax, cupDepthMin, cupDepthMax, priceMin, priceMax]);
+  }, [stocks, search, marketFilter, stageFilter, sortKey, sortDir, distanceMin, distanceMax, pullbackMin, pullbackMax, handleDaysMin, handleDaysMax, cupDaysMin, cupDaysMax, cupDepthMin, cupDepthMax, priceMin, priceMax, mcapMin, mcapMax, sharpeMin, sharpeMax, roeMin, roeMax, eqRatioMin, eqRatioMax, growthMin, growthMax, prevGrowthMin, prevGrowthMax]);
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {
       setSortKey(key);
-      setSortDir(key === "name" || key === "symbol" || key === "stage" ? "asc" : "desc");
+      const ascKeys: SortKey[] = ["name", "symbol", "stage", "marketSegment"];
+      setSortDir(ascKeys.includes(key) ? "asc" : "desc");
     }
   }
 
@@ -374,14 +408,24 @@ export default function CwhFormingPage() {
         ))}
       </div>
 
-      {/* Filters Row 2: Range filters */}
+      {/* Filters Row 2: Pattern range filters */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-600 dark:text-slate-400">
         <RangeInput label="BO距離%" min={distanceMin} max={distanceMax} setMin={setDistanceMin} setMax={setDistanceMax} />
         <RangeInput label="押し目%" min={pullbackMin} max={pullbackMax} setMin={setPullbackMin} setMax={setPullbackMax} />
         <RangeInput label="ハンドル日" min={handleDaysMin} max={handleDaysMax} setMin={setHandleDaysMin} setMax={setHandleDaysMax} />
         <RangeInput label="カップ日" min={cupDaysMin} max={cupDaysMax} setMin={setCupDaysMin} setMax={setCupDaysMax} />
         <RangeInput label="深さ%" min={cupDepthMin} max={cupDepthMax} setMin={setCupDepthMin} setMax={setCupDepthMax} />
+      </div>
+
+      {/* Filters Row 3: Financial range filters */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-600 dark:text-slate-400">
         <RangeInput label="株価" min={priceMin} max={priceMax} setMin={setPriceMin} setMax={setPriceMax} />
+        <RangeInput label="時価総額(億)" min={mcapMin} max={mcapMax} setMin={setMcapMin} setMax={setMcapMax} />
+        <RangeInput label="SR" min={sharpeMin} max={sharpeMax} setMin={setSharpeMin} setMax={setSharpeMax} />
+        <RangeInput label="ROE%" min={roeMin} max={roeMax} setMin={setRoeMin} setMax={setRoeMax} />
+        <RangeInput label="自己資本%" min={eqRatioMin} max={eqRatioMax} setMin={setEqRatioMin} setMax={setEqRatioMax} />
+        <RangeInput label="増益率%" min={growthMin} max={growthMax} setMin={setGrowthMin} setMax={setGrowthMax} />
+        <RangeInput label="前期増益%" min={prevGrowthMin} max={prevGrowthMax} setMin={setPrevGrowthMin} setMax={setPrevGrowthMax} />
       </div>
 
       {/* Table */}
@@ -428,6 +472,24 @@ export default function CwhFormingPage() {
                   {formatNum(s.distancePct)}
                 </td>
                 <td className="px-3 py-1.5 text-right font-mono">{formatNum(s.pullbackPct)}</td>
+                <td className="px-3 py-1.5 text-right font-mono text-xs text-gray-500 dark:text-slate-400">
+                  {s.marketCap != null ? `${(s.marketCap / 1e8).toLocaleString("ja-JP", { maximumFractionDigits: 0 })}` : "-"}
+                </td>
+                <td className={`px-3 py-1.5 text-right font-mono text-xs ${s.sharpe1y != null && s.sharpe1y > 0 ? "text-green-600 dark:text-green-400" : "text-gray-500 dark:text-slate-400"}`}>
+                  {s.sharpe1y != null ? formatNum(s.sharpe1y, 2) : "-"}
+                </td>
+                <td className={`px-3 py-1.5 text-right font-mono text-xs ${s.roe != null && s.roe >= 15 ? "text-green-600 dark:text-green-400 font-semibold" : s.roe != null && s.roe >= 10 ? "text-green-600 dark:text-green-400" : "text-gray-500 dark:text-slate-400"}`}>
+                  {s.roe != null ? formatNum(s.roe) : "-"}
+                </td>
+                <td className="px-3 py-1.5 text-right font-mono text-xs text-gray-500 dark:text-slate-400">
+                  {s.equityRatio != null ? formatNum(s.equityRatio) : "-"}
+                </td>
+                <td className={`px-3 py-1.5 text-right font-mono text-xs ${s.profitGrowthRate != null && s.profitGrowthRate > 0 ? "text-green-600 dark:text-green-400" : s.profitGrowthRate != null && s.profitGrowthRate < 0 ? "text-red-500 dark:text-red-400" : "text-gray-500 dark:text-slate-400"}`}>
+                  {s.profitGrowthRate != null ? formatNum(s.profitGrowthRate) : "-"}
+                </td>
+                <td className={`px-3 py-1.5 text-right font-mono text-xs ${s.prevProfitGrowthRate != null && s.prevProfitGrowthRate > 0 ? "text-green-600 dark:text-green-400" : s.prevProfitGrowthRate != null && s.prevProfitGrowthRate < 0 ? "text-red-500 dark:text-red-400" : "text-gray-500 dark:text-slate-400"}`}>
+                  {s.prevProfitGrowthRate != null ? formatNum(s.prevProfitGrowthRate) : "-"}
+                </td>
                 <td className="px-3 py-1.5 text-right font-mono">{s.handleDays}</td>
                 <td className="px-3 py-1.5 text-right font-mono">{s.cupDays}</td>
                 <td className="px-3 py-1.5 text-right font-mono">{formatNum(s.cupDepthPct)}</td>
