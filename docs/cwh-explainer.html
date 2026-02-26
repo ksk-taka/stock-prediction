@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cup with Handle 検知アルゴリズム解説</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e17;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #2a3550;
+    --text: #e2e8f0;
+    --text-dim: #8892a8;
+    --accent: #38bdf8;
+    --green: #34d399;
+    --red: #f87171;
+    --orange: #fb923c;
+    --purple: #a78bfa;
+    --yellow: #fbbf24;
+    --pink: #f472b6;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+  }
+
+  h1 span {
+    color: var(--text-dim);
+    font-weight: 400;
+    font-size: 18px;
+  }
+
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-bottom: 40px;
+  }
+
+  /* Main Chart */
+  .chart-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .chart-section::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+
+  .chart-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 20px;
+  }
+
+  svg text {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Steps */
+  .steps {
+    display: grid;
+    gap: 20px;
+  }
+
+  .step {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 28px;
+    display: grid;
+    grid-template-columns: 56px 1fr;
+    gap: 20px;
+    align-items: start;
+    transition: border-color 0.3s, transform 0.2s;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .step::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--border);
+    transition: background 0.3s;
+  }
+
+  .step:hover {
+    border-color: var(--accent);
+    transform: translateX(4px);
+  }
+
+  .step:hover::before {
+    background: var(--accent);
+  }
+
+  .step.active {
+    border-color: var(--accent);
+    background: var(--surface2);
+  }
+
+  .step.active::before {
+    background: var(--accent);
+  }
+
+  .step-num {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .step-num.blue { background: rgba(56, 189, 248, 0.15); color: var(--accent); }
+  .step-num.green { background: rgba(52, 211, 153, 0.15); color: var(--green); }
+  .step-num.orange { background: rgba(251, 146, 60, 0.15); color: var(--orange); }
+  .step-num.purple { background: rgba(167, 139, 250, 0.15); color: var(--purple); }
+  .step-num.yellow { background: rgba(251, 191, 36, 0.15); color: var(--yellow); }
+  .step-num.pink { background: rgba(244, 114, 182, 0.15); color: var(--pink); }
+  .step-num.red { background: rgba(248, 113, 113, 0.15); color: var(--red); }
+
+  .step-content h3 {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .step-content p {
+    font-size: 13.5px;
+    color: var(--text-dim);
+    line-height: 1.8;
+  }
+
+  .code-inline {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    background: rgba(56, 189, 248, 0.1);
+    color: var(--accent);
+    padding: 2px 7px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
+  .param {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--yellow);
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  .legend-line {
+    width: 20px;
+    height: 2px;
+  }
+
+  /* Params table */
+  .params-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+    margin-top: 24px;
+    margin-bottom: 32px;
+  }
+
+  .param-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .param-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .param-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--yellow);
+  }
+
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+    margin-top: 40px;
+  }
+
+  @media (max-width: 640px) {
+    .container { padding: 24px 16px 60px; }
+    h1 { font-size: 22px; }
+    .chart-section { padding: 20px 16px; }
+    .step { grid-template-columns: 44px 1fr; gap: 14px; padding: 18px 20px; }
+    .params-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Cup with Handle <span>検知アルゴリズム</span></h1>
+  <p class="subtitle">コードの各ステップを図解で追う ── パターン検出の全体フロー</p>
+
+  <!-- Main Diagram -->
+  <div class="chart-section">
+    <div class="chart-title">Pattern Overview ── UIカラムとの対応</div>
+    <svg viewBox="0 0 900 460" width="100%" xmlns="http://www.w3.org/2000/svg">
+      <!-- Grid -->
+      <defs>
+        <linearGradient id="cupGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.08"/>
+          <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.02"/>
+        </linearGradient>
+        <linearGradient id="handleGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#fb923c" stop-opacity="0.10"/>
+          <stop offset="100%" stop-color="#fb923c" stop-opacity="0.02"/>
+        </linearGradient>
+        <linearGradient id="breakoutGrad" x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0%" stop-color="#34d399" stop-opacity="0"/>
+          <stop offset="100%" stop-color="#34d399" stop-opacity="0.25"/>
+        </linearGradient>
+        <marker id="arrowBlue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#38bdf8"/>
+        </marker>
+        <marker id="arrowOrange" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#fb923c"/>
+        </marker>
+        <marker id="arrowGreen" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#34d399"/>
+        </marker>
+        <marker id="arrowRed" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#f87171"/>
+        </marker>
+        <marker id="arrowPurple" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#a78bfa"/>
+        </marker>
+      </defs>
+
+      <!-- Subtle grid lines -->
+      <g stroke="#1e293b" stroke-width="0.5">
+        <line x1="60" y1="80" x2="860" y2="80"/>
+        <line x1="60" y1="160" x2="860" y2="160"/>
+        <line x1="60" y1="240" x2="860" y2="240"/>
+        <line x1="60" y1="320" x2="860" y2="320"/>
+      </g>
+
+      <!-- 25MA / 75MA trend lines (before left rim) -->
+      <path d="M 80,200 Q 120,175 160,155 Q 180,140 200,128" fill="none" stroke="#34d399" stroke-width="1.5" stroke-dasharray="5,3" opacity="0.5"/>
+      <text x="85" y="195" fill="#34d399" font-size="9" opacity="0.7">25MA</text>
+      <path d="M 80,230 Q 120,210 160,190 Q 180,175 200,160" fill="none" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="5,3" opacity="0.5"/>
+      <text x="85" y="225" fill="#fbbf24" font-size="9" opacity="0.7">75MA</text>
+
+      <!-- Uptrend check annotation -->
+      <rect x="82" y="240" width="105" height="36" rx="4" fill="#0a0e17" stroke="#34d399" stroke-width="0.5" opacity="0.9"/>
+      <text x="134" y="254" fill="#34d399" font-size="9" text-anchor="middle">上昇トレンド判定</text>
+      <text x="134" y="268" fill="#34d399" font-size="9" text-anchor="middle">25MA > 75MA</text>
+
+      <!-- Price curve - approaching left rim -->
+      <path d="M 80,280 Q 120,240 160,180 Q 180,140 200,100" fill="none" stroke="#475569" stroke-width="2" stroke-dasharray="6,4"/>
+
+      <!-- Cup shape -->
+      <path d="M 200,100 Q 220,110 260,180 Q 310,280 400,310 Q 490,280 540,180 Q 570,120 600,100"
+            fill="url(#cupGrad)" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round"/>
+
+      <!-- Handle dip (forming - no breakout yet) -->
+      <path d="M 600,100 Q 620,105 640,130 Q 655,150 670,140 Q 685,130 700,120"
+            fill="url(#handleGrad)" stroke="#fb923c" stroke-width="2.5" stroke-linecap="round"/>
+
+      <!-- Current price marker (handle tip, not yet broken out) -->
+      <circle cx="700" cy="120" r="5" fill="#e2e8f0" stroke="#e2e8f0" stroke-width="1.5"/>
+      <text x="715" y="117" fill="#e2e8f0" font-size="10" font-weight="600">現在値</text>
+      <text x="715" y="130" fill="#8892a8" font-size="9">close (最新)</text>
+
+      <!-- Breakout line (potential, dashed) -->
+      <line x1="700" y1="100" x2="760" y2="70" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-dasharray="4,4" opacity="0.4"/>
+      <text x="762" y="68" fill="#34d399" font-size="9" opacity="0.6">BO後の期待パス</text>
+
+      <!-- BO距離 annotation (current price → rim level) -->
+      <line x1="730" y1="100" x2="730" y2="120" stroke="#34d399" stroke-width="1.5" opacity="0.8"/>
+      <line x1="726" y1="100" x2="734" y2="100" stroke="#34d399" stroke-width="1.5" opacity="0.8"/>
+      <line x1="726" y1="120" x2="734" y2="120" stroke="#34d399" stroke-width="1.5" opacity="0.8"/>
+      <rect x="737" y="101" width="68" height="28" rx="4" fill="#0a0e17" stroke="#34d399" stroke-width="1" opacity="0.95"/>
+      <text x="771" y="114" fill="#34d399" font-size="10" text-anchor="middle" font-weight="700">BO距離%</text>
+      <text x="771" y="125" fill="#8892a8" font-size="8" text-anchor="middle">distanceToBreakout</text>
+
+      <!-- Rim level line -->
+      <line x1="180" y1="100" x2="720" y2="100" stroke="#38bdf8" stroke-width="1" stroke-dasharray="4,4" opacity="0.5"/>
+      <text x="175" y="95" fill="#38bdf8" font-size="10" text-anchor="end" opacity="0.7">rimLevel</text>
+
+      <!-- Left Rim marker -->
+      <circle cx="200" cy="100" r="7" fill="none" stroke="#38bdf8" stroke-width="2"/>
+      <circle cx="200" cy="100" r="3" fill="#38bdf8"/>
+      <text x="200" y="78" fill="#38bdf8" font-size="11" text-anchor="middle" font-weight="600">左リム</text>
+      <text x="200" y="65" fill="#8892a8" font-size="9" text-anchor="middle">peaks[p1]</text>
+
+      <!-- Right Rim marker -->
+      <circle cx="600" cy="100" r="7" fill="none" stroke="#38bdf8" stroke-width="2"/>
+      <circle cx="600" cy="100" r="3" fill="#38bdf8"/>
+      <text x="600" y="78" fill="#38bdf8" font-size="11" text-anchor="middle" font-weight="600">右リム</text>
+      <text x="600" y="65" fill="#8892a8" font-size="9" text-anchor="middle">peaks[p2]</text>
+
+      <!-- Bottom marker -->
+      <circle cx="400" cy="310" r="7" fill="none" stroke="#f87171" stroke-width="2"/>
+      <circle cx="400" cy="310" r="3" fill="#f87171"/>
+      <text x="400" y="338" fill="#f87171" font-size="11" text-anchor="middle" font-weight="600">カップ底</text>
+      <text x="400" y="352" fill="#8892a8" font-size="9" text-anchor="middle">bottomLow</text>
+
+      <!-- Handle low marker -->
+      <circle cx="655" cy="150" r="5" fill="none" stroke="#fb923c" stroke-width="2"/>
+      <circle cx="655" cy="150" r="2.5" fill="#fb923c"/>
+      <text x="680" y="170" fill="#fb923c" font-size="10" text-anchor="start">handleLow</text>
+
+      <!-- ===== UI Column Annotations ===== -->
+
+      <!-- 深さ% (depth) -->
+      <line x1="140" y1="100" x2="140" y2="310" stroke="#f87171" stroke-width="1.5" marker-end="url(#arrowRed)" opacity="0.7"/>
+      <line x1="140" y1="310" x2="140" y2="100" stroke="#f87171" stroke-width="1.5" marker-end="url(#arrowRed)" opacity="0.7"/>
+      <rect x="108" y="186" width="65" height="38" rx="4" fill="#0a0e17" stroke="#f87171" stroke-width="1" opacity="0.95"/>
+      <text x="141" y="200" fill="#f87171" font-size="10" text-anchor="middle" font-weight="700">深さ%</text>
+      <text x="141" y="218" fill="#8892a8" font-size="8" text-anchor="middle">cupDepthPct</text>
+
+      <!-- カップ日 (cup days) -->
+      <line x1="200" y1="400" x2="600" y2="400" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrowPurple)" opacity="0.7"/>
+      <line x1="200" y1="396" x2="200" y2="404" stroke="#a78bfa" stroke-width="1.5" opacity="0.7"/>
+      <rect x="348" y="386" width="105" height="38" rx="4" fill="#0a0e17" stroke="#a78bfa" stroke-width="1" opacity="0.95"/>
+      <text x="400" y="400" fill="#a78bfa" font-size="10" text-anchor="middle" font-weight="700">カップ日</text>
+      <text x="400" y="418" fill="#8892a8" font-size="8" text-anchor="middle">cupDays (15〜120)</text>
+
+      <!-- ハンドル日 (handle days) -->
+      <line x1="600" y1="440" x2="700" y2="440" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrowOrange)" opacity="0.7"/>
+      <line x1="600" y1="436" x2="600" y2="444" stroke="#fb923c" stroke-width="1.5" opacity="0.7"/>
+      <rect x="612" y="427" width="80" height="28" rx="4" fill="#0a0e17" stroke="#fb923c" stroke-width="1" opacity="0.95"/>
+      <text x="652" y="441" fill="#fb923c" font-size="10" text-anchor="middle" font-weight="700">ハンドル日</text>
+      <text x="652" y="453" fill="#8892a8" font-size="8" text-anchor="middle">handleDays</text>
+
+      <!-- 押し目% (pullback) -->
+      <line x1="618" y1="100" x2="618" y2="150" stroke="#fb923c" stroke-width="1.5" opacity="0.7"/>
+      <line x1="614" y1="100" x2="622" y2="100" stroke="#fb923c" stroke-width="1.5" opacity="0.7"/>
+      <line x1="614" y1="150" x2="622" y2="150" stroke="#fb923c" stroke-width="1.5" opacity="0.7"/>
+      <rect x="562" y="113" width="56" height="28" rx="4" fill="#0a0e17" stroke="#fb923c" stroke-width="1" opacity="0.95"/>
+      <text x="590" y="126" fill="#fb923c" font-size="10" text-anchor="middle" font-weight="700">押し目%</text>
+      <text x="590" y="138" fill="#8892a8" font-size="8" text-anchor="middle">pullbackPct</text>
+
+      <!-- Rim tolerance annotation -->
+      <line x1="195" y1="100" x2="195" y2="105" stroke="#fbbf24" stroke-width="1.5" opacity="0.6"/>
+      <line x1="605" y1="100" x2="605" y2="105" stroke="#fbbf24" stroke-width="1.5" opacity="0.6"/>
+      <path d="M 200,108 Q 400,130 600,108" fill="none" stroke="#fbbf24" stroke-width="1" stroke-dasharray="3,3" opacity="0.5"/>
+      <text x="400" y="128" fill="#fbbf24" font-size="9" text-anchor="middle" opacity="0.8">rimDiff ≤ 6%</text>
+
+      <!-- Bottom position annotation -->
+      <text x="400" y="375" fill="#8892a8" font-size="9" text-anchor="middle" opacity="0.6">底の位置: 15%〜85%</text>
+
+    </svg>
+
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#38bdf8"></div>カップ（左リム→右リム）</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f87171"></div>カップ底 / 深さ%</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#fb923c"></div>ハンドル（押し目%）</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#34d399"></div>BO距離%</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#a78bfa"></div>カップ日</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#fbbf24"></div>リム許容差</div>
+    </div>
+  </div>
+
+  <!-- Column Reference -->
+  <div class="section-label">UI Column Reference</div>
+  <div class="params-grid">
+    <div class="param-card"><span class="param-name">カップ日</span><span class="param-val">cupDays</span></div>
+    <div class="param-card"><span class="param-name">深さ%</span><span class="param-val">cupDepthPct</span></div>
+    <div class="param-card"><span class="param-name">ハンドル日</span><span class="param-val">handleDays</span></div>
+    <div class="param-card"><span class="param-name">押し目%</span><span class="param-val">pullbackPct</span></div>
+    <div class="param-card"><span class="param-name">BO距離%</span><span class="param-val">distanceToBreakoutPct</span></div>
+    <div class="param-card"><span class="param-name">ステージ</span><span class="param-val">handle_forming / handle_ready</span></div>
+  </div>
+
+  <!-- Parameters -->
+  <div class="section-label">Parameters</div>
+  <div class="params-grid">
+    <div class="param-card"><span class="param-name">CUP_MIN_DAYS</span><span class="param-val">15</span></div>
+    <div class="param-card"><span class="param-name">CUP_MAX_DAYS</span><span class="param-val">120</span></div>
+    <div class="param-card"><span class="param-name">CUP_MIN_DEPTH</span><span class="param-val">8%</span></div>
+    <div class="param-card"><span class="param-name">CUP_MAX_DEPTH</span><span class="param-val">50%</span></div>
+    <div class="param-card"><span class="param-name">RIM_TOLERANCE</span><span class="param-val">6%</span></div>
+    <div class="param-card"><span class="param-name">HANDLE_MIN_DAYS</span><span class="param-val">3</span></div>
+    <div class="param-card"><span class="param-name">HANDLE_MAX_DAYS</span><span class="param-val">25</span></div>
+    <div class="param-card"><span class="param-name">HANDLE_MAX_PULLBACK</span><span class="param-val">12%</span></div>
+    <div class="param-card"><span class="param-name">UPTREND_MA_SHORT</span><span class="param-val">25</span></div>
+    <div class="param-card"><span class="param-name">UPTREND_MA_LONG</span><span class="param-val">75</span></div>
+  </div>
+
+  <!-- Steps -->
+  <div class="section-label">Detection Flow</div>
+  <div class="steps">
+
+    <div class="step">
+      <div class="step-num blue">1</div>
+      <div class="step-content">
+        <h3>ローカルピーク検出</h3>
+        <p>
+          前後 <span class="code-inline">PEAK_W=5</span> 本のローソク足の中で最高値（high）を持つ足を「ピーク」として収集する。
+          これがカップの左リム・右リムの候補になる。全ピークを配列 <span class="code-inline">peaks[]</span> に格納。
+        </p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num green">2</div>
+      <div class="step-content">
+        <h3>上昇トレンド判定（左リム + 右リム）</h3>
+        <p>
+          左リム地点で <span class="code-inline">leftHigh > 25MA</span> かつ <span class="code-inline">25MA > 75MA</span> であることを確認。
+          さらに右リム地点でも <span class="code-inline">25MA > 75MA</span> を確認する。
+          データ不足（<span class="param">leftIdx < 75</span>）の場合は除外。
+          これにより下降トレンド中の偽パターンを排除する。
+        </p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num orange">3</div>
+      <div class="step-content">
+        <h3>ピークペアでカップ探索</h3>
+        <p>
+          <span class="code-inline">peaks[]</span> から2点を選び（p1, p2）、カップの左リム・右リムとする。
+          <strong>カップ日</strong>チェック: <span class="param">15 ≤ cupDays ≤ 120</span>。
+          次にリム高さの類似性: 左右の高値差が <span class="param">rimDiff ≤ 6%</span> であること。
+          これにより「U字型」の候補を絞り込む。
+        </p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num purple">4</div>
+      <div class="step-content">
+        <h3>カップ底の検証（深さ%）</h3>
+        <p>
+          左リム〜右リム間で最安値（low）を <span class="code-inline">bottomLow</span> として検出。
+          <strong>深さ%</strong> = <span class="code-inline">(rimLevel − bottomLow) / rimLevel</span> が
+          <span class="param">8〜50%</span> の範囲にあることを確認。
+          さらに底の位置が端に偏りすぎていないか（<span class="param">15%〜85%</span>）もチェック。
+        </p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num yellow">5</div>
+      <div class="step-content">
+        <h3>ハンドル探索（ハンドル日 / 押し目%）</h3>
+        <p>
+          右リムの直後から最大 <span class="param">25日</span> の範囲で押し目（ハンドル）を探す。
+          <strong>ハンドル日</strong> = 右リムからの経過日数。
+          <strong>押し目%</strong> = <span class="code-inline">(rightHigh − handleLow) / rightHigh</span> が
+          <span class="param">1%〜12%</span> の範囲にあること。
+          12%を超えたら深すぎるので <span class="code-inline">break</span>（探索打ち切り）。
+        </p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num pink">6</div>
+      <div class="step-content">
+        <h3>BO距離% / ブレイクアウト判定</h3>
+        <p>
+          <strong>BO距離%</strong> = <span class="code-inline">(rimLevel − currentClose) / rimLevel × 100</span>。
+          0%に近いほどブレイクアウトが近い。
+          完成パターン（detectCupWithHandle）では、<span class="code-inline">close > rightHigh</span>（右リムを終値で上抜け）
+          かつ <span class="code-inline">close > open</span>（陽線）でブレイクアウトと判定。
+          形成中パターンでは <span class="code-inline">handle_forming</span>（ハンドル押し目中）または
+          <span class="code-inline">handle_ready</span>（BO距離 ≤ 3%）をステージとして返す。
+        </p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num red">⚠</div>
+      <div class="step-content">
+        <h3>注意・制限事項</h3>
+        <p>
+          <strong>出来高チェック:</strong> ブレイクアウト時の出来高が20日平均の1.5倍以上あるか（ダマシ排除に不可欠）<br>
+          <strong>ハンドル形状:</strong> 高値が右肩下がりか（V字回復は低品質シグナル）<br>
+          <strong>重複排除:</strong> 同一ブレイクアウト日に複数シグナルが出る可能性の制御
+        </p>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+</body>
+</html>
