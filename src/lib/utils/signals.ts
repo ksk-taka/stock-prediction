@@ -181,9 +181,9 @@ export function detectCupWithHandle(data: PriceData[]): BuySignal[] {
   const HANDLE_MAX_PULLBACK = 0.12;
   const BREAKOUT_VOL_RATIO = 1.5;    // ブレイクアウト出来高 >= 20日平均の1.5倍
   const REQUIRE_52W_HIGH = true;     // ブレイクアウト時に52週高値も更新していること
-  const UPTREND_MA_SHORT = 50;       // 短期MA期間
-  const UPTREND_MA_LONG = 200;       // 長期MA期間
-  const REQUIRE_UPTREND = true;      // 50MA > 200MA で上昇トレンド判定
+  const UPTREND_MA_SHORT = 25;       // 短期MA期間
+  const UPTREND_MA_LONG = 75;        // 長期MA期間
+  const REQUIRE_UPTREND = true;      // 25MA > 75MA で上昇トレンド判定
 
   // ローカルピーク検出（前後5本で最高値）
   const PEAK_W = 5;
@@ -207,13 +207,23 @@ export function detectCupWithHandle(data: PriceData[]): BuySignal[] {
       const leftHigh = data[leftIdx].high;
       const rightHigh = data[rightIdx].high;
 
-      // 上昇トレンド判定: 左リム > 50MA かつ 50MA > 200MA
-      if (REQUIRE_UPTREND && leftIdx >= UPTREND_MA_LONG) {
-        const ma50Sum = data.slice(leftIdx - UPTREND_MA_SHORT, leftIdx).reduce((s, d) => s + d.close, 0);
-        const ma200Sum = data.slice(leftIdx - UPTREND_MA_LONG, leftIdx).reduce((s, d) => s + d.close, 0);
-        const ma50 = ma50Sum / UPTREND_MA_SHORT;
-        const ma200 = ma200Sum / UPTREND_MA_LONG;
-        if (leftHigh < ma50 || ma50 <= ma200) continue;
+      // 上昇トレンド判定（左リム）: leftHigh > 25MA かつ 25MA > 75MA
+      if (REQUIRE_UPTREND) {
+        if (leftIdx < UPTREND_MA_LONG) continue; // データ不足 → 除外
+        const maShortSum = data.slice(leftIdx - UPTREND_MA_SHORT, leftIdx).reduce((s, d) => s + d.close, 0);
+        const maLongSum = data.slice(leftIdx - UPTREND_MA_LONG, leftIdx).reduce((s, d) => s + d.close, 0);
+        const maShort = maShortSum / UPTREND_MA_SHORT;
+        const maLong = maLongSum / UPTREND_MA_LONG;
+        if (leftHigh < maShort || maShort <= maLong) continue;
+      }
+
+      // 上昇トレンド判定（右リム）: 25MA > 75MA
+      if (REQUIRE_UPTREND && rightIdx >= UPTREND_MA_LONG) {
+        const rMaShortSum = data.slice(rightIdx - UPTREND_MA_SHORT, rightIdx).reduce((s, d) => s + d.close, 0);
+        const rMaLongSum = data.slice(rightIdx - UPTREND_MA_LONG, rightIdx).reduce((s, d) => s + d.close, 0);
+        const rMaShort = rMaShortSum / UPTREND_MA_SHORT;
+        const rMaLong = rMaLongSum / UPTREND_MA_LONG;
+        if (rMaShort <= rMaLong) continue;
       }
 
       // リム高さの類似チェック
@@ -313,8 +323,8 @@ export function detectCupWithHandleForming(data: PriceData[]): CwhFormingPattern
   const RIM_TOLERANCE = 0.06;
   const HANDLE_MAX_DAYS = 25;
   const HANDLE_MAX_PULLBACK = 0.12;
-  const UPTREND_MA_SHORT = 50;
-  const UPTREND_MA_LONG = 200;
+  const UPTREND_MA_SHORT = 25;
+  const UPTREND_MA_LONG = 75;
   const REQUIRE_UPTREND = true;
 
   const lastIdx = data.length - 1;
@@ -345,13 +355,23 @@ export function detectCupWithHandleForming(data: PriceData[]): CwhFormingPattern
       const leftHigh = data[leftIdx].high;
       const rightHigh = data[rightIdx].high;
 
-      // 上昇トレンド判定
-      if (REQUIRE_UPTREND && leftIdx >= UPTREND_MA_LONG) {
-        const ma50Sum = data.slice(leftIdx - UPTREND_MA_SHORT, leftIdx).reduce((s, d) => s + d.close, 0);
-        const ma200Sum = data.slice(leftIdx - UPTREND_MA_LONG, leftIdx).reduce((s, d) => s + d.close, 0);
-        const ma50 = ma50Sum / UPTREND_MA_SHORT;
-        const ma200 = ma200Sum / UPTREND_MA_LONG;
-        if (leftHigh < ma50 || ma50 <= ma200) continue;
+      // 上昇トレンド判定（左リム）: leftHigh > 25MA かつ 25MA > 75MA
+      if (REQUIRE_UPTREND) {
+        if (leftIdx < UPTREND_MA_LONG) continue; // データ不足 → 除外
+        const maShortSum = data.slice(leftIdx - UPTREND_MA_SHORT, leftIdx).reduce((s, d) => s + d.close, 0);
+        const maLongSum = data.slice(leftIdx - UPTREND_MA_LONG, leftIdx).reduce((s, d) => s + d.close, 0);
+        const maShort = maShortSum / UPTREND_MA_SHORT;
+        const maLong = maLongSum / UPTREND_MA_LONG;
+        if (leftHigh < maShort || maShort <= maLong) continue;
+      }
+
+      // 上昇トレンド判定（右リム）: 25MA > 75MA
+      if (REQUIRE_UPTREND && rightIdx >= UPTREND_MA_LONG) {
+        const rMaShortSum = data.slice(rightIdx - UPTREND_MA_SHORT, rightIdx).reduce((s, d) => s + d.close, 0);
+        const rMaLongSum = data.slice(rightIdx - UPTREND_MA_LONG, rightIdx).reduce((s, d) => s + d.close, 0);
+        const rMaShort = rMaShortSum / UPTREND_MA_SHORT;
+        const rMaLong = rMaLongSum / UPTREND_MA_LONG;
+        if (rMaShort <= rMaLong) continue;
       }
 
       // リム高さの類似チェック
