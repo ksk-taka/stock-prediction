@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
 
 interface CwhStock {
@@ -75,21 +75,113 @@ export default function CwhFormingPage() {
   const [priceMin, setPriceMin] = useState("");
   const [priceMax, setPriceMax] = useState("");
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/cwh-forming");
-        const data = await res.json();
-        setStocks(data.stocks ?? []);
-        setScannedAt(data.scannedAt ?? null);
-        if (data.error) setError(data.error);
-      } catch {
-        setError("データの取得に失敗しました");
-      } finally {
-        setLoading(false);
-      }
-    })();
+  // スキャン関連
+  const [scanning, setScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState<{ stage: string; current: number; total: number; message: string } | null>(null);
+  const pollingRef = useRef<{ interval: ReturnType<typeof setInterval>; timeout: ReturnType<typeof setTimeout> } | null>(null);
+
+  const loadData = useCallback(async () => {
+    try {
+      const res = await fetch("/api/cwh-forming");
+      const data = await res.json();
+      setStocks(data.stocks ?? []);
+      setScannedAt(data.scannedAt ?? null);
+      if (data.error) setError(data.error);
+      else setError(null);
+    } catch {
+      setError("データの取得に失敗しました");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // ポーリングクリーンアップ
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current.interval);
+        clearTimeout(pollingRef.current.timeout);
+      }
+    };
+  }, []);
+
+  const startPolling = useCallback((scanId: number) => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current.interval);
+      clearTimeout(pollingRef.current.timeout);
+    }
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/cwh-forming/status?scanId=${scanId}`);
+        const data = await res.json();
+
+        if (data.status === "completed") {
+          if (pollingRef.current) {
+            clearInterval(pollingRef.current.interval);
+            clearTimeout(pollingRef.current.timeout);
+            pollingRef.current = null;
+          }
+          setScanProgress(null);
+          setScanning(false);
+          await loadData();
+        } else if (data.status === "failed") {
+          if (pollingRef.current) {
+            clearInterval(pollingRef.current.interval);
+            clearTimeout(pollingRef.current.timeout);
+            pollingRef.current = null;
+          }
+          setScanProgress(null);
+          setScanning(false);
+          setError(data.error_message ?? "スキャンが失敗しました");
+        } else if (data.progress) {
+          setScanProgress(data.progress);
+        }
+      } catch {
+        // ネットワークエラー → 継続
+      }
+    }, 10_000);
+
+    const timeout = setTimeout(() => {
+      clearInterval(interval);
+      pollingRef.current = null;
+      setScanProgress(null);
+      setScanning(false);
+      setError("スキャンがタイムアウトしました。ページを再読み込みしてください。");
+    }, 10 * 60 * 1000);
+
+    pollingRef.current = { interval, timeout };
+  }, [loadData]);
+
+  const handleScan = async () => {
+    setScanning(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/cwh-forming/scan", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "スキャンに失敗しました");
+        setScanning(false);
+        return;
+      }
+
+      if (data.scanId) {
+        // Vercel: GitHub Actions で非同期実行 → ポーリング
+        startPolling(data.scanId);
+      } else {
+        // ローカル: 同期完了
+        await loadData();
+        setScanning(false);
+      }
+    } catch {
+      setError("スキャンの実行に失敗しました");
+      setScanning(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     let list = stocks;
@@ -208,12 +300,33 @@ export default function CwhFormingPage() {
           <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
             {filtered.length} / {stocks.length}
           </span>
+          <button
+            onClick={handleScan}
+            disabled={scanning}
+            className="rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-600"
+          >
+            {scanning ? "スキャン中..." : "スキャン更新"}
+          </button>
         </div>
       </div>
 
       {error && (
         <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-700 dark:border-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300">
           {error}
+        </div>
+      )}
+
+      {scanning && scanProgress && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-300">
+          {scanProgress.message}
+          {scanProgress.total > 0 && (
+            <div className="mt-1 h-1.5 w-full rounded-full bg-blue-200 dark:bg-blue-800">
+              <div
+                className="h-1.5 rounded-full bg-blue-600 transition-all"
+                style={{ width: `${Math.round((scanProgress.current / scanProgress.total) * 100)}%` }}
+              />
+            </div>
+          )}
         </div>
       )}
 

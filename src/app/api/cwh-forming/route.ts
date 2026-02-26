@@ -1,27 +1,79 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
+const isVercel = !!process.env.VERCEL;
+
 export async function GET() {
   try {
-    const { existsSync, readFileSync } = await import("fs");
-    const { join } = await import("path");
+    // Supabase が設定されていれば Supabase から取得
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      const result = await getFromSupabase();
+      if (result) return result;
+    }
 
-    const jsonPath = join(process.cwd(), "data", "cwh-forming.json");
-    if (!existsSync(jsonPath)) {
+    // Vercel 上で Supabase にデータなし
+    if (isVercel) {
       return NextResponse.json({
         stocks: [],
         scannedAt: null,
-        error: "スキャンデータがありません。npm run scan:cwh:all を実行してください。",
+        error: "スキャンデータがありません。スキャンを実行してください。",
       });
     }
 
-    const data = JSON.parse(readFileSync(jsonPath, "utf-8"));
-    return NextResponse.json(data);
+    // ローカル: JSON フォールバック
+    return await getFromJson();
   } catch (err) {
     return NextResponse.json(
       { stocks: [], error: String(err) },
       { status: 500 },
     );
   }
+}
+
+async function getFromSupabase(): Promise<NextResponse | null> {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+
+  const { data, error } = await supabase
+    .from("cwh_forming_scans")
+    .select("*")
+    .eq("status", "completed")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (error || !data) return null;
+
+  const stocks = typeof data.stocks === "string"
+    ? JSON.parse(data.stocks)
+    : data.stocks;
+
+  return NextResponse.json({
+    stocks,
+    scannedAt: data.completed_at,
+    scanId: data.id,
+    stockCount: data.stock_count,
+    readyCount: data.ready_count,
+  });
+}
+
+async function getFromJson(): Promise<NextResponse> {
+  const { existsSync, readFileSync } = await import("fs");
+  const { join } = await import("path");
+
+  const jsonPath = join(process.cwd(), "data", "cwh-forming.json");
+  if (!existsSync(jsonPath)) {
+    return NextResponse.json({
+      stocks: [],
+      scannedAt: null,
+      error: "スキャンデータがありません。npm run scan:cwh:all を実行してください。",
+    });
+  }
+
+  const data = JSON.parse(readFileSync(jsonPath, "utf-8"));
+  return NextResponse.json(data);
 }

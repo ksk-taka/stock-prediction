@@ -10,6 +10,8 @@
 //   npx tsx scripts/scan-cwh-forming.ts --market prime    # 市場区分フィルタ
 //   npx tsx scripts/scan-cwh-forming.ts --ready-only      # handle_readyのみ
 //   npx tsx scripts/scan-cwh-forming.ts --max-distance 10 # BO距離10%以内 (デフォルト無制限)
+//   npx tsx scripts/scan-cwh-forming.ts --supabase        # Supabaseに保存
+//   npx tsx scripts/scan-cwh-forming.ts --scan-id 42      # 既存レコード更新 (GHA用)
 // ============================================================
 
 import dotenv from "dotenv";
@@ -19,8 +21,9 @@ import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import YahooFinance from "yahoo-finance2";
 import { RequestQueue } from "@/lib/utils/requestQueue";
+import { createServiceClient } from "@/lib/supabase/service";
 import { detectCupWithHandleForming, type CwhFormingPattern } from "@/lib/utils/signals";
-import { sleep, getArgs, hasFlag, parseFlag } from "@/lib/utils/cli";
+import { sleep, getArgs, hasFlag, parseFlag, parseIntFlag } from "@/lib/utils/cli";
 import type { PriceData } from "@/types";
 
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
@@ -41,7 +44,6 @@ interface ScanResult {
   pattern: CwhFormingPattern;
 }
 
-/** JSON出力用の型 */
 export interface CwhFormingRow {
   symbol: string;
   name: string;
@@ -67,6 +69,48 @@ const CSV_OUTPUT = hasFlag(args, "--csv");
 const READY_ONLY = hasFlag(args, "--ready-only");
 const MARKET_FILTER = parseFlag(args, "--market")?.toLowerCase();
 const MAX_DISTANCE = parseFloat(parseFlag(args, "--max-distance") ?? "100");
+const DO_SUPABASE = hasFlag(args, "--supabase");
+const SCAN_ID = parseIntFlag(args, "--scan-id", -1) === -1 ? undefined : parseIntFlag(args, "--scan-id", -1);
+
+// ── Supabase ──
+
+async function updateProgress(scanId: number | undefined, progress: { stage: string; current: number; total: number; message: string }): Promise<void> {
+  if (!scanId) return;
+  try {
+    const supabase = createServiceClient();
+    await supabase.from("cwh_forming_scans").update({ progress }).eq("id", scanId);
+  } catch { /* best effort */ }
+}
+
+async function uploadScanResults(rows: CwhFormingRow[], scanId?: number): Promise<void> {
+  const supabase = createServiceClient();
+  const payload = {
+    status: "completed" as const,
+    stocks: JSON.stringify(rows),
+    stock_count: rows.length,
+    ready_count: rows.filter((r) => r.stage === "handle_ready").length,
+    completed_at: new Date().toISOString(),
+  };
+
+  if (scanId) {
+    const { error } = await supabase.from("cwh_forming_scans").update(payload).eq("id", scanId);
+    if (error) console.error("Supabase update error:", error.message);
+    else console.log(`Supabase scan #${scanId} updated`);
+  } else {
+    const { error } = await supabase.from("cwh_forming_scans").insert(payload);
+    if (error) console.error("Supabase insert error:", error.message);
+    else console.log("Supabase scan inserted");
+  }
+}
+
+async function markScanFailed(scanId: number, errorMsg: string): Promise<void> {
+  try {
+    const supabase = createServiceClient();
+    await supabase.from("cwh_forming_scans")
+      .update({ status: "failed", error_message: errorMsg, completed_at: new Date().toISOString() })
+      .eq("id", scanId);
+  } catch { /* best effort */ }
+}
 
 // ── ウォッチリスト読込み ──
 
@@ -126,7 +170,12 @@ async function main() {
   if (MAX_DISTANCE < 100) console.log(`   BO距離: ${MAX_DISTANCE}%以内`);
   if (MARKET_FILTER) console.log(`   市場: ${MARKET_FILTER}`);
   if (READY_ONLY) console.log(`   handle_readyのみ`);
+  if (DO_SUPABASE) console.log(`   Supabase: ON${SCAN_ID ? ` (scan #${SCAN_ID})` : ""}`);
   console.log();
+
+  if (DO_SUPABASE && SCAN_ID) {
+    await updateProgress(SCAN_ID, { stage: "scanning", current: 0, total: stocks.length, message: "スキャン開始..." });
+  }
 
   const results: ScanResult[] = [];
   let processed = 0;
@@ -158,14 +207,19 @@ async function main() {
     });
     await Promise.all(promises);
     if (i + BATCH < stocks.length) await sleep(200);
+
+    // Supabase 進捗更新 (500件ごと)
+    if (DO_SUPABASE && SCAN_ID && processed % 500 < BATCH) {
+      await updateProgress(SCAN_ID, {
+        stage: "scanning",
+        current: processed,
+        total: stocks.length,
+        message: `${processed}/${stocks.length} 処理済み (${results.length}件検出)`,
+      });
+    }
   }
 
   console.log(`\n\n✅ 完了: ${processed}銘柄処理, ${errors}エラー\n`);
-
-  if (results.length === 0) {
-    console.log("CWH形成中の銘柄は見つかりませんでした。\n");
-    return;
-  }
 
   // ソート: handle_ready優先, 次にブレイクアウトまでの距離が近い順
   results.sort((a, b) => {
@@ -176,40 +230,44 @@ async function main() {
   });
 
   // コンソール出力
-  console.log(`🔍 CWH形成中: ${results.length}銘柄\n`);
-  console.log(
-    "ステージ".padEnd(14) +
-    "銘柄".padEnd(18) +
-    "現在値".padStart(10) +
-    "BO価格".padStart(10) +
-    "距離%".padStart(8) +
-    "押し目%".padStart(8) +
-    "ハンドル日".padStart(10) +
-    "カップ日".padStart(8) +
-    "深さ%".padStart(8) +
-    "  右リム日"
-  );
-  console.log("─".repeat(110));
-
-  for (const r of results) {
-    const p = r.pattern;
-    const stageLabel = p.stage === "handle_ready" ? "🟢 READY" : "🟡 FORMING";
-    const name = (r.stock.symbol + " " + r.stock.name).slice(0, 16);
+  if (results.length > 0) {
+    console.log(`🔍 CWH形成中: ${results.length}銘柄\n`);
     console.log(
-      stageLabel.padEnd(14) +
-      name.padEnd(18) +
-      p.currentPrice.toFixed(0).padStart(10) +
-      p.breakoutPrice.toFixed(0).padStart(10) +
-      p.distanceToBreakoutPct.toFixed(1).padStart(8) +
-      p.pullbackPct.toFixed(1).padStart(8) +
-      String(p.handleDays).padStart(10) +
-      String(p.cupDays).padStart(8) +
-      p.cupDepthPct.toFixed(1).padStart(8) +
-      "  " + p.rightRimDate
+      "ステージ".padEnd(14) +
+      "銘柄".padEnd(18) +
+      "現在値".padStart(10) +
+      "BO価格".padStart(10) +
+      "距離%".padStart(8) +
+      "押し目%".padStart(8) +
+      "ハンドル日".padStart(10) +
+      "カップ日".padStart(8) +
+      "深さ%".padStart(8) +
+      "  右リム日"
     );
+    console.log("─".repeat(110));
+
+    for (const r of results) {
+      const p = r.pattern;
+      const stageLabel = p.stage === "handle_ready" ? "🟢 READY" : "🟡 FORMING";
+      const name = (r.stock.symbol + " " + r.stock.name).slice(0, 16);
+      console.log(
+        stageLabel.padEnd(14) +
+        name.padEnd(18) +
+        p.currentPrice.toFixed(0).padStart(10) +
+        p.breakoutPrice.toFixed(0).padStart(10) +
+        p.distanceToBreakoutPct.toFixed(1).padStart(8) +
+        p.pullbackPct.toFixed(1).padStart(8) +
+        String(p.handleDays).padStart(10) +
+        String(p.cupDays).padStart(8) +
+        p.cupDepthPct.toFixed(1).padStart(8) +
+        "  " + p.rightRimDate
+      );
+    }
+  } else {
+    console.log("CWH形成中の銘柄は見つかりませんでした。");
   }
 
-  // JSON出力 (常に書き出し → APIから読み取り)
+  // データ行を生成
   const rows: CwhFormingRow[] = results.map((r) => ({
     symbol: r.stock.symbol,
     name: r.stock.name,
@@ -227,6 +285,7 @@ async function main() {
     rightRimDate: r.pattern.rightRimDate,
   }));
 
+  // JSON出力 (ローカル用)
   const jsonPath = join(process.cwd(), "data", "cwh-forming.json");
   writeFileSync(jsonPath, JSON.stringify({
     scannedAt: new Date().toISOString(),
@@ -236,6 +295,14 @@ async function main() {
   }, null, 2), "utf-8");
   console.log(`\n📄 JSON出力: ${jsonPath}`);
 
+  // Supabase アップロード
+  if (DO_SUPABASE) {
+    if (SCAN_ID) {
+      await updateProgress(SCAN_ID, { stage: "uploading", current: 0, total: 1, message: "アップロード中..." });
+    }
+    await uploadScanResults(rows, SCAN_ID);
+  }
+
   // CSV出力
   if (CSV_OUTPUT) {
     const csvLines = [
@@ -243,20 +310,10 @@ async function main() {
     ];
     for (const row of rows) {
       csvLines.push([
-        row.stage,
-        row.symbol,
-        `"${row.name}"`,
-        `"${row.marketSegment}"`,
-        row.currentPrice,
-        row.breakoutPrice,
-        row.distancePct,
-        row.pullbackPct,
-        row.handleDays,
-        row.cupDays,
-        row.cupDepthPct,
-        row.leftRimDate,
-        row.bottomDate,
-        row.rightRimDate,
+        row.stage, row.symbol, `"${row.name}"`, `"${row.marketSegment}"`,
+        row.currentPrice, row.breakoutPrice, row.distancePct, row.pullbackPct,
+        row.handleDays, row.cupDays, row.cupDepthPct,
+        row.leftRimDate, row.bottomDate, row.rightRimDate,
       ].join(","));
     }
     const csvPath = join(process.cwd(), "data", "cwh-forming.csv");
@@ -267,4 +324,10 @@ async function main() {
   console.log();
 }
 
-main().catch(console.error);
+main().catch(async (err) => {
+  console.error(err);
+  if (DO_SUPABASE && SCAN_ID) {
+    await markScanFailed(SCAN_ID, String(err));
+  }
+  process.exit(1);
+});
