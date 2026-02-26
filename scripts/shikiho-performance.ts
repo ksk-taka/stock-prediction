@@ -10,6 +10,7 @@
 //   npx tsx scripts/shikiho-performance.ts --csv            # CSV出力
 //   npx tsx scripts/shikiho-performance.ts --notion         # 結果をNotionに書き戻し
 //   npx tsx scripts/shikiho-performance.ts --dry-run        # Notion書き込みなし
+//   npx tsx scripts/shikiho-performance.ts --today              # 今日更新分のみ
 //   npx tsx scripts/shikiho-performance.ts --start 2025-12-18 --end 2026-03-18
 //   npx tsx scripts/shikiho-performance.ts --earnings-window 3  # 決算前後N日
 // ============================================================
@@ -91,7 +92,7 @@ function notionHeaders(): Record<string, string> {
   };
 }
 
-async function fetchShikihoEntries(): Promise<ShikihoEntry[]> {
+async function fetchShikihoEntries(todayOnly?: string): Promise<ShikihoEntry[]> {
   const dbId = process.env.NOTION_SHIKIHO_DATABASE_ID;
   if (!dbId) throw new Error("NOTION_SHIKIHO_DATABASE_ID が未設定です");
 
@@ -101,6 +102,14 @@ async function fetchShikihoEntries(): Promise<ShikihoEntry[]> {
   do {
     const body: Record<string, unknown> = { page_size: 100 };
     if (startCursor) body.start_cursor = startCursor;
+
+    // --today: 今日作成されたページのみ取得
+    if (todayOnly) {
+      body.filter = {
+        timestamp: "created_time",
+        created_time: { on_or_after: todayOnly + "T00:00:00+09:00" },
+      };
+    }
 
     const res = await fetch(
       `https://api.notion.com/v1/databases/${dbId}/query`,
@@ -369,17 +378,6 @@ function calcBenchmarkEarningsReturn(
 
 // ---------- 集計ロジック ----------
 
-interface AggStats {
-  label: string;
-  count: number;
-  validCount: number;    // リターン計算可能だった件数
-  absReturns: number[];
-  relTopixReturns: number[];
-  relN225Returns: number[];
-  earningsReturns: number[];
-  earningsRelReturns: number[];
-}
-
 function calcStats(values: number[]): {
   mean: number;
   median: number;
@@ -534,11 +532,6 @@ function fmtPct(n: number | null): string {
   return `${sign}${n.toFixed(2)}%`;
 }
 
-function fmtPrice(n: number | null): string {
-  if (n == null) return "-";
-  return "¥" + n.toLocaleString("ja-JP", { maximumFractionDigits: 0 });
-}
-
 // ---------- CLI引数 ----------
 
 function parseCliArgs() {
@@ -546,32 +539,38 @@ function parseCliArgs() {
   const csv = hasFlag(args, "--csv");
   const notion = hasFlag(args, "--notion");
   const dryRun = hasFlag(args, "--dry-run");
+  const todayFlag = hasFlag(args, "--today");
   const startDate = parseFlag(args, "--start") ?? DEFAULT_START_DATE;
   const endDate = parseFlag(args, "--end") ?? DEFAULT_END_DATE;
   const earningsWindow = parseInt(parseFlag(args, "--earnings-window") ?? "1", 10);
-  return { csv, notion, dryRun, startDate, endDate, earningsWindow };
+  return { csv, notion, dryRun, todayFlag, startDate, endDate, earningsWindow };
 }
 
 // ---------- メイン ----------
 
 async function main() {
-  const { csv, notion, dryRun, startDate, endDate, earningsWindow } = parseCliArgs();
+  const { csv, notion, dryRun, todayFlag, startDate, endDate, earningsWindow } = parseCliArgs();
 
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
-  const modeLabel = dryRun ? " (dry-run)" : "";
+  const modeLabel = [
+    dryRun ? "dry-run" : "",
+    todayFlag ? "today-only" : "",
+  ].filter(Boolean).join(", ");
+  const modeSuffix = modeLabel ? ` (${modeLabel})` : "";
 
   console.log(`\n${"=".repeat(62)}`);
-  console.log(`  四季報パフォーマンス検証${modeLabel}`);
+  console.log(`  四季報パフォーマンス検証${modeSuffix}`);
   console.log(`${"=".repeat(62)}`);
   console.log(`  基準日: ${startDate} (四季報発売日)`);
   console.log(`  終了日: ${endDate}`);
   console.log(`  検証日: ${today}`);
   console.log(`  決算前後ウィンドウ: ${earningsWindow}営業日後`);
+  if (todayFlag) console.log(`  フィルタ: 今日(${today})更新分のみ`);
   console.log();
 
   // 1. Notion読み込み
   console.log("  [1/4] Notion「四季報予測」DB読み込み中...");
-  const entries = await fetchShikihoEntries();
+  const entries = await fetchShikihoEntries(todayFlag ? today : undefined);
   const bullishCount = entries.filter((e) => e.evalCategory === "会社比強気").length;
   const strongCount = entries.filter((e) => e.evalCategory === "大幅強気").length;
   console.log(`    → ${entries.length}銘柄 (会社比強気: ${bullishCount}, 大幅強気: ${strongCount})`);
