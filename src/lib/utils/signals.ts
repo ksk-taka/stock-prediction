@@ -14,6 +14,33 @@ export interface CupMeta {
   pullbackPct?: number;
 }
 
+/** CWH形成中パターンの情報 */
+export interface CwhFormingPattern {
+  cupMeta: CupMeta;
+  /** 現在の終値 */
+  currentPrice: number;
+  /** 現在のハンドル日数 */
+  handleDays: number;
+  /** ハンドルの押し目率 (%) */
+  pullbackPct: number;
+  /** ブレイクアウトに必要な価格（右リム高値） */
+  breakoutPrice: number;
+  /** ブレイクアウトまでの距離 (%) */
+  distanceToBreakoutPct: number;
+  /** カップ深さ (%) */
+  cupDepthPct: number;
+  /** カップ日数 */
+  cupDays: number;
+  /** 左リム日付 */
+  leftRimDate: string;
+  /** 右リム日付 */
+  rightRimDate: string;
+  /** 底日付 */
+  bottomDate: string;
+  /** 形成段階 */
+  stage: "handle_forming" | "handle_ready";
+}
+
 export interface BuySignal {
   index: number;
   date: string;
@@ -269,6 +296,145 @@ export function detectCupWithHandle(data: PriceData[]): BuySignal[] {
     }
   }
   return deduped;
+}
+
+/**
+ * CWH形成途中のパターンを検出
+ * カップが完成し、ハンドル部分を形成中（ブレイクアウト前）の銘柄を見つける
+ */
+export function detectCupWithHandleForming(data: PriceData[]): CwhFormingPattern[] {
+  const results: CwhFormingPattern[] = [];
+  if (data.length < 30) return results;
+
+  const CUP_MIN_DAYS = 15;
+  const CUP_MAX_DAYS = 120;
+  const CUP_MIN_DEPTH = 0.08;
+  const CUP_MAX_DEPTH = 0.50;
+  const RIM_TOLERANCE = 0.06;
+  const HANDLE_MAX_DAYS = 25;
+  const HANDLE_MAX_PULLBACK = 0.12;
+  const UPTREND_MA_SHORT = 50;
+  const UPTREND_MA_LONG = 200;
+  const REQUIRE_UPTREND = true;
+
+  const lastIdx = data.length - 1;
+
+  // ローカルピーク検出（前後5本で最高値）
+  const PEAK_W = 5;
+  const peaks: number[] = [];
+  // 最終5本はピーク判定に含めない（まだ確定していない可能性）
+  for (let i = PEAK_W; i < data.length - PEAK_W; i++) {
+    let isPeak = true;
+    for (let j = Math.max(0, i - PEAK_W); j <= Math.min(data.length - 1, i + PEAK_W); j++) {
+      if (j !== i && data[j].high > data[i].high) { isPeak = false; break; }
+    }
+    if (isPeak) peaks.push(i);
+  }
+
+  // ピークペア（左リム・右リム）でカップを探索
+  for (let p1 = 0; p1 < peaks.length; p1++) {
+    for (let p2 = p1 + 1; p2 < peaks.length; p2++) {
+      const leftIdx = peaks[p1];
+      const rightIdx = peaks[p2];
+      const cupDays = rightIdx - leftIdx;
+      if (cupDays < CUP_MIN_DAYS || cupDays > CUP_MAX_DAYS) continue;
+
+      // 右リムが直近でないと意味がない（ハンドル形成中 = 最終データから25日以内）
+      if (lastIdx - rightIdx > HANDLE_MAX_DAYS) continue;
+
+      const leftHigh = data[leftIdx].high;
+      const rightHigh = data[rightIdx].high;
+
+      // 上昇トレンド判定
+      if (REQUIRE_UPTREND && leftIdx >= UPTREND_MA_LONG) {
+        const ma50Sum = data.slice(leftIdx - UPTREND_MA_SHORT, leftIdx).reduce((s, d) => s + d.close, 0);
+        const ma200Sum = data.slice(leftIdx - UPTREND_MA_LONG, leftIdx).reduce((s, d) => s + d.close, 0);
+        const ma50 = ma50Sum / UPTREND_MA_SHORT;
+        const ma200 = ma200Sum / UPTREND_MA_LONG;
+        if (leftHigh < ma50 || ma50 <= ma200) continue;
+      }
+
+      // リム高さの類似チェック
+      const rimDiff = Math.abs(leftHigh - rightHigh) / Math.max(leftHigh, rightHigh);
+      if (rimDiff > RIM_TOLERANCE) continue;
+
+      // カップ底を探す
+      let bottomLow = Infinity;
+      let bottomIdx = leftIdx + 1;
+      for (let j = leftIdx + 1; j < rightIdx; j++) {
+        if (data[j].low < bottomLow) { bottomLow = data[j].low; bottomIdx = j; }
+      }
+
+      // カップ深さ
+      const rimLevel = Math.max(leftHigh, rightHigh);
+      const depth = (rimLevel - bottomLow) / rimLevel;
+      if (depth < CUP_MIN_DEPTH || depth > CUP_MAX_DEPTH) continue;
+
+      // 底の位置チェック
+      const bottomPos = (bottomIdx - leftIdx) / cupDays;
+      if (bottomPos < 0.15 || bottomPos > 0.85) continue;
+
+      // ハンドル形成中チェック: 右リム以降の最安値で押し目を計測
+      let handleLow = Infinity;
+      for (let h = rightIdx + 1; h <= lastIdx; h++) {
+        if (data[h].low < handleLow) handleLow = data[h].low;
+      }
+
+      // 右リム以降にデータがない場合はスキップ
+      if (handleLow === Infinity) continue;
+
+      const pullback = (rightHigh - handleLow) / rightHigh;
+      // 押し目が深すぎる（ハンドル崩壊）
+      if (pullback > HANDLE_MAX_PULLBACK) continue;
+
+      const currentPrice = data[lastIdx].close;
+      const handleDays = lastIdx - rightIdx;
+
+      // まだブレイクアウトしていないこと（現在価格が右リム以下）
+      if (currentPrice > rightHigh) continue;
+
+      // 最低限の押し目があること (0.5%以上)
+      if (pullback < 0.005) continue;
+
+      // ステージ判定
+      // handle_ready: 押し目から反発して右リムに近づいている (距離5%以内)
+      // handle_forming: まだ下落中 or 押し目を作っている最中
+      const distToBreakout = (rightHigh - currentPrice) / rightHigh;
+      const stage: CwhFormingPattern["stage"] =
+        distToBreakout < 0.05 && currentPrice > handleLow ? "handle_ready" : "handle_forming";
+
+      results.push({
+        cupMeta: {
+          leftRimIdx: leftIdx,
+          bottomIdx,
+          rightRimIdx: rightIdx,
+          leftRimHigh: leftHigh,
+          bottomLow,
+          rightRimHigh: rightHigh,
+          cupDays,
+          depthPct: depth * 100,
+          handleDays,
+          pullbackPct: pullback * 100,
+        },
+        currentPrice,
+        handleDays,
+        pullbackPct: pullback * 100,
+        breakoutPrice: rightHigh,
+        distanceToBreakoutPct: distToBreakout * 100,
+        cupDepthPct: depth * 100,
+        cupDays,
+        leftRimDate: data[leftIdx].date,
+        rightRimDate: data[rightIdx].date,
+        bottomDate: data[bottomIdx].date,
+        stage,
+      });
+    }
+  }
+
+  // 最もブレイクアウトに近いパターンを1つだけ返す（複数カップが重なる場合）
+  if (results.length <= 1) return results;
+  results.sort((a, b) => a.distanceToBreakoutPct - b.distanceToBreakoutPct);
+  return [results[0]];
 }
 
 /**

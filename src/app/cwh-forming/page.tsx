@@ -1,0 +1,371 @@
+"use client";
+
+import { useEffect, useState, useMemo } from "react";
+import Link from "next/link";
+
+interface CwhStock {
+  symbol: string;
+  name: string;
+  marketSegment: string;
+  stage: "handle_forming" | "handle_ready";
+  currentPrice: number;
+  breakoutPrice: number;
+  distancePct: number;
+  pullbackPct: number;
+  handleDays: number;
+  cupDays: number;
+  cupDepthPct: number;
+  leftRimDate: string;
+  bottomDate: string;
+  rightRimDate: string;
+}
+
+type SortKey = keyof CwhStock;
+type SortDir = "asc" | "desc";
+
+const COLUMNS: { key: SortKey; label: string; align: "left" | "right"; tooltip?: string }[] = [
+  { key: "symbol", label: "コード", align: "left", tooltip: "銘柄コード" },
+  { key: "name", label: "銘柄名", align: "left" },
+  { key: "marketSegment", label: "市場", align: "left", tooltip: "プライム(P)/スタンダード(S)/グロース(G)" },
+  { key: "stage", label: "ステージ", align: "left", tooltip: "READY: BO価格まで5%以内で反発中\nFORMING: ハンドル形成中" },
+  { key: "currentPrice", label: "現在値", align: "right" },
+  { key: "breakoutPrice", label: "BO価格", align: "right", tooltip: "ブレイクアウト価格（右リム高値）" },
+  { key: "distancePct", label: "BO距離%", align: "right", tooltip: "現在値からブレイクアウト価格までの距離\n小さいほどブレイクアウトに近い" },
+  { key: "pullbackPct", label: "押し目%", align: "right", tooltip: "ハンドル部分の押し目率（右リムからの最大下落%）\n1-12%が有効なハンドル" },
+  { key: "handleDays", label: "ハンドル日", align: "right", tooltip: "右リムからの経過日数" },
+  { key: "cupDays", label: "カップ日", align: "right", tooltip: "左リムから右リムまでの日数（15-120日）" },
+  { key: "cupDepthPct", label: "深さ%", align: "right", tooltip: "カップの深さ（リムから底までの下落率%）\n8-50%が有効" },
+  { key: "rightRimDate", label: "右リム日", align: "right", tooltip: "右リム（カップ完成）の日付" },
+];
+
+function formatNum(v: number, digits = 1): string {
+  return v.toLocaleString("ja-JP", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}
+
+function marketLabel(seg: string): string {
+  if (seg.includes("プライム")) return "P";
+  if (seg.includes("スタンダード")) return "S";
+  if (seg.includes("グロース")) return "G";
+  return seg.slice(0, 2);
+}
+
+export default function CwhFormingPage() {
+  const [stocks, setStocks] = useState<CwhStock[]>([]);
+  const [scannedAt, setScannedAt] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const [sortKey, setSortKey] = useState<SortKey>("distancePct");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [search, setSearch] = useState("");
+  const [marketFilter, setMarketFilter] = useState<Set<string>>(new Set());
+  const [stageFilter, setStageFilter] = useState<string>("all"); // "all" | "handle_ready" | "handle_forming"
+
+  // 範囲フィルタ
+  const [distanceMin, setDistanceMin] = useState("");
+  const [distanceMax, setDistanceMax] = useState("");
+  const [pullbackMin, setPullbackMin] = useState("");
+  const [pullbackMax, setPullbackMax] = useState("");
+  const [handleDaysMin, setHandleDaysMin] = useState("");
+  const [handleDaysMax, setHandleDaysMax] = useState("");
+  const [cupDaysMin, setCupDaysMin] = useState("");
+  const [cupDaysMax, setCupDaysMax] = useState("");
+  const [cupDepthMin, setCupDepthMin] = useState("");
+  const [cupDepthMax, setCupDepthMax] = useState("");
+  const [priceMin, setPriceMin] = useState("");
+  const [priceMax, setPriceMax] = useState("");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/cwh-forming");
+        const data = await res.json();
+        setStocks(data.stocks ?? []);
+        setScannedAt(data.scannedAt ?? null);
+        if (data.error) setError(data.error);
+      } catch {
+        setError("データの取得に失敗しました");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const filtered = useMemo(() => {
+    let list = stocks;
+
+    // テキスト検索
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter((s) =>
+        s.symbol.toLowerCase().includes(q) || s.name.toLowerCase().includes(q),
+      );
+    }
+
+    // 市場フィルタ
+    if (marketFilter.size > 0) {
+      list = list.filter((s) => marketFilter.has(s.marketSegment));
+    }
+
+    // ステージフィルタ
+    if (stageFilter !== "all") {
+      list = list.filter((s) => s.stage === stageFilter);
+    }
+
+    // 範囲フィルタ共通ヘルパー
+    const rangeFilter = (
+      items: CwhStock[],
+      getter: (s: CwhStock) => number,
+      min: string,
+      max: string,
+    ): CwhStock[] => {
+      const lo = min !== "" ? parseFloat(min) : NaN;
+      const hi = max !== "" ? parseFloat(max) : NaN;
+      return items.filter((s) => {
+        const v = getter(s);
+        if (!isNaN(lo) && v < lo) return false;
+        if (!isNaN(hi) && v > hi) return false;
+        return true;
+      });
+    };
+
+    list = rangeFilter(list, (s) => s.distancePct, distanceMin, distanceMax);
+    list = rangeFilter(list, (s) => s.pullbackPct, pullbackMin, pullbackMax);
+    list = rangeFilter(list, (s) => s.handleDays, handleDaysMin, handleDaysMax);
+    list = rangeFilter(list, (s) => s.cupDays, cupDaysMin, cupDaysMax);
+    list = rangeFilter(list, (s) => s.cupDepthPct, cupDepthMin, cupDepthMax);
+    list = rangeFilter(list, (s) => s.currentPrice, priceMin, priceMax);
+
+    // ソート
+    list = [...list].sort((a, b) => {
+      const av = a[sortKey];
+      const bv = b[sortKey];
+      if (av === null && bv === null) return 0;
+      if (av === null) return 1;
+      if (bv === null) return -1;
+      if (typeof av === "string" && typeof bv === "string") {
+        return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      }
+      if (typeof av === "number" && typeof bv === "number") {
+        return sortDir === "asc" ? av - bv : bv - av;
+      }
+      return 0;
+    });
+
+    return list;
+  }, [stocks, search, marketFilter, stageFilter, sortKey, sortDir, distanceMin, distanceMax, pullbackMin, pullbackMax, handleDaysMin, handleDaysMax, cupDaysMin, cupDaysMax, cupDepthMin, cupDepthMax, priceMin, priceMax]);
+
+  function handleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(key === "name" || key === "symbol" || key === "stage" ? "asc" : "desc");
+    }
+  }
+
+  function stageColor(stage: string): string {
+    return stage === "handle_ready"
+      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+      : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300";
+  }
+
+  function distanceColor(pct: number): string {
+    if (pct <= 2) return "text-emerald-600 dark:text-emerald-400 font-semibold";
+    if (pct <= 5) return "text-green-600 dark:text-green-400";
+    if (pct <= 8) return "text-yellow-600 dark:text-yellow-400";
+    return "text-gray-500 dark:text-slate-400";
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="text-gray-500 dark:text-slate-400">読み込み中...</div>
+      </div>
+    );
+  }
+
+  const markets = [...new Set(stocks.map((s) => s.marketSegment).filter(Boolean))].sort();
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            CWH形成中スキャナー
+          </h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
+            カップウィズハンドル形成中の銘柄 - ブレイクアウト前のハンドル部分にある銘柄を表示
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          {scannedAt && (
+            <span className="text-xs text-gray-400 dark:text-slate-500">
+              {new Date(scannedAt).toLocaleString("ja-JP")}
+            </span>
+          )}
+          <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+            {filtered.length} / {stocks.length}
+          </span>
+        </div>
+      </div>
+
+      {error && (
+        <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-700 dark:border-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300">
+          {error}
+        </div>
+      )}
+
+      {/* Filters Row 1: Search + Stage + Market */}
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          type="text"
+          placeholder="検索 (コード/銘柄名)"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-48 rounded-lg border border-gray-300 px-3 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+        />
+
+        {/* Stage filter */}
+        <select
+          value={stageFilter}
+          onChange={(e) => setStageFilter(e.target.value)}
+          className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+        >
+          <option value="all">全ステージ</option>
+          <option value="handle_ready">READY のみ</option>
+          <option value="handle_forming">FORMING のみ</option>
+        </select>
+
+        {/* Market filter buttons */}
+        {markets.map((m) => (
+          <button
+            key={m}
+            onClick={() =>
+              setMarketFilter((prev) => {
+                const next = new Set(prev);
+                if (next.has(m)) next.delete(m);
+                else next.add(m);
+                return next;
+              })
+            }
+            className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
+              marketFilter.has(m)
+                ? "bg-blue-600 text-white dark:bg-blue-500"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+            }`}
+          >
+            {marketLabel(m)}
+          </button>
+        ))}
+      </div>
+
+      {/* Filters Row 2: Range filters */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-600 dark:text-slate-400">
+        <RangeInput label="BO距離%" min={distanceMin} max={distanceMax} setMin={setDistanceMin} setMax={setDistanceMax} />
+        <RangeInput label="押し目%" min={pullbackMin} max={pullbackMax} setMin={setPullbackMin} setMax={setPullbackMax} />
+        <RangeInput label="ハンドル日" min={handleDaysMin} max={handleDaysMax} setMin={setHandleDaysMin} setMax={setHandleDaysMax} />
+        <RangeInput label="カップ日" min={cupDaysMin} max={cupDaysMax} setMin={setCupDaysMin} setMax={setCupDaysMax} />
+        <RangeInput label="深さ%" min={cupDepthMin} max={cupDepthMax} setMin={setCupDepthMin} setMax={setCupDepthMax} />
+        <RangeInput label="株価" min={priceMin} max={priceMax} setMin={setPriceMin} setMax={setPriceMax} />
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-slate-700">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 dark:bg-slate-800">
+            <tr>
+              {COLUMNS.map((col) => (
+                <th
+                  key={col.key}
+                  onClick={() => handleSort(col.key)}
+                  title={col.tooltip}
+                  className={`cursor-pointer whitespace-nowrap px-3 py-2 font-medium text-gray-600 hover:text-gray-900 dark:text-slate-400 dark:hover:text-white ${
+                    col.align === "right" ? "text-right" : "text-left"
+                  }`}
+                >
+                  {col.label}
+                  {sortKey === col.key && (sortDir === "asc" ? " ▲" : " ▼")}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
+            {filtered.map((s) => (
+              <tr key={s.symbol} className="hover:bg-gray-50 dark:hover:bg-slate-800/50">
+                <td className="px-3 py-1.5 font-mono text-xs">
+                  <Link
+                    href={`/?symbol=${s.symbol}`}
+                    className="text-blue-600 hover:underline dark:text-blue-400"
+                  >
+                    {s.symbol.replace(".T", "")}
+                  </Link>
+                </td>
+                <td className="max-w-[150px] truncate px-3 py-1.5">{s.name}</td>
+                <td className="px-3 py-1.5 text-center text-xs text-gray-500">{marketLabel(s.marketSegment)}</td>
+                <td className="px-3 py-1.5">
+                  <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${stageColor(s.stage)}`}>
+                    {s.stage === "handle_ready" ? "READY" : "FORMING"}
+                  </span>
+                </td>
+                <td className="px-3 py-1.5 text-right font-mono">{s.currentPrice.toLocaleString()}</td>
+                <td className="px-3 py-1.5 text-right font-mono">{s.breakoutPrice.toLocaleString()}</td>
+                <td className={`px-3 py-1.5 text-right font-mono ${distanceColor(s.distancePct)}`}>
+                  {formatNum(s.distancePct)}
+                </td>
+                <td className="px-3 py-1.5 text-right font-mono">{formatNum(s.pullbackPct)}</td>
+                <td className="px-3 py-1.5 text-right font-mono">{s.handleDays}</td>
+                <td className="px-3 py-1.5 text-right font-mono">{s.cupDays}</td>
+                <td className="px-3 py-1.5 text-right font-mono">{formatNum(s.cupDepthPct)}</td>
+                <td className="px-3 py-1.5 text-right text-xs text-gray-500 dark:text-slate-400">{s.rightRimDate}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {filtered.length === 0 && (
+          <div className="py-12 text-center text-gray-400 dark:text-slate-500">
+            条件に一致する銘柄がありません
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Range Input Component ──
+
+function RangeInput({
+  label,
+  min,
+  max,
+  setMin,
+  setMax,
+}: {
+  label: string;
+  min: string;
+  max: string;
+  setMin: (v: string) => void;
+  setMax: (v: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <span className="min-w-[60px] text-right">{label}</span>
+      <input
+        type="number"
+        placeholder="min"
+        value={min}
+        onChange={(e) => setMin(e.target.value)}
+        className="w-16 rounded border border-gray-300 px-1.5 py-1 text-xs dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+      />
+      <span>-</span>
+      <input
+        type="number"
+        placeholder="max"
+        value={max}
+        onChange={(e) => setMax(e.target.value)}
+        className="w-16 rounded border border-gray-300 px-1.5 py-1 text-xs dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+      />
+    </div>
+  );
+}
