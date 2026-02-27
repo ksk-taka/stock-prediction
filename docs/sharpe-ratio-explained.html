@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>シャープレシオ計算式の解説</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --green: #4ade80;
+    --red: #f87171;
+    --yellow: #fbbf24;
+    --purple: #a78bfa;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 2rem;
+    max-width: 960px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .subtitle { color: var(--muted); margin-bottom: 2rem; font-size: 0.95rem; }
+  .source-ref { color: var(--muted); font-size: 0.8rem; font-family: monospace; }
+
+  /* Big formula */
+  .formula-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem;
+    margin: 1.5rem 0;
+    text-align: center;
+  }
+  .formula-main {
+    font-size: 1.6rem;
+    font-family: 'Cambria Math', 'Times New Roman', serif;
+    margin: 1rem 0;
+  }
+  .formula-main .frac {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    vertical-align: middle;
+    margin: 0 0.3rem;
+  }
+  .formula-main .frac .num { border-bottom: 2px solid var(--accent); padding-bottom: 4px; }
+  .formula-main .frac .den { padding-top: 4px; }
+  .formula-main .sqrt-sign { color: var(--accent); }
+  .formula-main .highlight { color: var(--accent); font-weight: bold; }
+  .formula-main .green { color: var(--green); }
+  .formula-main .red { color: var(--red); }
+  .formula-main .yellow { color: var(--yellow); }
+  .formula-main .purple { color: var(--purple); }
+
+  /* Step cards */
+  .step {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    position: relative;
+  }
+  .step-number {
+    position: absolute;
+    top: -12px;
+    left: 16px;
+    background: var(--accent);
+    color: var(--bg);
+    font-weight: bold;
+    font-size: 0.8rem;
+    padding: 2px 12px;
+    border-radius: 99px;
+  }
+  .step h3 { margin-bottom: 0.8rem; font-size: 1.1rem; }
+  .step .code {
+    background: #0f172a;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.85rem;
+    overflow-x: auto;
+    margin: 0.8rem 0;
+    line-height: 1.5;
+  }
+  .step .code .comment { color: #6b7280; }
+  .step .code .keyword { color: var(--purple); }
+  .step .code .fn { color: var(--yellow); }
+  .step .code .num { color: var(--green); }
+  .step .code .var { color: var(--accent); }
+
+  /* Diagram: Equity Curve */
+  .diagram-container {
+    margin: 1.5rem 0;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+  }
+  .diagram-container h3 { margin-bottom: 1rem; }
+  svg text { font-family: 'Segoe UI', system-ui, sans-serif; }
+
+  /* Comparison */
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+  .compare-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.2rem;
+    text-align: center;
+  }
+  .compare-card .value {
+    font-size: 2rem;
+    font-weight: bold;
+    margin: 0.5rem 0;
+  }
+  .compare-card .label { color: var(--muted); font-size: 0.85rem; }
+  .compare-card .desc { font-size: 0.8rem; color: var(--muted); margin-top: 0.5rem; }
+
+  /* Flow diagram */
+  .flow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin: 1rem 0;
+  }
+  .flow-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.6rem 1rem;
+    font-size: 0.85rem;
+    text-align: center;
+    min-width: 100px;
+  }
+  .flow-box.active { border-color: var(--accent); color: var(--accent); }
+  .flow-arrow { color: var(--muted); font-size: 1.2rem; }
+
+  /* Note */
+  .note {
+    background: rgba(251, 191, 36, 0.1);
+    border-left: 3px solid var(--yellow);
+    padding: 1rem 1.2rem;
+    border-radius: 0 8px 8px 0;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+  }
+  .note strong { color: var(--yellow); }
+
+  .tag {
+    display: inline-block;
+    background: rgba(56, 189, 248, 0.15);
+    color: var(--accent);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-family: monospace;
+  }
+</style>
+</head>
+<body>
+
+<h1>シャープレシオ計算式の解説</h1>
+<p class="subtitle">stock-prediction バックテストエンジンにおけるシャープレシオの算出方法</p>
+<p class="source-ref">src/lib/backtest/engine.ts : calcSharpeRatio() (L275-297)</p>
+
+<!-- ===== Big Formula ===== -->
+<div class="formula-box">
+  <div style="color: var(--muted); font-size: 0.9rem; margin-bottom: 0.5rem;">年換算シャープレシオ</div>
+  <div class="formula-main">
+    <span class="highlight">Sharpe</span> =
+    <span class="frac">
+      <span class="num"><span class="green">μ</span></span>
+      <span class="den"><span class="red">σ</span></span>
+    </span>
+    × <span class="sqrt-sign">√</span><span class="yellow">250</span>
+  </div>
+  <div style="margin-top: 1rem; font-size: 0.9rem; color: var(--muted);">
+    <span class="green">μ</span> = 日次リターンの平均
+    <span class="red">σ</span> = 日次リターンの標準偏差（不偏）
+    <span class="yellow">250</span> = 年間取引日数
+  </div>
+</div>
+
+<!-- ===== Pipeline ===== -->
+<h2 style="margin-top: 2rem;">計算パイプライン</h2>
+<div class="flow">
+  <div class="flow-box active">Equity配列</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-box">日次リターン算出</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-box">平均 μ</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-box">標準偏差 σ</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-box active">× √250 年換算</div>
+</div>
+
+<!-- ===== Step 1 ===== -->
+<div class="step">
+  <span class="step-number">STEP 1</span>
+  <h3>日次リターンの算出</h3>
+  <p>Equity配列（資産推移）の隣接する日から日次収益率を計算します。</p>
+
+  <div class="diagram-container">
+    <svg width="100%" viewBox="0 0 800 220">
+      <!-- Grid lines -->
+      <line x1="80" y1="30" x2="80" y2="180" stroke="#334155" stroke-width="1"/>
+      <line x1="80" y1="180" x2="760" y2="180" stroke="#334155" stroke-width="1"/>
+      <!-- Y axis labels -->
+      <text x="15" y="55" fill="#94a3b8" font-size="12">110万</text>
+      <text x="15" y="105" fill="#94a3b8" font-size="12">105万</text>
+      <text x="15" y="155" fill="#94a3b8" font-size="12">100万</text>
+      <!-- Equity line -->
+      <polyline points="100,150 180,145 260,130 340,140 420,110 500,95 580,105 660,70 740,60"
+        fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linejoin="round"/>
+      <!-- Points -->
+      <circle cx="100" cy="150" r="5" fill="#38bdf8"/>
+      <circle cx="180" cy="145" r="5" fill="#38bdf8"/>
+      <circle cx="260" cy="130" r="5" fill="#38bdf8"/>
+      <circle cx="340" cy="140" r="5" fill="#4ade80"/>
+      <circle cx="420" cy="110" r="5" fill="#38bdf8"/>
+      <circle cx="500" cy="95" r="5" fill="#38bdf8"/>
+      <circle cx="580" cy="105" r="5" fill="#f87171"/>
+      <circle cx="660" cy="70" r="5" fill="#38bdf8"/>
+      <circle cx="740" cy="60" r="5" fill="#38bdf8"/>
+      <!-- Arrows showing daily return -->
+      <line x1="100" y1="155" x2="180" y2="155" stroke="#4ade80" stroke-width="1.5" stroke-dasharray="4"/>
+      <text x="120" y="172" fill="#4ade80" font-size="11">r₁ = +0.5%</text>
+      <line x1="260" y1="135" x2="340" y2="135" stroke="#f87171" stroke-width="1.5" stroke-dasharray="4"/>
+      <text x="275" y="152" fill="#f87171" font-size="11">r₃ = -0.8%</text>
+      <line x1="500" y1="100" x2="580" y2="100" stroke="#f87171" stroke-width="1.5" stroke-dasharray="4"/>
+      <text x="515" y="117" fill="#f87171" font-size="11">r₆ = -1.0%</text>
+      <!-- Labels -->
+      <text x="80" y="20" fill="#94a3b8" font-size="13" font-weight="bold">Equity (資産額)</text>
+      <text x="350" y="210" fill="#94a3b8" font-size="12">日数 →</text>
+    </svg>
+  </div>
+
+  <div class="code">
+    <span class="comment">// equity配列から日次リターンを算出</span>
+    <br><span class="keyword">for</span> (<span class="keyword">let</span> <span class="var">i</span> = <span class="num">1</span>; i &lt; equity.length; i++) {
+    <br>&nbsp;&nbsp;<span class="var">dailyReturns</span>.push(
+    <br>&nbsp;&nbsp;&nbsp;&nbsp;(<span class="var">equity[i]</span> - <span class="var">equity[i-1]</span>) / <span class="var">equity[i-1]</span>
+    <br>&nbsp;&nbsp;);
+    <br>}
+  </div>
+
+  <div class="formula-box" style="padding: 1rem;">
+    <div class="formula-main" style="font-size: 1.2rem;">
+      r<sub>i</sub> =
+      <span class="frac">
+        <span class="num">E<sub>i</sub> − E<sub>i−1</sub></span>
+        <span class="den">E<sub>i−1</sub></span>
+      </span>
+    </div>
+    <div style="font-size: 0.85rem; color: var(--muted); margin-top: 0.5rem;">
+      E<sub>i</sub> = i日目の資産額
+    </div>
+  </div>
+</div>
+
+<!-- ===== Step 2 ===== -->
+<div class="step">
+  <span class="step-number">STEP 2</span>
+  <h3>平均リターン μ（ミュー）</h3>
+  <p>全日次リターンの算術平均を求めます。</p>
+
+  <div class="diagram-container">
+    <svg width="100%" viewBox="0 0 800 160">
+      <!-- Bars -->
+      <rect x="60" y="40" width="50" height="60" rx="4" fill="#4ade80" opacity="0.7"/>
+      <rect x="130" y="50" width="50" height="50" rx="4" fill="#4ade80" opacity="0.7"/>
+      <rect x="200" y="70" width="50" height="30" rx="4" fill="#4ade80" opacity="0.7"/>
+      <rect x="270" y="100" width="50" height="20" rx="4" fill="#f87171" opacity="0.7"/>
+      <text x="280" y="130" fill="#f87171" font-size="11" transform="rotate(0)">-0.8%</text>
+      <rect x="340" y="25" width="50" height="75" rx="4" fill="#4ade80" opacity="0.7"/>
+      <rect x="410" y="35" width="50" height="65" rx="4" fill="#4ade80" opacity="0.7"/>
+      <rect x="480" y="100" width="50" height="30" rx="4" fill="#f87171" opacity="0.7"/>
+      <text x="490" y="140" fill="#f87171" font-size="11">-1.0%</text>
+      <rect x="550" y="15" width="50" height="85" rx="4" fill="#4ade80" opacity="0.7"/>
+      <rect x="620" y="30" width="50" height="70" rx="4" fill="#4ade80" opacity="0.7"/>
+      <!-- Bar labels -->
+      <text x="70" y="35" fill="#4ade80" font-size="11">+0.5%</text>
+      <text x="140" y="45" fill="#4ade80" font-size="11">+0.3%</text>
+      <text x="210" y="65" fill="#4ade80" font-size="11">+0.1%</text>
+      <text x="350" y="20" fill="#4ade80" font-size="11">+1.2%</text>
+      <text x="420" y="30" fill="#4ade80" font-size="11">+0.8%</text>
+      <text x="560" y="10" fill="#4ade80" font-size="11">+1.5%</text>
+      <text x="630" y="25" fill="#4ade80" font-size="11">+1.0%</text>
+      <!-- Mean line -->
+      <line x1="50" y1="65" x2="690" y2="65" stroke="#fbbf24" stroke-width="2" stroke-dasharray="6,3"/>
+      <text x="700" y="70" fill="#fbbf24" font-size="13" font-weight="bold">μ = +0.4%</text>
+      <!-- Baseline -->
+      <line x1="50" y1="100" x2="690" y2="100" stroke="#334155" stroke-width="1"/>
+      <text x="700" y="105" fill="#94a3b8" font-size="11">0%</text>
+    </svg>
+  </div>
+
+  <div class="formula-box" style="padding: 1rem;">
+    <div class="formula-main" style="font-size: 1.2rem;">
+      <span class="green">μ</span> =
+      <span class="frac">
+        <span class="num">Σ r<sub>i</sub></span>
+        <span class="den">N</span>
+      </span>
+      =
+      <span class="frac">
+        <span class="num">r₁ + r₂ + ... + r<sub>N</sub></span>
+        <span class="den">N</span>
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Step 3 ===== -->
+<div class="step">
+  <span class="step-number">STEP 3</span>
+  <h3>標準偏差 σ（シグマ）— 不偏推定</h3>
+  <p>日次リターンのバラつきを測定します。N-1 で割る<strong>不偏分散</strong>を使用。</p>
+
+  <div class="diagram-container">
+    <svg width="100%" viewBox="0 0 800 200">
+      <!-- Mean line -->
+      <line x1="60" y1="100" x2="720" y2="100" stroke="#fbbf24" stroke-width="2" stroke-dasharray="6,3"/>
+      <text x="730" y="105" fill="#fbbf24" font-size="12">μ</text>
+      <!-- Data points and deviations -->
+      <circle cx="120" cy="60" r="6" fill="#38bdf8"/>
+      <line x1="120" y1="60" x2="120" y2="100" stroke="#a78bfa" stroke-width="2" stroke-dasharray="3"/>
+      <text x="130" y="85" fill="#a78bfa" font-size="11">(r₁ − μ)²</text>
+
+      <circle cx="220" cy="80" r="6" fill="#38bdf8"/>
+      <line x1="220" y1="80" x2="220" y2="100" stroke="#a78bfa" stroke-width="2" stroke-dasharray="3"/>
+
+      <circle cx="320" cy="130" r="6" fill="#38bdf8"/>
+      <line x1="320" y1="130" x2="320" y2="100" stroke="#a78bfa" stroke-width="2" stroke-dasharray="3"/>
+      <text x="330" y="125" fill="#a78bfa" font-size="11">(r₃ − μ)²</text>
+
+      <circle cx="420" cy="50" r="6" fill="#38bdf8"/>
+      <line x1="420" y1="50" x2="420" y2="100" stroke="#a78bfa" stroke-width="2" stroke-dasharray="3"/>
+
+      <circle cx="520" cy="140" r="6" fill="#38bdf8"/>
+      <line x1="520" y1="140" x2="520" y2="100" stroke="#a78bfa" stroke-width="2" stroke-dasharray="3"/>
+
+      <circle cx="620" cy="70" r="6" fill="#38bdf8"/>
+      <line x1="620" y1="70" x2="620" y2="100" stroke="#a78bfa" stroke-width="2" stroke-dasharray="3"/>
+
+      <!-- ±1σ band -->
+      <rect x="60" y="70" width="660" height="60" rx="0" fill="#a78bfa" opacity="0.08"/>
+      <line x1="60" y1="70" x2="720" y2="70" stroke="#a78bfa" stroke-width="1" stroke-dasharray="3"/>
+      <line x1="60" y1="130" x2="720" y2="130" stroke="#a78bfa" stroke-width="1" stroke-dasharray="3"/>
+      <text x="60" y="65" fill="#a78bfa" font-size="11">μ + σ</text>
+      <text x="60" y="145" fill="#a78bfa" font-size="11">μ − σ</text>
+
+      <!-- Annotation -->
+      <text x="300" y="190" fill="#94a3b8" font-size="12">紫帯 = ±1σ の範囲（約68%のデータが入る）</text>
+    </svg>
+  </div>
+
+  <div class="code">
+    <span class="comment">// 不偏分散 (N-1 で割る)</span>
+    <br><span class="keyword">const</span> <span class="var">variance</span> =
+    <br>&nbsp;&nbsp;dailyReturns.<span class="fn">reduce</span>((a, r) =&gt; a + (r - mean) ** <span class="num">2</span>, <span class="num">0</span>)
+    <br>&nbsp;&nbsp;/ (dailyReturns.length - <span class="num">1</span>);
+    <br>
+    <br><span class="keyword">const</span> <span class="var">stdDev</span> = Math.<span class="fn">sqrt</span>(variance);
+  </div>
+
+  <div class="formula-box" style="padding: 1rem;">
+    <div class="formula-main" style="font-size: 1.2rem;">
+      <span class="red">σ</span> =
+      <span style="font-size: 1.4rem;" class="sqrt-sign">√</span>
+      <span class="frac" style="border-left: 1px solid var(--accent); padding-left: 4px;">
+        <span class="num">Σ (r<sub>i</sub> − μ)²</span>
+        <span class="den">N − 1</span>
+      </span>
+    </div>
+    <div style="font-size: 0.85rem; color: var(--muted); margin-top: 0.5rem;">
+      N-1（ベッセル補正）= 標本からの不偏推定
+    </div>
+  </div>
+</div>
+
+<!-- ===== Step 4 ===== -->
+<div class="step">
+  <span class="step-number">STEP 4</span>
+  <h3>年換算 × √250</h3>
+  <p>日次シャープレシオを年次スケールに変換します。</p>
+
+  <div class="diagram-container">
+    <svg width="100%" viewBox="0 0 800 160">
+      <!-- Daily box -->
+      <rect x="40" y="30" width="200" height="100" rx="12" fill="none" stroke="#334155" stroke-width="2"/>
+      <text x="95" y="65" fill="#94a3b8" font-size="14" text-anchor="middle" transform="translate(45, 0)">日次シャープ</text>
+      <text x="95" y="95" fill="#38bdf8" font-size="22" font-weight="bold" text-anchor="middle" transform="translate(45, 0)">μ / σ</text>
+      <text x="95" y="115" fill="#94a3b8" font-size="11" text-anchor="middle" transform="translate(45, 0)">例: 0.05</text>
+
+      <!-- Arrow -->
+      <line x1="250" y1="80" x2="350" y2="80" stroke="#fbbf24" stroke-width="2.5" marker-end="url(#arrowhead)"/>
+      <text x="275" y="70" fill="#fbbf24" font-size="14" font-weight="bold">× √250</text>
+      <text x="275" y="105" fill="#94a3b8" font-size="11">= × 15.81</text>
+      <defs>
+        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#fbbf24"/>
+        </marker>
+      </defs>
+
+      <!-- Annual box -->
+      <rect x="360" y="30" width="200" height="100" rx="12" fill="none" stroke="#38bdf8" stroke-width="2"/>
+      <text x="460" y="65" fill="#94a3b8" font-size="14" text-anchor="middle">年換算シャープ</text>
+      <text x="460" y="95" fill="#38bdf8" font-size="22" font-weight="bold" text-anchor="middle">0.79</text>
+      <text x="460" y="115" fill="#4ade80" font-size="11" text-anchor="middle">← 最終出力値</text>
+
+      <!-- Why -->
+      <text x="600" y="55" fill="#94a3b8" font-size="12">なぜ √250 ?</text>
+      <text x="600" y="75" fill="#e2e8f0" font-size="11">リターン ∝ 日数</text>
+      <text x="600" y="95" fill="#e2e8f0" font-size="11">リスク ∝ √日数</text>
+      <text x="600" y="115" fill="#e2e8f0" font-size="11">∴ Sharpe ∝ √日数</text>
+      <text x="600" y="140" fill="#94a3b8" font-size="11">（IIDランダムウォーク仮定）</text>
+    </svg>
+  </div>
+
+  <div class="code">
+    <span class="comment">// 年換算（取引日数250日）</span>
+    <br><span class="keyword">return</span> (mean / stdDev) * Math.<span class="fn">sqrt</span>(<span class="num">250</span>);
+  </div>
+</div>
+
+<!-- ===== Interpretation ===== -->
+<h2 style="margin-top: 2rem;">目安：シャープレシオの解釈</h2>
+<div class="compare-grid">
+  <div class="compare-card">
+    <div class="label">低い</div>
+    <div class="value" style="color: var(--red);">&lt; 0.5</div>
+    <div class="desc">リスクに見合わない<br>リターン</div>
+  </div>
+  <div class="compare-card">
+    <div class="label">普通〜良好</div>
+    <div class="value" style="color: var(--yellow);">0.5 〜 1.0</div>
+    <div class="desc">一般的なアクティブ<br>ファンドの水準</div>
+  </div>
+  <div class="compare-card">
+    <div class="label">優秀</div>
+    <div class="value" style="color: var(--green);">&gt; 1.0</div>
+    <div class="desc">リスク調整後リターンが<br>非常に高い</div>
+  </div>
+</div>
+
+<!-- ===== Notes ===== -->
+<div class="note">
+  <strong>注意点</strong><br>
+  ・リスクフリーレート = <strong>0</strong> として計算（差し引いていない）<br>
+  ・実務では日本国債利回り（～0.5%）を引くケースもあるが、低金利下では影響軽微<br>
+  ・バックテスト期間が短いとサンプル数不足で信頼性が低下する
+</div>
+
+<!-- ===== Concrete Example ===== -->
+<h2 style="margin-top: 2rem;">具体例</h2>
+<div class="step">
+  <h3>100万円 → 1年後 110万円（日次250日）</h3>
+  <div class="diagram-container" style="padding: 1rem 1.5rem;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+      <tr style="border-bottom: 1px solid var(--border);">
+        <td style="padding: 0.5rem; color: var(--muted);">日次平均リターン μ</td>
+        <td style="padding: 0.5rem; text-align: right; color: var(--green);">+0.038%</td>
+        <td style="padding: 0.5rem; color: var(--muted); font-size: 0.8rem;">（10% ÷ 250日）</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border);">
+        <td style="padding: 0.5rem; color: var(--muted);">日次標準偏差 σ</td>
+        <td style="padding: 0.5rem; text-align: right; color: var(--red);">1.2%</td>
+        <td style="padding: 0.5rem; color: var(--muted); font-size: 0.8rem;">（典型的な個別株）</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border);">
+        <td style="padding: 0.5rem; color: var(--muted);">日次 Sharpe</td>
+        <td style="padding: 0.5rem; text-align: right;">0.032</td>
+        <td style="padding: 0.5rem; color: var(--muted); font-size: 0.8rem;">（0.038 / 1.2）</td>
+      </tr>
+      <tr>
+        <td style="padding: 0.5rem; color: var(--muted);">年換算 Sharpe</td>
+        <td style="padding: 0.5rem; text-align: right; color: var(--accent); font-weight: bold; font-size: 1.1rem;">0.50</td>
+        <td style="padding: 0.5rem; color: var(--muted); font-size: 0.8rem;">（0.032 × √250 = 0.032 × 15.81）</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- 3種リターン型シャープレシオ                                      -->
+<!-- ================================================================ -->
+
+<h1 style="margin-top: 4rem;">3種リターン型シャープレシオ</h1>
+<p class="subtitle">同じ価格データから「いつ→いつ」のリターンを取るかで、異なる性質が見える</p>
+<p class="source-ref">src/lib/utils/indicators.ts : calcAllReturnTypeSharpe()</p>
+
+<!-- ===== Overview ===== -->
+<div class="formula-box">
+  <div style="color: var(--muted); font-size: 0.9rem; margin-bottom: 0.5rem;">共通の年率化公式</div>
+  <div class="formula-main">
+    <span class="highlight">Sharpe</span> =
+    <span class="frac">
+      <span class="num"><span class="green">μ</span><sub style="font-size:0.7em">type</sub></span>
+      <span class="den"><span class="red">σ</span><sub style="font-size:0.7em">type</sub></span>
+    </span>
+    × <span class="sqrt-sign">√</span><span class="yellow">250</span>
+  </div>
+  <div style="margin-top: 1rem; font-size: 0.9rem; color: var(--muted);">
+    μ, σ の算出元リターン <em>r<sub>i</sub></em> の定義が3種類異なる（下記参照）
+  </div>
+</div>
+
+<!-- ===== Type 1: Close-to-Close ===== -->
+<h2 style="margin-top: 2.5rem;">
+  <span style="color: var(--accent);">Type 1</span>　Close → Close（C→C）
+</h2>
+<p style="color: var(--muted); margin-bottom: 1rem;">通常のシャープレシオ。日中 + オーバーナイトの両方を含む「全区間リターン」。</p>
+
+<div class="step">
+  <span class="step-number" style="background: var(--accent);">C→C</span>
+  <h3>終値 → 翌日終値</h3>
+
+  <div class="diagram-container">
+    <svg width="100%" viewBox="0 0 800 240">
+      <!-- Day 1 candle -->
+      <rect x="100" y="60" width="60" height="80" rx="4" fill="#4ade80" opacity="0.2" stroke="#4ade80" stroke-width="1.5"/>
+      <line x1="130" y1="40" x2="130" y2="60" stroke="#4ade80" stroke-width="1.5"/>
+      <line x1="130" y1="140" x2="130" y2="160" stroke="#4ade80" stroke-width="1.5"/>
+      <text x="130" y="30" fill="#94a3b8" font-size="12" text-anchor="middle">Day i-1</text>
+      <!-- Open/Close labels day 1 -->
+      <text x="55" y="148" fill="#94a3b8" font-size="11" text-anchor="end">始値</text>
+      <text x="55" y="68" fill="#4ade80" font-size="11" text-anchor="end">終値₁</text>
+      <circle cx="100" cy="64" r="5" fill="#4ade80"/>
+
+      <!-- Day 2 candle -->
+      <rect x="300" y="40" width="60" height="90" rx="4" fill="#4ade80" opacity="0.2" stroke="#4ade80" stroke-width="1.5"/>
+      <line x1="330" y1="20" x2="330" y2="40" stroke="#4ade80" stroke-width="1.5"/>
+      <line x1="330" y1="130" x2="330" y2="150" stroke="#4ade80" stroke-width="1.5"/>
+      <text x="330" y="12" fill="#94a3b8" font-size="12" text-anchor="middle">Day i</text>
+      <!-- Close label day 2 -->
+      <text x="375" y="48" fill="#38bdf8" font-size="11">終値₂</text>
+      <circle cx="360" cy="44" r="5" fill="#38bdf8"/>
+
+      <!-- C→C arrow -->
+      <path d="M 105 64 C 150 10, 310 10, 355 44" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-dasharray="6,3" marker-end="url(#arrowCC)"/>
+      <defs>
+        <marker id="arrowCC" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#38bdf8"/>
+        </marker>
+      </defs>
+
+      <!-- Formula -->
+      <text x="200" y="20" fill="#38bdf8" font-size="14" text-anchor="middle" font-weight="bold">C→C リターン</text>
+
+      <!-- Overnight zone -->
+      <rect x="160" y="55" width="140" height="20" rx="4" fill="#fbbf24" opacity="0.1"/>
+      <text x="230" y="68" fill="#fbbf24" font-size="10" text-anchor="middle">オーバーナイト含む</text>
+
+      <!-- Formula box -->
+      <rect x="460" y="40" width="300" height="80" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+      <text x="610" y="70" fill="#e2e8f0" font-size="15" text-anchor="middle" font-family="Cambria Math, serif">
+        r = ( Close_i − Close_{i-1} ) / Close_{i-1}
+      </text>
+      <text x="610" y="100" fill="#94a3b8" font-size="12" text-anchor="middle">日中変動 + ギャップ = 全リターン</text>
+
+      <!-- Use case -->
+      <text x="100" y="195" fill="#94a3b8" font-size="12">用途:</text>
+      <text x="100" y="215" fill="#e2e8f0" font-size="12">最も一般的なシャープレシオ。ポートフォリオの総合評価に使用。</text>
+    </svg>
+  </div>
+
+  <div class="code">
+    <span class="comment">// Close-to-Close リターン</span>
+    <br><span class="var">r</span> = (<span class="var">data[i].close</span> - <span class="var">data[i-1].close</span>) / <span class="var">data[i-1].close</span>
+  </div>
+</div>
+
+<!-- ===== Type 2: Open-to-Close ===== -->
+<h2 style="margin-top: 2.5rem;">
+  <span style="color: var(--purple);">Type 2</span>　Open → Close（O→C）
+</h2>
+<p style="color: var(--muted); margin-bottom: 1rem;">日中リターンのみ。ローソク足の「実体部分」に相当する。</p>
+
+<div class="step">
+  <span class="step-number" style="background: var(--purple);">O→C</span>
+  <h3>当日始値 → 当日終値</h3>
+
+  <div class="diagram-container">
+    <svg width="100%" viewBox="0 0 800 280">
+      <!-- Single candle (big) -->
+      <rect x="100" y="50" width="120" height="130" rx="6" fill="#4ade80" opacity="0.25" stroke="#4ade80" stroke-width="2"/>
+      <!-- Upper wick -->
+      <line x1="160" y1="25" x2="160" y2="50" stroke="#4ade80" stroke-width="2"/>
+      <!-- Lower wick -->
+      <line x1="160" y1="180" x2="160" y2="210" stroke="#4ade80" stroke-width="2"/>
+
+      <!-- Open label -->
+      <line x1="100" y1="180" x2="70" y2="180" stroke="#f87171" stroke-width="1" stroke-dasharray="3"/>
+      <text x="35" y="184" fill="#f87171" font-size="13" text-anchor="end">始値 O</text>
+      <circle cx="100" cy="180" r="5" fill="#f87171"/>
+
+      <!-- Close label -->
+      <line x1="100" y1="50" x2="70" y2="50" stroke="#4ade80" stroke-width="1" stroke-dasharray="3"/>
+      <text x="35" y="54" fill="#4ade80" font-size="13" text-anchor="end">終値 C</text>
+      <circle cx="100" cy="50" r="5" fill="#4ade80"/>
+
+      <!-- O→C arrow inside candle -->
+      <line x1="145" y1="175" x2="145" y2="58" stroke="#a78bfa" stroke-width="3" marker-end="url(#arrowOC)"/>
+      <defs>
+        <marker id="arrowOC" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#a78bfa"/>
+        </marker>
+      </defs>
+      <text x="155" y="120" fill="#a78bfa" font-size="13" font-weight="bold">実体</text>
+
+      <!-- Highlight: this IS the candle body -->
+      <rect x="260" y="65" width="280" height="110" rx="10" fill="#1e293b" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="400" y="95" fill="#a78bfa" font-size="15" text-anchor="middle" font-weight="bold">ローソク足の実体 = O→C</text>
+      <text x="400" y="120" fill="#e2e8f0" font-size="12" text-anchor="middle">陽線 → r &gt; 0（日中に上昇）</text>
+      <text x="400" y="140" fill="#e2e8f0" font-size="12" text-anchor="middle">陰線 → r &lt; 0（日中に下落）</text>
+      <text x="400" y="162" fill="#94a3b8" font-size="11" text-anchor="middle">オーバーナイトギャップは含まない</text>
+
+      <!-- Formula box -->
+      <rect x="260" y="190" width="280" height="50" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+      <text x="400" y="220" fill="#e2e8f0" font-size="15" text-anchor="middle" font-family="Cambria Math, serif">
+        r = ( Close − Open ) / Open
+      </text>
+
+      <!-- Use case -->
+      <text x="100" y="250" fill="#94a3b8" font-size="12">用途:</text>
+      <text x="100" y="270" fill="#e2e8f0" font-size="12">ザラ場でのトレード効率を評価。デイトレード戦略の評価に適する。</text>
+    </svg>
+  </div>
+
+  <div class="code">
+    <span class="comment">// Open-to-Close リターン（日中のみ）</span>
+    <br><span class="var">r</span> = (<span class="var">data[i].close</span> - <span class="var">data[i].open</span>) / <span class="var">data[i].open</span>
+  </div>
+
+  <div class="note">
+    <strong>ポイント</strong><br>
+    O→C が高い銘柄は「日中に順方向に動きやすい」性質を持つ。<br>
+    O→C が低い（負の）銘柄は「寄り付きで窓を開けるが、日中に値を戻す」傾向がある。
+  </div>
+</div>
+
+<!-- ===== Type 3: Close-to-Open ===== -->
+<h2 style="margin-top: 2.5rem;">
+  <span style="color: var(--yellow);">Type 3</span>　Close → Open（C→O）
+</h2>
+<p style="color: var(--muted); margin-bottom: 1rem;">オーバーナイトギャップのみ。「窓の開けやすさ」の指標。</p>
+
+<div class="step">
+  <span class="step-number" style="background: var(--yellow); color: var(--bg);">C→O</span>
+  <h3>前日終値 → 当日始値</h3>
+
+  <div class="diagram-container">
+    <svg width="100%" viewBox="0 0 800 280">
+      <!-- Day 1 candle -->
+      <rect x="80" y="100" width="80" height="80" rx="4" fill="#4ade80" opacity="0.2" stroke="#4ade80" stroke-width="1.5"/>
+      <line x1="120" y1="80" x2="120" y2="100" stroke="#4ade80" stroke-width="1.5"/>
+      <line x1="120" y1="180" x2="120" y2="200" stroke="#4ade80" stroke-width="1.5"/>
+      <text x="120" y="72" fill="#94a3b8" font-size="12" text-anchor="middle">Day i-1</text>
+      <!-- Close label day 1 -->
+      <text x="50" y="108" fill="#4ade80" font-size="12" text-anchor="end">終値₁</text>
+      <circle cx="80" cy="104" r="5" fill="#4ade80"/>
+
+      <!-- Night zone -->
+      <rect x="170" y="30" width="120" height="180" rx="8" fill="#334155" opacity="0.5"/>
+      <text x="230" y="135" fill="#94a3b8" font-size="13" text-anchor="middle" font-style="italic">夜間</text>
+      <text x="230" y="155" fill="#94a3b8" font-size="10" text-anchor="middle">（市場閉鎖）</text>
+
+      <!-- Day 2 candle -->
+      <rect x="300" y="40" width="80" height="100" rx="4" fill="#4ade80" opacity="0.2" stroke="#4ade80" stroke-width="1.5"/>
+      <line x1="340" y1="20" x2="340" y2="40" stroke="#4ade80" stroke-width="1.5"/>
+      <line x1="340" y1="140" x2="340" y2="160" stroke="#4ade80" stroke-width="1.5"/>
+      <text x="340" y="12" fill="#94a3b8" font-size="12" text-anchor="middle">Day i</text>
+      <!-- Open label day 2 -->
+      <text x="395" y="144" fill="#fbbf24" font-size="12">始値₂</text>
+      <circle cx="380" cy="140" r="5" fill="#fbbf24"/>
+
+      <!-- Gap arrow -->
+      <path d="M 85 104 Q 100 60, 170 60 Q 250 60, 300 90 Q 340 105, 375 140" fill="none" stroke="#fbbf24" stroke-width="2.5" stroke-dasharray="6,3" marker-end="url(#arrowCO)"/>
+      <defs>
+        <marker id="arrowCO" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#fbbf24"/>
+        </marker>
+      </defs>
+
+      <!-- Gap up annotation -->
+      <text x="230" y="50" fill="#fbbf24" font-size="14" text-anchor="middle" font-weight="bold">ギャップ (窓)</text>
+
+      <!-- Info box -->
+      <rect x="440" y="30" width="320" height="140" rx="10" fill="#1e293b" stroke="#fbbf24" stroke-width="1.5"/>
+      <text x="600" y="58" fill="#fbbf24" font-size="14" text-anchor="middle" font-weight="bold">オーバーナイトギャップとは</text>
+      <text x="600" y="82" fill="#e2e8f0" font-size="12" text-anchor="middle">前日終値と翌日始値の差。</text>
+      <text x="600" y="102" fill="#e2e8f0" font-size="12" text-anchor="middle">夜間の海外市場・ニュース・決算発表</text>
+      <text x="600" y="122" fill="#e2e8f0" font-size="12" text-anchor="middle">などの材料が始値に織り込まれる。</text>
+      <text x="600" y="148" fill="#94a3b8" font-size="11" text-anchor="middle">GU = ギャップアップ / GD = ギャップダウン</text>
+
+      <!-- Formula box -->
+      <rect x="440" y="185" width="320" height="50" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+      <text x="600" y="215" fill="#e2e8f0" font-size="15" text-anchor="middle" font-family="Cambria Math, serif">
+        r = ( Open_i − Close_{i-1} ) / Close_{i-1}
+      </text>
+
+      <!-- Use case -->
+      <text x="80" y="250" fill="#94a3b8" font-size="12">用途:</text>
+      <text x="80" y="270" fill="#e2e8f0" font-size="12">「窓の開けやすさ」指標。機関投資家の買い集め・好材料期待度を反映。</text>
+    </svg>
+  </div>
+
+  <div class="code">
+    <span class="comment">// Close-to-Open リターン（オーバーナイトのみ）</span>
+    <br><span class="comment">// 分母は「前日終値」（ポジションの基準価格）</span>
+    <br><span class="var">r</span> = (<span class="var">data[i].open</span> - <span class="var">data[i-1].close</span>) / <span class="var">data[i-1].close</span>
+  </div>
+
+  <div class="note">
+    <strong>ポイント</strong><br>
+    C→O が高い銘柄は「毎朝ギャップアップしやすい」= 夜間に好材料が出やすい or 機関の買い需要が強い。<br>
+    C→O が負の銘柄は「毎朝ギャップダウンしやすい」= 売り圧力が強い傾向。
+  </div>
+</div>
+
+<!-- ===== 3-type comparison ===== -->
+<h2 style="margin-top: 2.5rem;">3種の関係</h2>
+<div class="formula-box">
+  <div class="formula-main" style="font-size: 1.3rem;">
+    <span style="color: var(--accent);">C→C</span> ≈
+    <span style="color: var(--yellow);">C→O</span> +
+    <span style="color: var(--purple);">O→C</span>
+  </div>
+  <div style="margin-top: 0.8rem; font-size: 0.9rem; color: var(--muted);">
+    全リターン = オーバーナイト + 日中（近似的に成立）
+  </div>
+</div>
+
+<div class="diagram-container">
+  <h3>1日のリターン分解イメージ</h3>
+  <svg width="100%" viewBox="0 0 800 160">
+    <!-- Timeline -->
+    <line x1="60" y1="80" x2="740" y2="80" stroke="#334155" stroke-width="2"/>
+
+    <!-- Previous Close -->
+    <circle cx="100" cy="80" r="6" fill="#4ade80"/>
+    <text x="100" y="115" fill="#4ade80" font-size="12" text-anchor="middle">前日終値</text>
+    <text x="100" y="130" fill="#94a3b8" font-size="10" text-anchor="middle">15:00</text>
+
+    <!-- Night zone -->
+    <rect x="130" y="60" width="180" height="40" rx="6" fill="#fbbf24" opacity="0.15"/>
+    <text x="220" y="55" fill="#fbbf24" font-size="12" text-anchor="middle" font-weight="bold">C→O ギャップ</text>
+
+    <!-- Today Open -->
+    <circle cx="340" cy="80" r="6" fill="#fbbf24"/>
+    <text x="340" y="115" fill="#fbbf24" font-size="12" text-anchor="middle">当日始値</text>
+    <text x="340" y="130" fill="#94a3b8" font-size="10" text-anchor="middle">9:00</text>
+
+    <!-- Day zone -->
+    <rect x="370" y="60" width="280" height="40" rx="6" fill="#a78bfa" opacity="0.15"/>
+    <text x="510" y="55" fill="#a78bfa" font-size="12" text-anchor="middle" font-weight="bold">O→C 日中</text>
+
+    <!-- Today Close -->
+    <circle cx="680" cy="80" r="6" fill="#38bdf8"/>
+    <text x="680" y="115" fill="#38bdf8" font-size="12" text-anchor="middle">当日終値</text>
+    <text x="680" y="130" fill="#94a3b8" font-size="10" text-anchor="middle">15:00</text>
+
+    <!-- Full span -->
+    <line x1="100" y1="145" x2="680" y2="145" stroke="#38bdf8" stroke-width="2" marker-start="url(#dotS)" marker-end="url(#dotE)"/>
+    <text x="390" y="158" fill="#38bdf8" font-size="12" text-anchor="middle" font-weight="bold">C→C 全リターン</text>
+    <defs>
+      <marker id="dotS" markerWidth="6" markerHeight="6" refX="3" refY="3"><circle cx="3" cy="3" r="3" fill="#38bdf8"/></marker>
+      <marker id="dotE" markerWidth="6" markerHeight="6" refX="3" refY="3"><circle cx="3" cy="3" r="3" fill="#38bdf8"/></marker>
+    </defs>
+  </svg>
+</div>
+
+<!-- ===== Real-world example ===== -->
+<h2 style="margin-top: 2rem;">実例パターン</h2>
+<div class="compare-grid">
+  <div class="compare-card" style="border-color: var(--accent);">
+    <div class="label">トヨタ (7203.T)</div>
+    <div class="value" style="color: var(--green); font-size: 1.3rem;">C→O: +4.7</div>
+    <div class="value" style="color: var(--red); font-size: 1.3rem;">O→C: -0.9</div>
+    <div class="desc">毎朝GUするが日中に下落<br>= 機関買い + 利確売りパターン</div>
+  </div>
+  <div class="compare-card">
+    <div class="label">バランス型</div>
+    <div class="value" style="color: var(--green); font-size: 1.3rem;">C→O: +1.0</div>
+    <div class="value" style="color: var(--green); font-size: 1.3rem;">O→C: +1.0</div>
+    <div class="desc">夜間・日中ともに安定上昇<br>= 強いトレンド銘柄</div>
+  </div>
+  <div class="compare-card">
+    <div class="label">日中優位型</div>
+    <div class="value" style="color: var(--red); font-size: 1.3rem;">C→O: -0.5</div>
+    <div class="value" style="color: var(--green); font-size: 1.3rem;">O→C: +2.5</div>
+    <div class="desc">毎朝GDするが日中に回復<br>= ザラ場で買いが入る銘柄</div>
+  </div>
+</div>
+
+<div class="note">
+  <strong>活用のヒント</strong><br>
+  ・C→O が高い銘柄 → 引け前に買ってオーバーナイトホールドが有利<br>
+  ・O→C が高い銘柄 → 寄り付きで買って大引けで決済するデイトレードが有利<br>
+  ・3期間 (3m/6m/1y) の比較で直近の傾向変化を検出できる
+</div>
+
+<!-- ===== Multi-period ===== -->
+<h2 style="margin-top: 2rem;">マルチ期間の意味</h2>
+<div class="step">
+  <h3>同じリターン型 × 異なる期間</h3>
+  <div class="diagram-container" style="padding: 1rem 1.5rem;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+      <tr style="border-bottom: 1px solid var(--border);">
+        <td style="padding: 0.5rem; color: var(--muted);">3ヶ月（63日）</td>
+        <td style="padding: 0.5rem; color: var(--accent);">直近のトレンド</td>
+        <td style="padding: 0.5rem; color: var(--muted); font-size: 0.8rem;">短期モメンタム。急変を素早く検出。</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border);">
+        <td style="padding: 0.5rem; color: var(--muted);">6ヶ月（126日）</td>
+        <td style="padding: 0.5rem; color: var(--accent);">中期の安定性</td>
+        <td style="padding: 0.5rem; color: var(--muted); font-size: 0.8rem;">ノイズが減り、持続的なトレンドが見える。</td>
+      </tr>
+      <tr>
+        <td style="padding: 0.5rem; color: var(--muted);">1年（252日）</td>
+        <td style="padding: 0.5rem; color: var(--accent);">長期の基調</td>
+        <td style="padding: 0.5rem; color: var(--muted); font-size: 0.8rem;">季節性・決算サイクルを含むフルピクチャー。</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="note">
+    <strong>期間比較の読み方</strong><br>
+    ・SR<sub>3m</sub> ≫ SR<sub>1y</sub> → 直近3ヶ月で急加速（モメンタム発生）<br>
+    ・SR<sub>3m</sub> ≪ SR<sub>1y</sub> → 直近3ヶ月で失速（トレンド転換の兆候）<br>
+    ・SR<sub>3m</sub> ≈ SR<sub>6m</sub> ≈ SR<sub>1y</sub> → 安定した定常リターン（理想的）
+  </div>
+</div>
+
+<div style="margin-top: 3rem; text-align: center; color: var(--muted); font-size: 0.8rem;">
+  Generated from <span class="tag">src/lib/backtest/engine.ts</span> calcSharpeRatio()
+  &amp; <span class="tag">src/lib/utils/indicators.ts</span> calcAllReturnTypeSharpe()
+</div>
+
+</body>
+</html>
