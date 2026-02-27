@@ -347,7 +347,7 @@ export default function RatioCheckPage() {
                   >
                     <td className="px-2 py-1 font-mono text-xs">
                       <Link
-                        href={`/?symbol=${stock.symbol}`}
+                        href={`/stock/${stock.symbol}`}
                         className="text-blue-600 hover:underline dark:text-blue-400"
                       >
                         {stock.symbol.replace(".T", "")}

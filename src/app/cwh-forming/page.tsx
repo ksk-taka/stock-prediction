@@ -465,7 +465,7 @@ export default function CwhFormingPage() {
               <tr key={s.symbol} className="hover:bg-gray-50 dark:hover:bg-slate-800/50">
                 <td className="px-3 py-1.5 font-mono text-xs">
                   <Link
-                    href={`/?symbol=${s.symbol}`}
+                    href={`/stock/${s.symbol}`}
                     className="text-blue-600 hover:underline dark:text-blue-400"
                   >
                     {s.symbol.replace(".T", "")}
