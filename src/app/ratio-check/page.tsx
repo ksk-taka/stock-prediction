@@ -3,14 +3,9 @@
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import type { ReturnType } from "@/lib/utils/indicators";
+import { getRatioCache, setRatioCache, type RatioCacheEntry } from "@/lib/cache/ratioCache";
 
-interface StockRatio {
-  symbol: string;
-  name: string;
-  price: number | null;
-  sharpe: Record<ReturnType, { m3: number | null; m6: number | null; y1: number | null }> | null;
-  error: string | null;
-}
+type StockRatio = RatioCacheEntry;
 
 interface WatchlistStock {
   symbol: string;
@@ -145,6 +140,14 @@ export default function RatioCheckPage() {
   useEffect(() => {
     (async () => {
       try {
+        // IndexedDB キャッシュを確認 (6時間TTL)
+        const cached = await getRatioCache();
+        if (cached) {
+          setStocks(cached);
+          setLoading(false);
+          return;
+        }
+
         setProgress("ウォッチリスト取得中...");
         const wlRes = await fetch("/api/watchlist");
         if (!wlRes.ok) throw new Error("Failed to fetch watchlist");
@@ -182,6 +185,8 @@ export default function RatioCheckPage() {
         }
 
         setStocks(allResults);
+        // IndexedDB に保存
+        await setRatioCache(allResults);
       } catch (err) {
         setProgress(`エラー: ${err}`);
       } finally {
