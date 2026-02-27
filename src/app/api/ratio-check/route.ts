@@ -33,9 +33,10 @@ export async function GET(request: NextRequest) {
           }
 
           const sharpe = calcAllReturnTypeSharpe(prices);
-          return { symbol, sharpe, error: null };
+          const lastPrice = prices.length > 0 ? prices[prices.length - 1].close : null;
+          return { symbol, sharpe, price: lastPrice, error: null };
         } catch (err) {
-          return { symbol, sharpe: null, error: String(err) };
+          return { symbol, sharpe: null, price: null, error: String(err) };
         }
       }),
     );
