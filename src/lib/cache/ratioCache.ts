@@ -6,7 +6,7 @@ import { get, set, del } from "idb-keyval";
 import type { ReturnType } from "@/lib/utils/indicators";
 
 const CACHE_KEY = "ratio-check-v1";
-const CACHE_TTL = 6 * 60 * 60 * 1000; // 6時間
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 24時間
 
 export interface RatioCacheEntry {
   symbol: string;
