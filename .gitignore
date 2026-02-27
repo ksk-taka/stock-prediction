@@ -55,4 +55,5 @@ data/*.txt
 next-env.d.ts
 
 # claude code
-.claude/
+.claude/*
+!.claude/skills/
