@@ -241,3 +241,60 @@ export function calcMultiPeriodSharpe(
     sharpe1y: calc(252),  // 約1年
   };
 }
+
+/** リターン抽出の種類 */
+export type ReturnType = "close_to_close" | "open_to_close" | "close_to_open";
+
+/**
+ * 指定したリターン方式でシャープレシオを算出
+ * - close_to_close: (今日終値 - 昨日終値) / 昨日終値  ← 通常
+ * - open_to_close:  (今日終値 - 今日始値) / 今日始値    ← 日中リターン
+ * - close_to_open:  (今日始値 - 昨日終値) / 昨日終値    ← オーバーナイトギャップ
+ */
+function extractReturns(data: PriceData[], type: ReturnType): number[] {
+  const returns: number[] = [];
+  for (let i = 1; i < data.length; i++) {
+    let r: number | null = null;
+    if (type === "close_to_close") {
+      if (data[i - 1].close > 0) r = (data[i].close - data[i - 1].close) / data[i - 1].close;
+    } else if (type === "open_to_close") {
+      if (data[i].open > 0) r = (data[i].close - data[i].open) / data[i].open;
+    } else if (type === "close_to_open") {
+      if (data[i - 1].close > 0) r = (data[i].open - data[i - 1].close) / data[i - 1].close;
+    }
+    if (r != null) returns.push(r);
+  }
+  return returns;
+}
+
+function sharpeFromReturns(returns: number[], tradingDays: number = 252): number | null {
+  if (returns.length < 2) return null;
+  const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
+  const variance = returns.reduce((a, r) => a + (r - mean) ** 2, 0) / (returns.length - 1);
+  const stdDev = Math.sqrt(variance);
+  if (stdDev === 0) return null;
+  return Math.round((mean / stdDev) * Math.sqrt(tradingDays) * 100) / 100;
+}
+
+/**
+ * 3種リターン × 3期間 のシャープレシオを一括算出
+ */
+export function calcAllReturnTypeSharpe(data: PriceData[]): Record<ReturnType, { m3: number | null; m6: number | null; y1: number | null }> {
+  const types: ReturnType[] = ["close_to_close", "open_to_close", "close_to_open"];
+  const periods = [
+    { key: "m3" as const, days: 63 },
+    { key: "m6" as const, days: 126 },
+    { key: "y1" as const, days: 252 },
+  ];
+  const result = {} as Record<ReturnType, { m3: number | null; m6: number | null; y1: number | null }>;
+  for (const type of types) {
+    const row = { m3: null as number | null, m6: null as number | null, y1: null as number | null };
+    for (const { key, days } of periods) {
+      const slice = data.length > days ? data.slice(-days) : data;
+      const returns = extractReturns(slice, type);
+      row[key] = sharpeFromReturns(returns);
+    }
+    result[type] = row;
+  }
+  return result;
+}
