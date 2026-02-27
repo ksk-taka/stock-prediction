@@ -109,7 +109,7 @@ export async function generateAnalysisPrompt(symbol: string): Promise<string> {
         .historical(symbol, {
           period1: sixYearsAgo,
           period2: new Date(),
-          events: "dividends" as "dividends",
+          events: "dividends" as const,
         })
         .catch(() => []),
     ]);
@@ -136,9 +136,19 @@ export async function generateAnalysisPrompt(symbol: string): Promise<string> {
   // バリュエーション
   const per = quote.trailingPE;
   const forwardPE = quote.forwardPE;
-  const pbr = quote.priceToBook;
   const eps = quote.epsTrailingTwelveMonths;
   const divYield = quote.dividendYield;
+
+  // PBR: YFのbookValueは日本株で不正確なケースがあるため、バランスシートから自前計算
+  let pbr: number | undefined = quote.priceToBook;
+  if (bsResult && bsResult.length > 0 && quote.sharesOutstanding && price > 0) {
+    const bsLatest = bsResult[bsResult.length - 1] as YahooBalanceSheetItem;
+    const equity = (bsLatest.totalStockholderEquity as number) ?? 0;
+    if (equity > 0) {
+      const bvps = equity / quote.sharesOutstanding;
+      pbr = price / bvps;
+    }
+  }
 
   // 財務
   const roe = fd.returnOnEquity;

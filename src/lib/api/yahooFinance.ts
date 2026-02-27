@@ -227,10 +227,11 @@ export interface FinancialMetrics {
   profitGrowthRate: number | null;      // 増益率 (%, YoY EBIT growth)
   prevProfitGrowthRate: number | null;  // 前期の増益率 (%, 前々期→前期)
   psr: number | null;                   // PSR (= marketCap / totalRevenue)
+  pbr: number | null;                   // PBR (バランスシート自前計算)
 }
 
 export async function getFinancialMetrics(symbol: string, marketCap: number): Promise<FinancialMetrics> {
-  const result: FinancialMetrics = { ncRatio: null, roe: null, fiscalYearEnd: null, currentRatio: null, pegRatio: null, equityRatio: null, totalDebt: null, profitGrowthRate: null, prevProfitGrowthRate: null, psr: null };
+  const result: FinancialMetrics = { ncRatio: null, roe: null, fiscalYearEnd: null, currentRatio: null, pegRatio: null, equityRatio: null, totalDebt: null, profitGrowthRate: null, prevProfitGrowthRate: null, psr: null, pbr: null };
 
   try {
     const period1 = new Date();
@@ -285,30 +286,37 @@ export async function getFinancialMetrics(symbol: string, marketCap: number): Pr
     }
 
     // ROEの計算: 直近4四半期の純利益合計 / 自己資本
-    const statements = isResult?.incomeStatementHistoryQuarterly?.incomeStatementHistory;
-    if (bsResult && bsResult.length > 0 && statements && statements.length > 0) {
+    // PBR計算にもequityを使うためスコープを広げる
+    let equity = 0;
+    if (bsResult && bsResult.length > 0) {
       const latestBs = bsResult[bsResult.length - 1] as Record<string, unknown>;
-      const equity =
+      equity =
         (latestBs.stockholdersEquity as number) ??
         (latestBs.totalEquityGrossMinorityInterest as number) ??
         0;
+    }
 
-      if (equity > 0) {
-        // 直近4四半期の純利益を合計（年間純利益の推定）
-        const recentQuarters = statements.slice(0, 4); // 新しい順に並んでいる
-        let annualNetIncome = 0;
-        for (const q of recentQuarters) {
-          const netIncome = (q as unknown as Record<string, unknown>).netIncome as number | undefined;
-          if (netIncome != null) {
-            annualNetIncome += netIncome;
-          }
-        }
-
-        if (annualNetIncome !== 0) {
-          // ROE = 純利益 / 自己資本（小数で返す、例: 0.15 = 15%）
-          result.roe = Math.round((annualNetIncome / equity) * 10000) / 10000;
+    const statements = isResult?.incomeStatementHistoryQuarterly?.incomeStatementHistory;
+    if (equity > 0 && statements && statements.length > 0) {
+      // 直近4四半期の純利益を合計（年間純利益の推定）
+      const recentQuarters = statements.slice(0, 4); // 新しい順に並んでいる
+      let annualNetIncome = 0;
+      for (const q of recentQuarters) {
+        const netIncome = (q as unknown as Record<string, unknown>).netIncome as number | undefined;
+        if (netIncome != null) {
+          annualNetIncome += netIncome;
         }
       }
+
+      if (annualNetIncome !== 0) {
+        // ROE = 純利益 / 自己資本（小数で返す、例: 0.15 = 15%）
+        result.roe = Math.round((annualNetIncome / equity) * 10000) / 10000;
+      }
+    }
+
+    // PBR: バランスシートの自己資本から自前計算（YFのpriceToBookは日本株で不正確なケースあり）
+    if (equity > 0 && marketCap > 0) {
+      result.pbr = Math.round((marketCap / equity) * 100) / 100;
     }
 
     // 決算日（nextFiscalYearEnd）

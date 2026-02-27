@@ -44,16 +44,18 @@ export async function GET(request: NextRequest) {
   try {
     const quote = await getQuote(symbol);
 
-    // NC率・ROEは一括取得（キャッシュがあればスキップ）
+    // NC率・ROE・PBRは一括取得（キャッシュがあればスキップ）
     const cachedMetrics = getCachedStatsAll(symbol);
     let simpleNcRatio = cachedMetrics.nc !== undefined ? cachedMetrics.nc : null;
     let roe = cachedMetrics.roe !== undefined ? cachedMetrics.roe : null;
+    let bsPbr: number | null = cachedMetrics.pbr !== undefined ? (cachedMetrics.pbr ?? null) : null;
 
     // どちらかがキャッシュミスなら両方再取得
     if (cachedMetrics.nc === undefined || cachedMetrics.roe === undefined) {
       const metrics = await getFinancialMetrics(symbol, quote.marketCap);
       simpleNcRatio = metrics.ncRatio;
       roe = metrics.roe;
+      bsPbr = metrics.pbr;
     }
 
     // シャープレシオ算出（1年 + 3年）を並列実行
@@ -111,7 +113,7 @@ export async function GET(request: NextRequest) {
     const result = {
       per: quote.per,
       forwardPer: quote.forwardPer,
-      pbr: quote.pbr,
+      pbr: bsPbr ?? quote.pbr,
       eps: quote.eps,
       roe,
       dividendYield: quote.dividendYield,

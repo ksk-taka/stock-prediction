@@ -198,6 +198,7 @@ export async function GET(request: NextRequest) {
     const profitGrowthMap = new Map<string, number | null>();
     const prevProfitGrowthMap = new Map<string, number | null>();
     const psrMap = new Map<string, number | null>();
+    const pbrMap = new Map<string, number | null>();
     const floatingRatioMap = new Map<string, number | null>();
     const metricsMissing: { sym: string; marketCap: number }[] = []; // NC率またはROEがミス
     const divMissing: string[] = [];
@@ -234,6 +235,8 @@ export async function GET(request: NextRequest) {
 
       const psrHit = cached.psr !== undefined;
       if (psrHit) psrMap.set(sym, cached.psr ?? null);
+
+      if (cached.pbr !== undefined) pbrMap.set(sym, cached.pbr ?? null);
 
       const frHit = cached.floatingRatio !== undefined;
       if (frHit) floatingRatioMap.set(sym, cached.floatingRatio ?? null);
@@ -329,7 +332,7 @@ export async function GET(request: NextRequest) {
 
     for (const r of metricsResults) {
       if (r.status === "fulfilled") {
-        const { sym, ncRatio, roe, fiscalYearEnd, currentRatio, pegRatio, equityRatio, totalDebt, profitGrowthRate, prevProfitGrowthRate, psr: metricsPsr } = r.value;
+        const { sym, ncRatio, roe, fiscalYearEnd, currentRatio, pegRatio, equityRatio, totalDebt, profitGrowthRate, prevProfitGrowthRate, psr: metricsPsr, pbr: metricsPbr } = r.value;
         ncMap.set(sym, ncRatio);
         roeMap.set(sym, roe);
         fyeMap.set(sym, fiscalYearEnd);
@@ -340,6 +343,7 @@ export async function GET(request: NextRequest) {
         profitGrowthMap.set(sym, profitGrowthRate);
         prevProfitGrowthMap.set(sym, prevProfitGrowthRate);
         psrMap.set(sym, metricsPsr);
+        pbrMap.set(sym, metricsPbr);
         const update = cacheUpdates.get(sym) ?? {};
         update.nc = ncRatio;
         update.roe = roe;
@@ -351,6 +355,7 @@ export async function GET(request: NextRequest) {
         update.profitGrowthRate = profitGrowthRate;
         update.prevProfitGrowthRate = prevProfitGrowthRate;
         update.psr = metricsPsr;
+        update.pbr = metricsPbr;
         cacheUpdates.set(sym, update);
       }
     }
@@ -464,7 +469,7 @@ export async function GET(request: NextRequest) {
         volume: q?.volume ?? 0,
         per: q?.per ?? null,
         eps: q?.eps ?? null,
-        pbr: q?.pbr ?? null,
+        pbr: pbrMap.get(sym) ?? q?.pbr ?? null,
         simpleNcRatio: ncMap.get(sym) ?? null,
         marketCap: q?.marketCap ?? null,
         dayHigh: q?.dayHigh ?? null,
