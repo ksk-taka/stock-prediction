@@ -2,6 +2,10 @@
 
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
+import GroupAssignPopup from "@/components/GroupAssignPopup";
+import BatchGroupAssignPopup from "@/components/BatchGroupAssignPopup";
+import CsvExportButton from "@/components/CsvExportButton";
+import type { WatchlistGroup } from "@/types";
 
 interface CwhStock {
   symbol: string;
@@ -108,10 +112,46 @@ export default function CwhFormingPage() {
   const [prevGrowthMin, setPrevGrowthMin] = useState("");
   const [prevGrowthMax, setPrevGrowthMax] = useState("");
 
+  // グループ関連
+  const [allGroups, setAllGroups] = useState<WatchlistGroup[]>([]);
+  const [selectedGroupIds, setSelectedGroupIds] = useState<Set<number>>(new Set());
+  const [watchlistGroupMap, setWatchlistGroupMap] = useState<Map<string, number[]>>(new Map());
+  const [groupPopup, setGroupPopup] = useState<{ symbol: string; anchor: DOMRect } | null>(null);
+  const [showBatchGroupPopup, setShowBatchGroupPopup] = useState(false);
+  const [showGroupDropdown, setShowGroupDropdown] = useState(false);
+  const groupDropdownRef = useRef<HTMLDivElement>(null);
+
   // スキャン関連
   const [scanning, setScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState<{ stage: string; current: number; total: number; message: string } | null>(null);
   const pollingRef = useRef<{ interval: ReturnType<typeof setInterval>; timeout: ReturnType<typeof setTimeout> } | null>(null);
+
+  // ウォッチリストグループ取得
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/watchlist");
+        const data = await res.json();
+        if (data.groups) setAllGroups(data.groups);
+        const map = new Map<string, number[]>();
+        for (const s of data.stocks ?? []) {
+          const ids = (s.groups ?? []).map((g: { id: number }) => g.id);
+          if (ids.length > 0) map.set(s.symbol, ids);
+        }
+        setWatchlistGroupMap(map);
+      } catch { /* ignore */ }
+    })();
+  }, []);
+
+  // グループドロップダウン: 外側クリックで閉じる
+  useEffect(() => {
+    if (!showGroupDropdown) return;
+    function handleClick(e: MouseEvent) {
+      if (groupDropdownRef.current && !groupDropdownRef.current.contains(e.target as Node)) setShowGroupDropdown(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showGroupDropdown]);
 
   const loadData = useCallback(async () => {
     try {
@@ -216,8 +256,78 @@ export default function CwhFormingPage() {
     }
   };
 
+  const handleEditGroups = (symbol: string, event: React.MouseEvent) => {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    setGroupPopup({ symbol, anchor: rect });
+  };
+
+  const handleSaveGroups = async (symbol: string, groupIds: number[]) => {
+    if (!watchlistGroupMap.has(symbol)) {
+      const stock = stocks.find((s) => s.symbol === symbol);
+      await fetch("/api/watchlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol, name: stock?.name ?? symbol, market: "JP" }),
+      });
+    }
+    setWatchlistGroupMap((prev) => {
+      const next = new Map(prev);
+      if (groupIds.length > 0) next.set(symbol, groupIds);
+      else next.delete(symbol);
+      return next;
+    });
+    try {
+      await fetch("/api/watchlist", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol, groupIds }),
+      });
+    } catch { /* ignore */ }
+  };
+
+  const handleCreateGroup = async (name: string, color: string) => {
+    try {
+      const res = await fetch("/api/watchlist/groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, color }),
+      });
+      const newGroup: WatchlistGroup = await res.json();
+      setAllGroups((prev) => [...prev, newGroup]);
+      return newGroup;
+    } catch {
+      throw new Error("Failed to create group");
+    }
+  };
+
+  const handleBatchAddToGroup = async (symbols: string[], groupId: number) => {
+    setWatchlistGroupMap((prev) => {
+      const next = new Map(prev);
+      for (const sym of symbols) {
+        const ids = next.get(sym) ?? [];
+        if (!ids.includes(groupId)) next.set(sym, [...ids, groupId]);
+      }
+      return next;
+    });
+    const res = await fetch("/api/watchlist/batch-groups", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbols, groupId }),
+    });
+    if (!res.ok) throw new Error("batch group add failed");
+    return (await res.json()) as { updated: number; alreadyInGroup: number };
+  };
+
   const filtered = useMemo(() => {
     let list = stocks;
+
+    // グループフィルタ
+    if (selectedGroupIds.size > 0) {
+      list = list.filter((s) => {
+        const gids = watchlistGroupMap.get(s.symbol);
+        return gids?.some((id) => selectedGroupIds.has(id));
+      });
+    }
 
     // テキスト検索
     if (search) {
@@ -288,7 +398,7 @@ export default function CwhFormingPage() {
     });
 
     return list;
-  }, [stocks, search, marketFilter, stageFilter, sortKey, sortDir, distanceMin, distanceMax, pullbackMin, pullbackMax, handleDaysMin, handleDaysMax, cupDaysMin, cupDaysMax, cupDepthMin, cupDepthMax, priceMin, priceMax, mcapMin, mcapMax, sharpe3mMin, sharpe3mMax, sharpe6mMin, sharpe6mMax, sharpe1yMin, sharpe1yMax, roeMin, roeMax, eqRatioMin, eqRatioMax, growthMin, growthMax, prevGrowthMin, prevGrowthMax]);
+  }, [stocks, search, marketFilter, stageFilter, sortKey, sortDir, selectedGroupIds, watchlistGroupMap, distanceMin, distanceMax, pullbackMin, pullbackMax, handleDaysMin, handleDaysMax, cupDaysMin, cupDaysMax, cupDepthMin, cupDepthMax, priceMin, priceMax, mcapMin, mcapMax, sharpe3mMin, sharpe3mMax, sharpe6mMin, sharpe6mMax, sharpe1yMin, sharpe1yMax, roeMin, roeMax, eqRatioMin, eqRatioMax, growthMin, growthMax, prevGrowthMin, prevGrowthMax]);
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -344,6 +454,20 @@ export default function CwhFormingPage() {
           <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
             {filtered.length} / {stocks.length}
           </span>
+          {filtered.length > 0 && (
+            <button
+              onClick={() => setShowBatchGroupPopup(true)}
+              className="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 dark:border-emerald-600 dark:bg-slate-800 dark:text-emerald-400 dark:hover:bg-slate-700"
+            >
+              グループに追加
+            </button>
+          )}
+          <CsvExportButton
+            stocks={filtered}
+            allGroups={allGroups}
+            watchlistGroupMap={watchlistGroupMap}
+            filenamePrefix="cwh-forming"
+          />
           <button
             onClick={handleScan}
             disabled={scanning}
@@ -395,6 +519,51 @@ export default function CwhFormingPage() {
           <option value="handle_forming">FORMING のみ</option>
         </select>
 
+        {/* Group filter dropdown */}
+        {allGroups.length > 0 && (
+          <div className="relative" ref={groupDropdownRef}>
+            <button
+              onClick={() => setShowGroupDropdown((v) => !v)}
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                selectedGroupIds.size > 0
+                  ? "bg-emerald-600 text-white dark:bg-emerald-500"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+              }`}
+            >
+              グループ{selectedGroupIds.size > 0 && ` (${selectedGroupIds.size})`}
+            </button>
+            {showGroupDropdown && (
+              <div className="absolute left-0 z-50 mt-1 min-w-[160px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-slate-600 dark:bg-slate-800">
+                {allGroups.map((g) => (
+                  <label key={g.id} className="flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={selectedGroupIds.has(g.id)}
+                      onChange={() => setSelectedGroupIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(g.id)) next.delete(g.id);
+                        else next.add(g.id);
+                        return next;
+                      })}
+                      className="rounded border-gray-300 text-emerald-600 dark:border-slate-500"
+                    />
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: g.color }} />
+                    <span className="text-xs text-gray-700 dark:text-slate-300">{g.name}</span>
+                  </label>
+                ))}
+                {selectedGroupIds.size > 0 && (
+                  <button
+                    onClick={() => { setSelectedGroupIds(new Set()); setShowGroupDropdown(false); }}
+                    className="w-full border-t border-gray-100 px-3 py-1.5 text-left text-xs text-red-500 hover:bg-gray-50 dark:border-slate-700 dark:hover:bg-slate-700"
+                  >
+                    クリア
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Market filter buttons */}
         {markets.map((m) => (
           <button
@@ -445,6 +614,7 @@ export default function CwhFormingPage() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-slate-800">
             <tr>
+              <th className="w-8 px-1 py-2" />
               {COLUMNS.map((col) => (
                 <th
                   key={col.key}
@@ -463,6 +633,19 @@ export default function CwhFormingPage() {
           <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
             {filtered.map((s) => (
               <tr key={s.symbol} className="hover:bg-gray-50 dark:hover:bg-slate-800/50">
+                <td className="px-1 py-1.5 text-center">
+                  <button
+                    onClick={(e) => handleEditGroups(s.symbol, e)}
+                    className="text-base leading-none"
+                    title="グループに追加"
+                  >
+                    {watchlistGroupMap.has(s.symbol) ? (
+                      <span className="text-yellow-400">&#9733;</span>
+                    ) : (
+                      <span className="text-gray-300 dark:text-slate-600 hover:text-yellow-300">&#9734;</span>
+                    )}
+                  </button>
+                </td>
                 <td className="px-3 py-1.5 font-mono text-xs">
                   <Link
                     href={`/stock/${s.symbol}`}
@@ -522,6 +705,37 @@ export default function CwhFormingPage() {
           </div>
         )}
       </div>
+
+      {groupPopup && (
+        <GroupAssignPopup
+          symbol={groupPopup.symbol}
+          currentGroupIds={watchlistGroupMap.get(groupPopup.symbol) ?? []}
+          allGroups={allGroups}
+          anchor={groupPopup.anchor}
+          onToggleGroup={(groupId, checked) => {
+            const currentIds = watchlistGroupMap.get(groupPopup.symbol) ?? [];
+            const newIds = checked
+              ? [...currentIds, groupId]
+              : currentIds.filter((id) => id !== groupId);
+            handleSaveGroups(groupPopup.symbol, newIds);
+          }}
+          onCreateGroup={handleCreateGroup}
+          onClose={() => setGroupPopup(null)}
+        />
+      )}
+
+      {showBatchGroupPopup && (
+        <BatchGroupAssignPopup
+          stockCount={filtered.length}
+          allGroups={allGroups}
+          onConfirm={async (groupId) => {
+            const symbols = filtered.map((s) => s.symbol);
+            return handleBatchAddToGroup(symbols, groupId);
+          }}
+          onCreateGroup={handleCreateGroup}
+          onClose={() => setShowBatchGroupPopup(false)}
+        />
+      )}
     </div>
   );
 }

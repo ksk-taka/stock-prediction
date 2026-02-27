@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import AddStockModal from "./AddStockModal";
 import GroupAssignPopup from "./GroupAssignPopup";
 import BatchGroupAssignPopup from "./BatchGroupAssignPopup";
+import CsvExportButton from "./CsvExportButton";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useWatchlistData } from "@/hooks/useWatchlistData";
 import { useWatchlistFilters } from "@/hooks/useWatchlistFilters";
@@ -115,6 +116,15 @@ export default function WatchList() {
     ),
   });
 
+  const watchlistGroupMap = useMemo(() => {
+    const map = new Map<string, number[]>();
+    for (const s of stocks) {
+      const ids = s.groups?.map((g) => g.id) ?? [];
+      if (ids.length > 0) map.set(s.symbol, ids);
+    }
+    return map;
+  }, [stocks]);
+
   const handleEditGroups = (symbol: string, event: React.MouseEvent) => {
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
     setGroupPopup({ symbol, anchor: rect });
@@ -169,7 +179,14 @@ export default function WatchList() {
         selectedGroupIds={filters.selectedGroupIds}
         onToggleGroup={filters.toggleGroupId}
         onOpenModal={() => setModalOpen(true)}
-      />
+      >
+        <CsvExportButton
+          stocks={filters.filteredStocks}
+          allGroups={allGroups}
+          watchlistGroupMap={watchlistGroupMap}
+          filenamePrefix="watchlist"
+        />
+      </WatchlistHeader>
 
       {stocks.length > 0 && (
         <FilterPanel

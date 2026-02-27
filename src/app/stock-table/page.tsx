@@ -7,6 +7,7 @@ import { getTableCache, setTableCache } from "@/lib/cache/tableCache";
 import type { StockTableRow } from "@/lib/cache/tableCache";
 import GroupAssignPopup from "@/components/GroupAssignPopup";
 import BatchGroupAssignPopup from "@/components/BatchGroupAssignPopup";
+import CsvExportButton from "@/components/CsvExportButton";
 
 // ── 型定義 ──
 
@@ -1095,6 +1096,12 @@ export default function StockTablePage() {
               グループに追加
             </button>
           )}
+          <CsvExportButton
+            stocks={mergedRows}
+            allGroups={allGroups}
+            watchlistGroupMap={stockGroupMap}
+            filenamePrefix="stock-table"
+          />
           {loadingData && (
             <svg
               className="h-4 w-4 animate-spin text-blue-500"

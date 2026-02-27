@@ -8,6 +8,7 @@ interface WatchlistHeaderProps {
   selectedGroupIds: Set<number>;
   onToggleGroup: (groupId: number) => void;
   onOpenModal: () => void;
+  children?: React.ReactNode;
 }
 
 export function WatchlistHeader({
@@ -15,6 +16,7 @@ export function WatchlistHeader({
   selectedGroupIds,
   onToggleGroup,
   onOpenModal,
+  children,
 }: WatchlistHeaderProps) {
   const [showGroupDropdown, setShowGroupDropdown] = useState(false);
   const groupDropdownRef = useRef<HTMLDivElement>(null);
@@ -97,9 +99,11 @@ export function WatchlistHeader({
           </div>
         )}
       </div>
-      <button
-        onClick={onOpenModal}
-        className="flex items-center gap-1 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
+      <div className="flex items-center gap-2">
+        {children}
+        <button
+          onClick={onOpenModal}
+          className="flex items-center gap-1 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
       >
         <svg
           className="h-4 w-4"
@@ -110,8 +114,9 @@ export function WatchlistHeader({
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
         </svg>
-        銘柄追加
-      </button>
+          銘柄追加
+        </button>
+      </div>
     </div>
   );
 }

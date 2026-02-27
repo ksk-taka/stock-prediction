@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import type { ReturnType } from "@/lib/utils/indicators";
 import { getRatioCache, setRatioCache, type RatioCacheEntry } from "@/lib/cache/ratioCache";
+import GroupAssignPopup from "@/components/GroupAssignPopup";
+import BatchGroupAssignPopup from "@/components/BatchGroupAssignPopup";
+import CsvExportButton from "@/components/CsvExportButton";
+import type { WatchlistGroup } from "@/types";
 
 type StockRatio = RatioCacheEntry;
 
@@ -127,6 +131,15 @@ export default function RatioCheckPage() {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [search, setSearch] = useState("");
 
+  // グループ関連
+  const [allGroups, setAllGroups] = useState<WatchlistGroup[]>([]);
+  const [selectedGroupIds, setSelectedGroupIds] = useState<Set<number>>(new Set());
+  const [watchlistGroupMap, setWatchlistGroupMap] = useState<Map<string, number[]>>(new Map());
+  const [groupPopup, setGroupPopup] = useState<{ symbol: string; anchor: DOMRect } | null>(null);
+  const [showBatchGroupPopup, setShowBatchGroupPopup] = useState(false);
+  const [showGroupDropdown, setShowGroupDropdown] = useState(false);
+  const groupDropdownRef = useRef<HTMLDivElement>(null);
+
   // 範囲フィルタ state (min/max per filter key)
   const [filters, setFilters] = useState<Record<FilterKey, { min: string; max: string }>>(
     () => Object.fromEntries(FILTER_KEYS.map((k) => [k, { min: "", max: "" }])) as Record<FilterKey, { min: string; max: string }>,
@@ -152,6 +165,13 @@ export default function RatioCheckPage() {
         const wlRes = await fetch("/api/watchlist");
         if (!wlRes.ok) throw new Error("Failed to fetch watchlist");
         const wlData = await wlRes.json();
+        if (wlData.groups) setAllGroups(wlData.groups);
+        const gmap = new Map<string, number[]>();
+        for (const s of wlData.stocks ?? []) {
+          const ids = (s.groups ?? []).map((g: { id: number }) => g.id);
+          if (ids.length > 0) gmap.set(s.symbol, ids);
+        }
+        setWatchlistGroupMap(gmap);
         const favorites: WatchlistStock[] = (wlData.stocks ?? [])
           .filter((s: WatchlistStock) => s.favorite);
 
@@ -195,8 +215,88 @@ export default function RatioCheckPage() {
     })();
   }, []);
 
+  // グループドロップダウン: 外側クリックで閉じる
+  useEffect(() => {
+    if (!showGroupDropdown) return;
+    function handleClick(e: MouseEvent) {
+      if (groupDropdownRef.current && !groupDropdownRef.current.contains(e.target as Node)) setShowGroupDropdown(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showGroupDropdown]);
+
+  const handleEditGroups = (symbol: string, event: React.MouseEvent) => {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    setGroupPopup({ symbol, anchor: rect });
+  };
+
+  const handleSaveGroups = async (symbol: string, groupIds: number[]) => {
+    if (!watchlistGroupMap.has(symbol)) {
+      const stock = stocks.find((s) => s.symbol === symbol);
+      await fetch("/api/watchlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol, name: stock?.name ?? symbol, market: "JP" }),
+      });
+    }
+    setWatchlistGroupMap((prev) => {
+      const next = new Map(prev);
+      if (groupIds.length > 0) next.set(symbol, groupIds);
+      else next.delete(symbol);
+      return next;
+    });
+    try {
+      await fetch("/api/watchlist", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol, groupIds }),
+      });
+    } catch { /* ignore */ }
+  };
+
+  const handleCreateGroup = async (name: string, color: string) => {
+    try {
+      const res = await fetch("/api/watchlist/groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, color }),
+      });
+      const newGroup: WatchlistGroup = await res.json();
+      setAllGroups((prev) => [...prev, newGroup]);
+      return newGroup;
+    } catch {
+      throw new Error("Failed to create group");
+    }
+  };
+
+  const handleBatchAddToGroup = async (symbols: string[], groupId: number) => {
+    setWatchlistGroupMap((prev) => {
+      const next = new Map(prev);
+      for (const sym of symbols) {
+        const ids = next.get(sym) ?? [];
+        if (!ids.includes(groupId)) next.set(sym, [...ids, groupId]);
+      }
+      return next;
+    });
+    const res = await fetch("/api/watchlist/batch-groups", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbols, groupId }),
+    });
+    if (!res.ok) throw new Error("batch group add failed");
+    return (await res.json()) as { updated: number; alreadyInGroup: number };
+  };
+
   const sorted = useMemo(() => {
     let list = stocks;
+
+    // グループフィルタ
+    if (selectedGroupIds.size > 0) {
+      list = list.filter((s) => {
+        const gids = watchlistGroupMap.get(s.symbol);
+        return gids?.some((id) => selectedGroupIds.has(id));
+      });
+    }
 
     // テキスト検索
     if (search) {
@@ -233,7 +333,7 @@ export default function RatioCheckPage() {
       if (vb === null) return -1;
       return sortDir === "asc" ? va - vb : vb - va;
     });
-  }, [stocks, sortKey, sortDir, search, filters]);
+  }, [stocks, sortKey, sortDir, search, filters, selectedGroupIds, watchlistGroupMap]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -255,9 +355,25 @@ export default function RatioCheckPage() {
           <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">
             レシオ指標確認
           </h1>
-          <Link href="/" className="text-sm text-blue-600 hover:underline dark:text-blue-400">
-            ← ウォッチリストへ
-          </Link>
+          <div className="flex items-center gap-2">
+            {sorted.length > 0 && (
+              <button
+                onClick={() => setShowBatchGroupPopup(true)}
+                className="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 dark:border-emerald-600 dark:bg-slate-800 dark:text-emerald-400 dark:hover:bg-slate-700"
+              >
+                グループに追加
+              </button>
+            )}
+            <CsvExportButton
+              stocks={sorted}
+              allGroups={allGroups}
+              watchlistGroupMap={watchlistGroupMap}
+              filenamePrefix="ratio-check"
+            />
+            <Link href="/" className="text-sm text-blue-600 hover:underline dark:text-blue-400">
+              ← ウォッチリストへ
+            </Link>
+          </div>
         </div>
 
         {/* 説明 */}
@@ -280,6 +396,50 @@ export default function RatioCheckPage() {
               onChange={(e) => setSearch(e.target.value)}
               className="w-full max-w-xs rounded-md border border-gray-300 px-3 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
             />
+            {/* Group filter dropdown */}
+            {allGroups.length > 0 && (
+              <div className="relative" ref={groupDropdownRef}>
+                <button
+                  onClick={() => setShowGroupDropdown((v) => !v)}
+                  className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                    selectedGroupIds.size > 0
+                      ? "bg-emerald-600 text-white dark:bg-emerald-500"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+                  }`}
+                >
+                  グループ{selectedGroupIds.size > 0 && ` (${selectedGroupIds.size})`}
+                </button>
+                {showGroupDropdown && (
+                  <div className="absolute left-0 z-50 mt-1 min-w-[160px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-slate-600 dark:bg-slate-800">
+                    {allGroups.map((g) => (
+                      <label key={g.id} className="flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={selectedGroupIds.has(g.id)}
+                          onChange={() => setSelectedGroupIds((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(g.id)) next.delete(g.id);
+                            else next.add(g.id);
+                            return next;
+                          })}
+                          className="rounded border-gray-300 text-emerald-600 dark:border-slate-500"
+                        />
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: g.color }} />
+                        <span className="text-xs text-gray-700 dark:text-slate-300">{g.name}</span>
+                      </label>
+                    ))}
+                    {selectedGroupIds.size > 0 && (
+                      <button
+                        onClick={() => { setSelectedGroupIds(new Set()); setShowGroupDropdown(false); }}
+                        className="w-full border-t border-gray-100 px-3 py-1.5 text-left text-xs text-red-500 hover:bg-gray-50 dark:border-slate-700 dark:hover:bg-slate-700"
+                      >
+                        クリア
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             {hasActiveFilter && (
               <button onClick={clearFilters} className="text-xs text-red-500 hover:underline">
                 フィルタクリア
@@ -313,7 +473,7 @@ export default function RatioCheckPage() {
               <thead>
                 {/* グループヘッダー行 */}
                 <tr className="border-b border-gray-200 dark:border-slate-700">
-                  <th colSpan={3} className="px-2 py-1"></th>
+                  <th colSpan={4} className="px-2 py-1"></th>
                   <th colSpan={3} className="px-2 py-1 text-center text-xs font-bold text-blue-700 dark:text-blue-300 border-l border-gray-200 dark:border-slate-700">
                     C→C (終値→終値)
                   </th>
@@ -326,6 +486,7 @@ export default function RatioCheckPage() {
                 </tr>
                 {/* カラムヘッダー行 */}
                 <tr className="border-b border-gray-300 bg-gray-50 dark:border-slate-600 dark:bg-slate-700">
+                  <th className="w-8 px-1 py-1.5" />
                   {COLUMNS.map((col, i) => {
                     const isGroupBorder = i === 3 || i === 6 || i === 9;
                     return (
@@ -350,6 +511,19 @@ export default function RatioCheckPage() {
                     key={stock.symbol}
                     className="border-b border-gray-100 hover:bg-gray-50 dark:border-slate-700 dark:hover:bg-slate-700/50"
                   >
+                    <td className="px-1 py-1 text-center">
+                      <button
+                        onClick={(e) => handleEditGroups(stock.symbol, e)}
+                        className="text-base leading-none"
+                        title="グループに追加"
+                      >
+                        {watchlistGroupMap.has(stock.symbol) ? (
+                          <span className="text-yellow-400">&#9733;</span>
+                        ) : (
+                          <span className="text-gray-300 dark:text-slate-600 hover:text-yellow-300">&#9734;</span>
+                        )}
+                      </button>
+                    </td>
                     <td className="px-2 py-1 font-mono text-xs">
                       <Link
                         href={`/stock/${stock.symbol}`}
@@ -386,6 +560,37 @@ export default function RatioCheckPage() {
           </div>
         )}
       </div>
+
+      {groupPopup && (
+        <GroupAssignPopup
+          symbol={groupPopup.symbol}
+          currentGroupIds={watchlistGroupMap.get(groupPopup.symbol) ?? []}
+          allGroups={allGroups}
+          anchor={groupPopup.anchor}
+          onToggleGroup={(groupId, checked) => {
+            const currentIds = watchlistGroupMap.get(groupPopup.symbol) ?? [];
+            const newIds = checked
+              ? [...currentIds, groupId]
+              : currentIds.filter((id) => id !== groupId);
+            handleSaveGroups(groupPopup.symbol, newIds);
+          }}
+          onCreateGroup={handleCreateGroup}
+          onClose={() => setGroupPopup(null)}
+        />
+      )}
+
+      {showBatchGroupPopup && (
+        <BatchGroupAssignPopup
+          stockCount={sorted.length}
+          allGroups={allGroups}
+          onConfirm={async (groupId) => {
+            const symbols = sorted.map((s) => s.symbol);
+            return handleBatchAddToGroup(symbols, groupId);
+          }}
+          onCreateGroup={handleCreateGroup}
+          onClose={() => setShowBatchGroupPopup(false)}
+        />
+      )}
     </div>
   );
 }

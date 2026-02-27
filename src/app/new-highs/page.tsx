@@ -4,6 +4,8 @@ import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
 import { formatMarketCap, getCapSize } from "@/lib/utils/format";
 import GroupAssignPopup from "@/components/GroupAssignPopup";
+import BatchGroupAssignPopup from "@/components/BatchGroupAssignPopup";
+import CsvExportButton from "@/components/CsvExportButton";
 import type { WatchlistGroup } from "@/types";
 
 interface Stock {
@@ -100,6 +102,7 @@ export default function NewHighsPage() {
   const [selectedGroupIds, setSelectedGroupIds] = useState<Set<number>>(new Set());
   const [watchlistGroupMap, setWatchlistGroupMap] = useState<Map<string, number[]>>(new Map());
   const [groupPopup, setGroupPopup] = useState<{ symbol: string; anchor: DOMRect } | null>(null);
+  const [showBatchGroupPopup, setShowBatchGroupPopup] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState<string | null>(null);
   const [scanProgress, setScanProgress] = useState<{ stage: string; current: number; total: number; message: string } | null>(null);
@@ -428,7 +431,28 @@ export default function NewHighsPage() {
       });
       const newGroup: WatchlistGroup = await res.json();
       setAllGroups((prev) => [...prev, newGroup]);
-    } catch { /* ignore */ }
+      return newGroup;
+    } catch {
+      throw new Error("Failed to create group");
+    }
+  };
+
+  const handleBatchAddToGroup = async (symbols: string[], groupId: number) => {
+    setWatchlistGroupMap((prev) => {
+      const next = new Map(prev);
+      for (const sym of symbols) {
+        const ids = next.get(sym) ?? [];
+        if (!ids.includes(groupId)) next.set(sym, [...ids, groupId]);
+      }
+      return next;
+    });
+    const res = await fetch("/api/watchlist/batch-groups", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbols, groupId }),
+    });
+    if (!res.ok) throw new Error("batch group add failed");
+    return (await res.json()) as { updated: number; alreadyInGroup: number };
   };
 
   if (loading) {
@@ -457,6 +481,20 @@ export default function NewHighsPage() {
           <span className="text-sm text-gray-600 dark:text-slate-300">
             {filtered.length} / {stocks.length} 銘柄
           </span>
+          {filtered.length > 0 && (
+            <button
+              onClick={() => setShowBatchGroupPopup(true)}
+              className="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 dark:border-emerald-600 dark:bg-slate-800 dark:text-emerald-400 dark:hover:bg-slate-700"
+            >
+              グループに追加
+            </button>
+          )}
+          <CsvExportButton
+            stocks={filtered}
+            allGroups={allGroups}
+            watchlistGroupMap={watchlistGroupMap}
+            filenamePrefix="new-highs"
+          />
           <button
             onClick={handleScan}
             disabled={scanning}
@@ -1014,6 +1052,19 @@ export default function NewHighsPage() {
           }}
           onCreateGroup={handleCreateGroup}
           onClose={() => setGroupPopup(null)}
+        />
+      )}
+
+      {showBatchGroupPopup && (
+        <BatchGroupAssignPopup
+          stockCount={filtered.length}
+          allGroups={allGroups}
+          onConfirm={async (groupId) => {
+            const symbols = filtered.map((s) => s.symbol);
+            return handleBatchAddToGroup(symbols, groupId);
+          }}
+          onCreateGroup={handleCreateGroup}
+          onClose={() => setShowBatchGroupPopup(false)}
         />
       )}
     </div>
