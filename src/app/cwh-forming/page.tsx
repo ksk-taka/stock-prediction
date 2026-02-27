@@ -20,6 +20,8 @@ interface CwhStock {
   rightRimDate: string;
   // 財務指標
   marketCap: number | null;
+  sharpe3m: number | null;
+  sharpe6m: number | null;
   sharpe1y: number | null;
   roe: number | null;
   equityRatio: number | null;
@@ -40,7 +42,9 @@ const COLUMNS: { key: SortKey; label: string; align: "left" | "right"; tooltip?:
   { key: "distancePct", label: "BO距離%", align: "right", tooltip: "現在値からブレイクアウト価格までの距離\n小さいほどブレイクアウトに近い" },
   { key: "pullbackPct", label: "押し目%", align: "right", tooltip: "ハンドル部分の押し目率（右リムからの最大下落%）\n1-12%が有効なハンドル" },
   { key: "marketCap", label: "時価総額", align: "right", tooltip: "時価総額（億円）" },
-  { key: "sharpe1y", label: "SR", align: "right", tooltip: "シャープレシオ（1年、年率化）" },
+  { key: "sharpe3m", label: "SR3m", align: "right", tooltip: "シャープレシオ（3ヶ月、年率化）" },
+  { key: "sharpe6m", label: "SR6m", align: "right", tooltip: "シャープレシオ（6ヶ月、年率化）" },
+  { key: "sharpe1y", label: "SR1y", align: "right", tooltip: "シャープレシオ（1年、年率化）" },
   { key: "roe", label: "ROE%", align: "right", tooltip: "ROE（自己資本利益率）" },
   { key: "equityRatio", label: "自己資本%", align: "right", tooltip: "自己資本比率" },
   { key: "profitGrowthRate", label: "増益率%", align: "right", tooltip: "直近期の増益率（YoY）" },
@@ -89,8 +93,12 @@ export default function CwhFormingPage() {
   const [priceMax, setPriceMax] = useState("");
   const [mcapMin, setMcapMin] = useState("");
   const [mcapMax, setMcapMax] = useState("");
-  const [sharpeMin, setSharpeMin] = useState("");
-  const [sharpeMax, setSharpeMax] = useState("");
+  const [sharpe3mMin, setSharpe3mMin] = useState("");
+  const [sharpe3mMax, setSharpe3mMax] = useState("");
+  const [sharpe6mMin, setSharpe6mMin] = useState("");
+  const [sharpe6mMax, setSharpe6mMax] = useState("");
+  const [sharpe1yMin, setSharpe1yMin] = useState("");
+  const [sharpe1yMax, setSharpe1yMax] = useState("");
   const [roeMin, setRoeMin] = useState("");
   const [roeMax, setRoeMax] = useState("");
   const [eqRatioMin, setEqRatioMin] = useState("");
@@ -255,7 +263,9 @@ export default function CwhFormingPage() {
     list = rangeFilter(list, (s) => s.cupDepthPct, cupDepthMin, cupDepthMax);
     list = rangeFilter(list, (s) => s.currentPrice, priceMin, priceMax);
     list = rangeFilter(list, (s) => s.marketCap != null ? s.marketCap / 1e8 : null, mcapMin, mcapMax); // 億円換算
-    list = rangeFilter(list, (s) => s.sharpe1y, sharpeMin, sharpeMax);
+    list = rangeFilter(list, (s) => s.sharpe3m, sharpe3mMin, sharpe3mMax);
+    list = rangeFilter(list, (s) => s.sharpe6m, sharpe6mMin, sharpe6mMax);
+    list = rangeFilter(list, (s) => s.sharpe1y, sharpe1yMin, sharpe1yMax);
     list = rangeFilter(list, (s) => s.roe, roeMin, roeMax);
     list = rangeFilter(list, (s) => s.equityRatio, eqRatioMin, eqRatioMax);
     list = rangeFilter(list, (s) => s.profitGrowthRate, growthMin, growthMax);
@@ -278,7 +288,7 @@ export default function CwhFormingPage() {
     });
 
     return list;
-  }, [stocks, search, marketFilter, stageFilter, sortKey, sortDir, distanceMin, distanceMax, pullbackMin, pullbackMax, handleDaysMin, handleDaysMax, cupDaysMin, cupDaysMax, cupDepthMin, cupDepthMax, priceMin, priceMax, mcapMin, mcapMax, sharpeMin, sharpeMax, roeMin, roeMax, eqRatioMin, eqRatioMax, growthMin, growthMax, prevGrowthMin, prevGrowthMax]);
+  }, [stocks, search, marketFilter, stageFilter, sortKey, sortDir, distanceMin, distanceMax, pullbackMin, pullbackMax, handleDaysMin, handleDaysMax, cupDaysMin, cupDaysMax, cupDepthMin, cupDepthMax, priceMin, priceMax, mcapMin, mcapMax, sharpe3mMin, sharpe3mMax, sharpe6mMin, sharpe6mMax, sharpe1yMin, sharpe1yMax, roeMin, roeMax, eqRatioMin, eqRatioMax, growthMin, growthMax, prevGrowthMin, prevGrowthMax]);
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -421,7 +431,9 @@ export default function CwhFormingPage() {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-600 dark:text-slate-400">
         <RangeInput label="株価" min={priceMin} max={priceMax} setMin={setPriceMin} setMax={setPriceMax} />
         <RangeInput label="時価総額(億)" min={mcapMin} max={mcapMax} setMin={setMcapMin} setMax={setMcapMax} />
-        <RangeInput label="SR" min={sharpeMin} max={sharpeMax} setMin={setSharpeMin} setMax={setSharpeMax} />
+        <RangeInput label="SR3m" min={sharpe3mMin} max={sharpe3mMax} setMin={setSharpe3mMin} setMax={setSharpe3mMax} />
+        <RangeInput label="SR6m" min={sharpe6mMin} max={sharpe6mMax} setMin={setSharpe6mMin} setMax={setSharpe6mMax} />
+        <RangeInput label="SR1y" min={sharpe1yMin} max={sharpe1yMax} setMin={setSharpe1yMin} setMax={setSharpe1yMax} />
         <RangeInput label="ROE%" min={roeMin} max={roeMax} setMin={setRoeMin} setMax={setRoeMax} />
         <RangeInput label="自己資本%" min={eqRatioMin} max={eqRatioMax} setMin={setEqRatioMin} setMax={setEqRatioMax} />
         <RangeInput label="増益率%" min={growthMin} max={growthMax} setMin={setGrowthMin} setMax={setGrowthMax} />
@@ -475,7 +487,13 @@ export default function CwhFormingPage() {
                 <td className="px-3 py-1.5 text-right font-mono text-xs text-gray-500 dark:text-slate-400">
                   {s.marketCap != null ? `${(s.marketCap / 1e8).toLocaleString("ja-JP", { maximumFractionDigits: 0 })}` : "-"}
                 </td>
-                <td className={`px-3 py-1.5 text-right font-mono text-xs ${s.sharpe1y != null && s.sharpe1y > 0 ? "text-green-600 dark:text-green-400" : "text-gray-500 dark:text-slate-400"}`}>
+                <td className={`px-3 py-1.5 text-right font-mono text-xs ${s.sharpe3m != null && s.sharpe3m > 0 ? "text-green-600 dark:text-green-400" : s.sharpe3m != null && s.sharpe3m < 0 ? "text-red-500 dark:text-red-400" : "text-gray-500 dark:text-slate-400"}`}>
+                  {s.sharpe3m != null ? formatNum(s.sharpe3m, 2) : "-"}
+                </td>
+                <td className={`px-3 py-1.5 text-right font-mono text-xs ${s.sharpe6m != null && s.sharpe6m > 0 ? "text-green-600 dark:text-green-400" : s.sharpe6m != null && s.sharpe6m < 0 ? "text-red-500 dark:text-red-400" : "text-gray-500 dark:text-slate-400"}`}>
+                  {s.sharpe6m != null ? formatNum(s.sharpe6m, 2) : "-"}
+                </td>
+                <td className={`px-3 py-1.5 text-right font-mono text-xs ${s.sharpe1y != null && s.sharpe1y > 0 ? "text-green-600 dark:text-green-400" : s.sharpe1y != null && s.sharpe1y < 0 ? "text-red-500 dark:text-red-400" : "text-gray-500 dark:text-slate-400"}`}>
                   {s.sharpe1y != null ? formatNum(s.sharpe1y, 2) : "-"}
                 </td>
                 <td className={`px-3 py-1.5 text-right font-mono text-xs ${s.roe != null && s.roe >= 15 ? "text-green-600 dark:text-green-400 font-semibold" : s.roe != null && s.roe >= 10 ? "text-green-600 dark:text-green-400" : "text-gray-500 dark:text-slate-400"}`}>

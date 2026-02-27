@@ -23,7 +23,7 @@ import YahooFinance from "yahoo-finance2";
 import { RequestQueue } from "@/lib/utils/requestQueue";
 import { createServiceClient } from "@/lib/supabase/service";
 import { detectCupWithHandleForming, type CwhFormingPattern } from "@/lib/utils/signals";
-import { calcSharpeRatioFromPrices } from "@/lib/utils/indicators";
+import { calcMultiPeriodSharpe } from "@/lib/utils/indicators";
 import { getFinancialMetrics } from "@/lib/api/yahooFinance";
 import { sleep, getArgs, hasFlag, parseFlag, parseIntFlag } from "@/lib/utils/cli";
 import type { PriceData } from "@/types";
@@ -64,6 +64,8 @@ export interface CwhFormingRow {
   rightRimDate: string;
   // 財務指標 (enrichment phase)
   marketCap: number | null;
+  sharpe3m: number | null;
+  sharpe6m: number | null;
   sharpe1y: number | null;
   roe: number | null;
   equityRatio: number | null;
@@ -301,10 +303,10 @@ async function main() {
     if (qi + QUOTE_BATCH < symbols.length) await sleep(200);
   }
 
-  // 2. シャープレシオを価格データから計算
-  const sharpeMap = new Map<string, number | null>();
+  // 2. シャープレシオを価格データからマルチ期間で計算
+  const sharpeMap = new Map<string, { sharpe3m: number | null; sharpe6m: number | null; sharpe1y: number | null }>();
   for (const r of results) {
-    sharpeMap.set(r.stock.symbol, calcSharpeRatioFromPrices(r.prices));
+    sharpeMap.set(r.stock.symbol, calcMultiPeriodSharpe(r.prices));
   }
 
   // 3. getFinancialMetrics で ROE/自己資本比率/増益率/前期増益率
@@ -356,7 +358,9 @@ async function main() {
       bottomDate: r.pattern.bottomDate,
       rightRimDate: r.pattern.rightRimDate,
       marketCap: mc,
-      sharpe1y: sharpeMap.get(sym) ?? null,
+      sharpe3m: sharpeMap.get(sym)?.sharpe3m ?? null,
+      sharpe6m: sharpeMap.get(sym)?.sharpe6m ?? null,
+      sharpe1y: sharpeMap.get(sym)?.sharpe1y ?? null,
       roe: roeVal,
       equityRatio: metrics?.equityRatio ?? null,
       profitGrowthRate: metrics?.profitGrowthRate ?? null,

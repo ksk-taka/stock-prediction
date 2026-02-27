@@ -223,3 +223,21 @@ export function calcSharpeRatioFromPrices(
 
   return Math.round((mean / stdDev) * Math.sqrt(tradingDays) * 100) / 100;
 }
+
+/**
+ * マルチ期間シャープレシオ（3ヶ月/6ヶ月/1年）
+ * 価格データの末尾から各期間分を切り出して年率化シャープを算出。
+ */
+export function calcMultiPeriodSharpe(
+  data: PriceData[],
+): { sharpe3m: number | null; sharpe6m: number | null; sharpe1y: number | null } {
+  const calc = (days: number): number | null => {
+    const slice = data.length > days ? data.slice(-days) : data;
+    return calcSharpeRatioFromPrices(slice);
+  };
+  return {
+    sharpe3m: calc(63),   // 約3ヶ月 (21日×3)
+    sharpe6m: calc(126),  // 約6ヶ月 (21日×6)
+    sharpe1y: calc(252),  // 約1年
+  };
+}
