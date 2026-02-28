@@ -25,17 +25,17 @@ export async function GET() {
       });
     }
 
-    const symbols = [...codes].map((c) => `${c}.T`);
+    const codeList = [...codes]; // ["9765", "7203", ...]
 
-    // ファイルキャッシュから取得
-    const detailMap = getCachedBuybackDetailBatch(symbols);
+    // ファイルキャッシュから取得 (コード形式 "9765" で検索)
+    const detailMap = getCachedBuybackDetailBatch(codeList);
 
     // Vercel上 or ファイルキャッシュ不足時はSupabaseから補完
-    const missing = symbols.filter((s) => !detailMap.has(s));
-    if (missing.length > 0 && (isVercel || missing.length > symbols.length * 0.5)) {
-      const sbData = await getBuybackDetailFromSupabase(missing);
-      for (const [sym, data] of sbData) {
-        detailMap.set(sym, data);
+    const missingCodes = codeList.filter((c) => !detailMap.has(c));
+    if (missingCodes.length > 0 && (isVercel || missingCodes.length > codeList.length * 0.5)) {
+      const sbData = await getBuybackDetailFromSupabase(missingCodes);
+      for (const [code, data] of sbData) {
+        detailMap.set(code, data);
       }
     }
 
