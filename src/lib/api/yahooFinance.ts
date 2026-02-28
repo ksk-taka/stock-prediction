@@ -228,10 +228,12 @@ export interface FinancialMetrics {
   prevProfitGrowthRate: number | null;  // 前期の増益率 (%, 前々期→前期)
   psr: number | null;                   // PSR (= marketCap / totalRevenue)
   pbr: number | null;                   // PBR (バランスシート自前計算)
+  revenueGrowth: number | null;        // 売上成長率 (%, YoY)
+  operatingMargins: number | null;     // 営業利益率 (%)
 }
 
 export async function getFinancialMetrics(symbol: string, marketCap: number): Promise<FinancialMetrics> {
-  const result: FinancialMetrics = { ncRatio: null, roe: null, fiscalYearEnd: null, currentRatio: null, pegRatio: null, equityRatio: null, totalDebt: null, profitGrowthRate: null, prevProfitGrowthRate: null, psr: null, pbr: null };
+  const result: FinancialMetrics = { ncRatio: null, roe: null, fiscalYearEnd: null, currentRatio: null, pegRatio: null, equityRatio: null, totalDebt: null, profitGrowthRate: null, prevProfitGrowthRate: null, psr: null, pbr: null, revenueGrowth: null, operatingMargins: null };
 
   try {
     const period1 = new Date();
@@ -355,6 +357,18 @@ export async function getFinancialMetrics(symbol: string, marketCap: number): Pr
     const tdVal = (fd as Record<string, unknown> | undefined)?.totalDebt as number | null ?? null;
     if (tdVal != null) {
       result.totalDebt = tdVal;
+    }
+
+    // 売上成長率（financialData.revenueGrowth）
+    const revGrowth = (fd as Record<string, unknown> | undefined)?.revenueGrowth as number | null ?? null;
+    if (revGrowth != null) {
+      result.revenueGrowth = Math.round(revGrowth * 1000) / 10; // 小数→%
+    }
+
+    // 営業利益率（financialData.operatingMargins）
+    const opMargins = (fd as Record<string, unknown> | undefined)?.operatingMargins as number | null ?? null;
+    if (opMargins != null) {
+      result.operatingMargins = Math.round(opMargins * 1000) / 10; // 小数→%
     }
 
     // 増益率: financialData.earningsGrowth 優先、なければ四半期TTM計算
