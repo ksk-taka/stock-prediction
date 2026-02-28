@@ -676,7 +676,7 @@ export default function CwhFormingPage() {
                 <td className="px-3 py-1.5 text-center text-xs text-gray-500">{marketLabel(s.marketSegment)}</td>
                 <td className="px-3 py-1.5 text-center">
                   {s.hasBuyback
-                    ? <span className="text-blue-600 dark:text-blue-400 font-bold">●</span>
+                    ? <Link href="/buyback-detail" className="text-blue-600 dark:text-blue-400 font-bold hover:underline" title="自社株買い詳細ページへ">●</Link>
                     : <span className="text-gray-300 dark:text-slate-600">－</span>}
                 </td>
                 <td className="px-3 py-1.5">
