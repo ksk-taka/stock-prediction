@@ -52,6 +52,7 @@ export interface StockTableRow {
   equityRatio: number | null;
   totalDebt: number | null;
   profitGrowthRate: number | null;
+  prevProfitGrowthRate: number | null; // 前期増益率 (%)
   revenueGrowth: number | null;      // 売上成長率 (%)
   operatingMargins: number | null;   // 営業利益率 (%)
   topixScale: string | null;

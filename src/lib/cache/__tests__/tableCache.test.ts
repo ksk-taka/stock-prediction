@@ -71,6 +71,7 @@ const createSampleRow = (symbol: string): StockTableRow => ({
   equityRatio: 45.0,
   totalDebt: 50000000000,
   profitGrowthRate: 10.0,
+  prevProfitGrowthRate: 8.0,
   revenueGrowth: 15.0,
   operatingMargins: 8.5,
   topixScale: "TOPIX Large70",
