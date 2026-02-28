@@ -197,6 +197,8 @@ export async function GET(request: NextRequest) {
     const totalDebtMap = new Map<string, number | null>();
     const profitGrowthMap = new Map<string, number | null>();
     const prevProfitGrowthMap = new Map<string, number | null>();
+    const revenueGrowthMap = new Map<string, number | null>();
+    const operatingMarginsMap = new Map<string, number | null>();
     const psrMap = new Map<string, number | null>();
     const pbrMap = new Map<string, number | null>();
     const floatingRatioMap = new Map<string, number | null>();
@@ -232,6 +234,8 @@ export async function GET(request: NextRequest) {
       if (tdHit) totalDebtMap.set(sym, cached.totalDebt ?? null);
       if (pgHit) profitGrowthMap.set(sym, cached.profitGrowthRate ?? null);
       if (cached.prevProfitGrowthRate !== undefined) prevProfitGrowthMap.set(sym, cached.prevProfitGrowthRate ?? null);
+      if (cached.revenueGrowth !== undefined) revenueGrowthMap.set(sym, cached.revenueGrowth ?? null);
+      if (cached.operatingMargins !== undefined) operatingMarginsMap.set(sym, cached.operatingMargins ?? null);
 
       const psrHit = cached.psr !== undefined;
       if (psrHit) psrMap.set(sym, cached.psr ?? null);
@@ -265,6 +269,8 @@ export async function GET(request: NextRequest) {
           if (!totalDebtMap.has(sym) && sbCache.totalDebt !== undefined) totalDebtMap.set(sym, sbCache.totalDebt ?? null);
           if (!profitGrowthMap.has(sym) && sbCache.profitGrowthRate !== undefined) profitGrowthMap.set(sym, sbCache.profitGrowthRate ?? null);
           if (!prevProfitGrowthMap.has(sym) && sbCache.prevProfitGrowthRate !== undefined) prevProfitGrowthMap.set(sym, sbCache.prevProfitGrowthRate ?? null);
+          if (!revenueGrowthMap.has(sym) && sbCache.revenueGrowth !== undefined) revenueGrowthMap.set(sym, sbCache.revenueGrowth ?? null);
+          if (!operatingMarginsMap.has(sym) && sbCache.operatingMargins !== undefined) operatingMarginsMap.set(sym, sbCache.operatingMargins ?? null);
           // TOPIX規模区分
           if (!topixMap.has(sym) && sbCache.topixScale) topixMap.set(sym, sbCache.topixScale);
         }
@@ -332,7 +338,7 @@ export async function GET(request: NextRequest) {
 
     for (const r of metricsResults) {
       if (r.status === "fulfilled") {
-        const { sym, ncRatio, roe, fiscalYearEnd, currentRatio, pegRatio, equityRatio, totalDebt, profitGrowthRate, prevProfitGrowthRate, psr: metricsPsr, pbr: metricsPbr } = r.value;
+        const { sym, ncRatio, roe, fiscalYearEnd, currentRatio, pegRatio, equityRatio, totalDebt, profitGrowthRate, prevProfitGrowthRate, psr: metricsPsr, pbr: metricsPbr, revenueGrowth, operatingMargins } = r.value;
         ncMap.set(sym, ncRatio);
         roeMap.set(sym, roe);
         fyeMap.set(sym, fiscalYearEnd);
@@ -344,6 +350,8 @@ export async function GET(request: NextRequest) {
         prevProfitGrowthMap.set(sym, prevProfitGrowthRate);
         psrMap.set(sym, metricsPsr);
         pbrMap.set(sym, metricsPbr);
+        revenueGrowthMap.set(sym, revenueGrowth);
+        operatingMarginsMap.set(sym, operatingMargins);
         const update = cacheUpdates.get(sym) ?? {};
         update.nc = ncRatio;
         update.roe = roe;
@@ -356,6 +364,8 @@ export async function GET(request: NextRequest) {
         update.prevProfitGrowthRate = prevProfitGrowthRate;
         update.psr = metricsPsr;
         update.pbr = metricsPbr;
+        update.revenueGrowth = revenueGrowth;
+        update.operatingMargins = operatingMargins;
         cacheUpdates.set(sym, update);
       }
     }
@@ -528,6 +538,8 @@ export async function GET(request: NextRequest) {
         totalDebt: totalDebtMap.get(sym) ?? null,
         profitGrowthRate: profitGrowthMap.get(sym) ?? null,
         prevProfitGrowthRate: prevProfitGrowthMap.get(sym) ?? null,
+        revenueGrowth: revenueGrowthMap.get(sym) ?? null,
+        operatingMargins: operatingMarginsMap.get(sym) ?? null,
         // TOPIX / N225 / 上場日
         topixScale: topixMap.get(sym) ?? null,
         isNikkei225: NIKKEI225_CODES.has(sym.replace(".T", "")),

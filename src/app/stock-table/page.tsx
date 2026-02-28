@@ -73,6 +73,8 @@ const COLUMNS: ColumnDef[] = [
   { key: "equityRatio", label: "自己資本比率", group: "指標", align: "right", defaultVisible: false },
   { key: "totalDebt", label: "有利子負債", group: "指標", align: "right", defaultVisible: false },
   { key: "profitGrowthRate", label: "増益率", group: "指標", align: "right", defaultVisible: false },
+  { key: "revenueGrowth", label: "売上成長率", group: "指標", align: "right", defaultVisible: false },
+  { key: "operatingMargins", label: "営業利益率", group: "指標", align: "right", defaultVisible: false },
   { key: "floatingRatio", label: "浮動株比率", group: "指標", align: "right", defaultVisible: false },
   { key: "floatingMarketCap", label: "浮動株時価総額", group: "指標", align: "right", defaultVisible: false },
   { key: "dividendYield", label: "配当利回り", group: "配当", align: "right", defaultVisible: true },
@@ -267,6 +269,9 @@ export default function StockTablePage() {
   const [equityRatioMin, setEquityRatioMin] = useState("");
   const [equityRatioMax, setEquityRatioMax] = useState("");
   const [profitGrowthMin, setProfitGrowthMin] = useState("");
+  const [revenueGrowthMin, setRevenueGrowthMin] = useState("");
+  const [operatingMarginsMin, setOperatingMarginsMin] = useState("");
+  const [listingYearsMax, setListingYearsMax] = useState("");
   const [priceMin, setPriceMin] = useState("");
   const [priceMax, setPriceMax] = useState("");
   const [yutaiOnly, setYutaiOnly] = useState(false);
@@ -480,6 +485,8 @@ export default function StockTablePage() {
         equityRatio: td?.equityRatio ?? null,
         totalDebt: td?.totalDebt ?? null,
         profitGrowthRate: td?.profitGrowthRate ?? null,
+        revenueGrowth: td?.revenueGrowth ?? null,
+        operatingMargins: td?.operatingMargins ?? null,
         topixScale: td?.topixScale ?? null,
         isNikkei225: td?.isNikkei225 ?? false,
         firstTradeDate: td?.firstTradeDate ?? null,
@@ -616,6 +623,36 @@ export default function StockTablePage() {
       }
     }
 
+    // 売上成長率フィルタ
+    if (revenueGrowthMin !== "") {
+      const min = parseFloat(revenueGrowthMin);
+      if (!isNaN(min)) {
+        rows = rows.filter((r) => r.revenueGrowth != null && r.revenueGrowth >= min);
+      }
+    }
+
+    // 営業利益率フィルタ
+    if (operatingMarginsMin !== "") {
+      const min = parseFloat(operatingMarginsMin);
+      if (!isNaN(min)) {
+        rows = rows.filter((r) => r.operatingMargins != null && r.operatingMargins >= min);
+      }
+    }
+
+    // 上場年数フィルタ
+    if (listingYearsMax !== "") {
+      const maxYears = parseFloat(listingYearsMax);
+      if (!isNaN(maxYears)) {
+        const now = Date.now();
+        rows = rows.filter((r) => {
+          if (!r.firstTradeDate) return false;
+          const listedMs = now - new Date(r.firstTradeDate).getTime();
+          const listedYears = listedMs / (365.25 * 24 * 60 * 60 * 1000);
+          return listedYears < maxYears;
+        });
+      }
+    }
+
     // 株価フィルタ
     if (priceMin !== "" || priceMax !== "") {
       const min = priceMin !== "" ? parseFloat(priceMin) : NaN;
@@ -664,7 +701,7 @@ export default function StockTablePage() {
     });
 
     return rows;
-  }, [filteredStocks, tableData, sortKey, sortDir, capSizeFilter, ncRatioMin, ncRatioMax, sharpeMin, increaseMin, roeMin, roeMax, currentRatioMin, currentRatioMax, psrMin, psrMax, pegMin, pegMax, equityRatioMin, equityRatioMax, profitGrowthMin, priceMin, priceMax, yutaiOnly, earningsFrom, earningsTo, topixFilter, nikkei225Only, marketCapMin, marketCapMax]);
+  }, [filteredStocks, tableData, sortKey, sortDir, capSizeFilter, ncRatioMin, ncRatioMax, sharpeMin, increaseMin, roeMin, roeMax, currentRatioMin, currentRatioMax, psrMin, psrMax, pegMin, pegMax, equityRatioMin, equityRatioMax, profitGrowthMin, revenueGrowthMin, operatingMarginsMin, listingYearsMax, priceMin, priceMax, yutaiOnly, earningsFrom, earningsTo, topixFilter, nikkei225Only, marketCapMin, marketCapMax]);
 
   // ── ソート切り替え ──
   function handleSort(key: SortKey) {
@@ -923,6 +960,30 @@ export default function StockTablePage() {
               : "text-red-600 dark:text-red-400"
           }>
             {row.profitGrowthRate > 0 ? "+" : ""}{row.profitGrowthRate.toFixed(1)}%
+          </span>
+        );
+      case "revenueGrowth":
+        if (row.revenueGrowth == null) return "－";
+        return (
+          <span className={
+            row.revenueGrowth >= 10 ? "text-green-600 dark:text-green-400 font-bold"
+              : row.revenueGrowth > 0 ? "text-green-600 dark:text-green-400"
+              : row.revenueGrowth < 0 ? "text-red-600 dark:text-red-400"
+              : ""
+          }>
+            {row.revenueGrowth > 0 ? "+" : ""}{row.revenueGrowth.toFixed(1)}%
+          </span>
+        );
+      case "operatingMargins":
+        if (row.operatingMargins == null) return "－";
+        return (
+          <span className={
+            row.operatingMargins >= 10 ? "text-green-600 dark:text-green-400 font-bold"
+              : row.operatingMargins >= 5 ? "text-green-600 dark:text-green-400"
+              : row.operatingMargins < 0 ? "text-red-600 dark:text-red-400"
+              : ""
+          }>
+            {row.operatingMargins.toFixed(1)}%
           </span>
         );
       case "floatingRatio":
@@ -1591,9 +1652,45 @@ export default function StockTablePage() {
           />
           <span className="text-xs text-gray-400">%以上</span>
         </div>
-        {(priceMin || priceMax || ncRatioMin || ncRatioMax || sharpeMin || increaseMin || roeMin || roeMax || currentRatioMin || currentRatioMax || psrMin || psrMax || pegMin || pegMax || equityRatioMin || equityRatioMax || profitGrowthMin || yutaiOnly || topixFilter.size > 0 || nikkei225Only || marketCapMin || marketCapMax) && (
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">売上成長率</span>
+          <input
+            type="number"
+            step="5"
+            value={revenueGrowthMin}
+            onChange={(e) => setRevenueGrowthMin(e.target.value)}
+            placeholder="10"
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">%以上</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">営業利益率</span>
+          <input
+            type="number"
+            step="1"
+            value={operatingMarginsMin}
+            onChange={(e) => setOperatingMarginsMin(e.target.value)}
+            placeholder="5"
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">%以上</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">上場</span>
+          <input
+            type="number"
+            step="1"
+            value={listingYearsMax}
+            onChange={(e) => setListingYearsMax(e.target.value)}
+            placeholder="5"
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">年未満</span>
+        </div>
+        {(priceMin || priceMax || ncRatioMin || ncRatioMax || sharpeMin || increaseMin || roeMin || roeMax || currentRatioMin || currentRatioMax || psrMin || psrMax || pegMin || pegMax || equityRatioMin || equityRatioMax || profitGrowthMin || revenueGrowthMin || operatingMarginsMin || listingYearsMax || yutaiOnly || topixFilter.size > 0 || nikkei225Only || marketCapMin || marketCapMax) && (
           <button
-            onClick={() => { setPriceMin(""); setPriceMax(""); setNcRatioMin(""); setNcRatioMax(""); setSharpeMin(""); setIncreaseMin(""); setRoeMin(""); setRoeMax(""); setCurrentRatioMin(""); setCurrentRatioMax(""); setPsrMin(""); setPsrMax(""); setPegMin(""); setPegMax(""); setEquityRatioMin(""); setEquityRatioMax(""); setProfitGrowthMin(""); setYutaiOnly(false); setTopixFilter(new Set()); setNikkei225Only(false); setMarketCapMin(""); setMarketCapMax(""); }}
+            onClick={() => { setPriceMin(""); setPriceMax(""); setNcRatioMin(""); setNcRatioMax(""); setSharpeMin(""); setIncreaseMin(""); setRoeMin(""); setRoeMax(""); setCurrentRatioMin(""); setCurrentRatioMax(""); setPsrMin(""); setPsrMax(""); setPegMin(""); setPegMax(""); setEquityRatioMin(""); setEquityRatioMax(""); setProfitGrowthMin(""); setRevenueGrowthMin(""); setOperatingMarginsMin(""); setListingYearsMax(""); setYutaiOnly(false); setTopixFilter(new Set()); setNikkei225Only(false); setMarketCapMin(""); setMarketCapMax(""); }}
             className="rounded-full px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
           >
             クリア

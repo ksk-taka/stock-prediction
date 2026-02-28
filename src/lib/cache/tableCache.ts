@@ -4,8 +4,8 @@
  */
 import { get, set, del } from "idb-keyval";
 
-const CACHE_KEY = "stock-table-v2";
-const CACHE_VERSION = 2; // PSR/PEG計算改善に伴いキャッシュ無効化
+const CACHE_KEY = "stock-table-v3";
+const CACHE_VERSION = 3; // revenueGrowth/operatingMargins追加
 const CACHE_TTL = 6 * 60 * 60 * 1000; // 6時間
 
 // page.tsx 側と同じ型 (re-export用にここでも定義)
@@ -52,6 +52,8 @@ export interface StockTableRow {
   equityRatio: number | null;
   totalDebt: number | null;
   profitGrowthRate: number | null;
+  revenueGrowth: number | null;      // 売上成長率 (%)
+  operatingMargins: number | null;   // 営業利益率 (%)
   topixScale: string | null;
   isNikkei225: boolean;
   firstTradeDate: string | null;
