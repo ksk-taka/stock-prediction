@@ -613,6 +613,7 @@ export async function getQuoteBatch(symbols: string[]) {
       yearLow: (r.fiftyTwoWeekLow as number) ?? null,
       marketCap: (r.marketCap as number) ?? 0,
       dividendYield: (r.trailingAnnualDividendYield as number) ?? null,
+      averageDailyVolume3Month: (r.averageDailyVolume3Month as number) ?? null,
       sharesOutstanding: (r.sharesOutstanding as number) ?? null,
       psr: (r.priceToSalesTrailing12Months as number) ?? null,
       earningsDate:

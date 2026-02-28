@@ -28,6 +28,8 @@
     "walkforward": "npx tsx scripts/walkforward.ts",
     "walkforward:all": "npx tsx scripts/walkforward.ts --all",
     "scan:buyback": "npx tsx scripts/scan-buyback.ts",
+    "fetch:buyback:detail": "npx tsx scripts/fetch-buyback-detail.ts",
+    "fetch:buyback:detail:force": "npx tsx scripts/fetch-buyback-detail.ts --force",
     "scan:highs": "npx tsx scripts/scan-new-highs.ts",
     "scan:highs:csv": "npx tsx scripts/scan-new-highs.ts --csv",
     "scan:cwh": "npx tsx scripts/scan-cwh-forming.ts",
