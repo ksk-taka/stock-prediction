@@ -285,6 +285,12 @@ export default function StockTablePage() {
   const [priceMax, setPriceMax] = useState("");
   const [yutaiOnly, setYutaiOnly] = useState(false);
   const [buybackOnly, setBuybackOnly] = useState(false);
+  const [bbProgressAmtMin, setBbProgressAmtMin] = useState("");
+  const [bbProgressAmtMax, setBbProgressAmtMax] = useState("");
+  const [bbProgressShrMin, setBbProgressShrMin] = useState("");
+  const [bbProgressShrMax, setBbProgressShrMax] = useState("");
+  const [bbImpactMin, setBbImpactMin] = useState("");
+  const [bbImpactMax, setBbImpactMax] = useState("");
 
   // TOPIX / N225 / 時価総額範囲フィルタ
   const [topixFilter, setTopixFilter] = useState<Set<string>>(new Set());
@@ -693,6 +699,25 @@ export default function StockTablePage() {
       rows = rows.filter((r) => r.hasBuyback === true);
     }
 
+    // 自社株買い範囲フィルタ
+    {
+      const rf = (items: MergedRow[], getter: (r: MergedRow) => number | null | undefined, min: string, max: string): MergedRow[] => {
+        const lo = min !== "" ? parseFloat(min) : NaN;
+        const hi = max !== "" ? parseFloat(max) : NaN;
+        if (isNaN(lo) && isNaN(hi)) return items;
+        return items.filter((r) => {
+          const v = getter(r);
+          if (v == null) return false;
+          if (!isNaN(lo) && v < lo) return false;
+          if (!isNaN(hi) && v > hi) return false;
+          return true;
+        });
+      };
+      rows = rf(rows, (r) => r.buybackProgressAmount, bbProgressAmtMin, bbProgressAmtMax);
+      rows = rf(rows, (r) => r.buybackProgressShares, bbProgressShrMin, bbProgressShrMax);
+      rows = rf(rows, (r) => r.buybackImpactDays, bbImpactMin, bbImpactMax);
+    }
+
     // 決算発表日フィルタ
     if (earningsFrom || earningsTo) {
       rows = rows.filter((r) => {
@@ -725,7 +750,7 @@ export default function StockTablePage() {
     });
 
     return rows;
-  }, [filteredStocks, tableData, sortKey, sortDir, capSizeFilter, ncRatioMin, ncRatioMax, sharpeMin, increaseMin, roeMin, roeMax, currentRatioMin, currentRatioMax, psrMin, psrMax, pegMin, pegMax, equityRatioMin, equityRatioMax, profitGrowthMin, revenueGrowthMin, operatingMarginsMin, listingYearsMax, priceMin, priceMax, yutaiOnly, buybackOnly, earningsFrom, earningsTo, topixFilter, nikkei225Only, marketCapMin, marketCapMax]);
+  }, [filteredStocks, tableData, sortKey, sortDir, capSizeFilter, ncRatioMin, ncRatioMax, sharpeMin, increaseMin, roeMin, roeMax, currentRatioMin, currentRatioMax, psrMin, psrMax, pegMin, pegMax, equityRatioMin, equityRatioMax, profitGrowthMin, revenueGrowthMin, operatingMarginsMin, listingYearsMax, priceMin, priceMax, yutaiOnly, buybackOnly, bbProgressAmtMin, bbProgressAmtMax, bbProgressShrMin, bbProgressShrMax, bbImpactMin, bbImpactMax, earningsFrom, earningsTo, topixFilter, nikkei225Only, marketCapMin, marketCapMax]);
 
   // ── ソート切り替え ──
   function handleSort(key: SortKey) {
@@ -1752,9 +1777,30 @@ export default function StockTablePage() {
           />
           <span className="text-xs text-gray-400">年未満</span>
         </div>
-        {(priceMin || priceMax || ncRatioMin || ncRatioMax || sharpeMin || increaseMin || roeMin || roeMax || currentRatioMin || currentRatioMax || psrMin || psrMax || pegMin || pegMax || equityRatioMin || equityRatioMax || profitGrowthMin || revenueGrowthMin || operatingMarginsMin || listingYearsMax || yutaiOnly || buybackOnly || topixFilter.size > 0 || nikkei225Only || marketCapMin || marketCapMax) && (
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">金額進捗</span>
+          <input type="number" step="1" value={bbProgressAmtMin} onChange={(e) => setBbProgressAmtMin(e.target.value)} placeholder="50" className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
+          <span className="text-xs text-gray-400">%〜</span>
+          <input type="number" step="1" value={bbProgressAmtMax} onChange={(e) => setBbProgressAmtMax(e.target.value)} placeholder="" className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
+          <span className="text-xs text-gray-400">%</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">株数進捗</span>
+          <input type="number" step="1" value={bbProgressShrMin} onChange={(e) => setBbProgressShrMin(e.target.value)} placeholder="50" className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
+          <span className="text-xs text-gray-400">%〜</span>
+          <input type="number" step="1" value={bbProgressShrMax} onChange={(e) => setBbProgressShrMax(e.target.value)} placeholder="" className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
+          <span className="text-xs text-gray-400">%</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">インパクト</span>
+          <input type="number" step="1" value={bbImpactMin} onChange={(e) => setBbImpactMin(e.target.value)} placeholder="" className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
+          <span className="text-xs text-gray-400">日〜</span>
+          <input type="number" step="1" value={bbImpactMax} onChange={(e) => setBbImpactMax(e.target.value)} placeholder="60" className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
+          <span className="text-xs text-gray-400">日</span>
+        </div>
+        {(priceMin || priceMax || ncRatioMin || ncRatioMax || sharpeMin || increaseMin || roeMin || roeMax || currentRatioMin || currentRatioMax || psrMin || psrMax || pegMin || pegMax || equityRatioMin || equityRatioMax || profitGrowthMin || revenueGrowthMin || operatingMarginsMin || listingYearsMax || yutaiOnly || buybackOnly || bbProgressAmtMin || bbProgressAmtMax || bbProgressShrMin || bbProgressShrMax || bbImpactMin || bbImpactMax || topixFilter.size > 0 || nikkei225Only || marketCapMin || marketCapMax) && (
           <button
-            onClick={() => { setPriceMin(""); setPriceMax(""); setNcRatioMin(""); setNcRatioMax(""); setSharpeMin(""); setIncreaseMin(""); setRoeMin(""); setRoeMax(""); setCurrentRatioMin(""); setCurrentRatioMax(""); setPsrMin(""); setPsrMax(""); setPegMin(""); setPegMax(""); setEquityRatioMin(""); setEquityRatioMax(""); setProfitGrowthMin(""); setRevenueGrowthMin(""); setOperatingMarginsMin(""); setListingYearsMax(""); setYutaiOnly(false); setBuybackOnly(false); setTopixFilter(new Set()); setNikkei225Only(false); setMarketCapMin(""); setMarketCapMax(""); }}
+            onClick={() => { setPriceMin(""); setPriceMax(""); setNcRatioMin(""); setNcRatioMax(""); setSharpeMin(""); setIncreaseMin(""); setRoeMin(""); setRoeMax(""); setCurrentRatioMin(""); setCurrentRatioMax(""); setPsrMin(""); setPsrMax(""); setPegMin(""); setPegMax(""); setEquityRatioMin(""); setEquityRatioMax(""); setProfitGrowthMin(""); setRevenueGrowthMin(""); setOperatingMarginsMin(""); setListingYearsMax(""); setYutaiOnly(false); setBuybackOnly(false); setBbProgressAmtMin(""); setBbProgressAmtMax(""); setBbProgressShrMin(""); setBbProgressShrMax(""); setBbImpactMin(""); setBbImpactMax(""); setTopixFilter(new Set()); setNikkei225Only(false); setMarketCapMin(""); setMarketCapMax(""); }}
             className="rounded-full px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
           >
             クリア

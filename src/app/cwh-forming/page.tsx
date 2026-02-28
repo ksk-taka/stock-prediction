@@ -157,6 +157,12 @@ export default function CwhFormingPage() {
   const [growthMax, setGrowthMax] = useState("");
   const [prevGrowthMin, setPrevGrowthMin] = useState("");
   const [prevGrowthMax, setPrevGrowthMax] = useState("");
+  const [bbProgressAmtMin, setBbProgressAmtMin] = useState("");
+  const [bbProgressAmtMax, setBbProgressAmtMax] = useState("");
+  const [bbProgressShrMin, setBbProgressShrMin] = useState("");
+  const [bbProgressShrMax, setBbProgressShrMax] = useState("");
+  const [bbImpactMin, setBbImpactMin] = useState("");
+  const [bbImpactMax, setBbImpactMax] = useState("");
 
   // グループ関連
   const [allGroups, setAllGroups] = useState<WatchlistGroup[]>([]);
@@ -485,6 +491,9 @@ export default function CwhFormingPage() {
     list = rangeFilter(list, (s) => s.equityRatio, eqRatioMin, eqRatioMax);
     list = rangeFilter(list, (s) => s.profitGrowthRate, growthMin, growthMax);
     list = rangeFilter(list, (s) => s.prevProfitGrowthRate, prevGrowthMin, prevGrowthMax);
+    list = rangeFilter(list, (s) => s.buybackProgressAmount, bbProgressAmtMin, bbProgressAmtMax);
+    list = rangeFilter(list, (s) => s.buybackProgressShares, bbProgressShrMin, bbProgressShrMax);
+    list = rangeFilter(list, (s) => s.buybackImpactDays, bbImpactMin, bbImpactMax);
 
     // ソート
     list = [...list].sort((a, b) => {
@@ -503,7 +512,7 @@ export default function CwhFormingPage() {
     });
 
     return list;
-  }, [stocks, search, marketFilter, stageFilter, buybackOnly, sortKey, sortDir, selectedGroupIds, watchlistGroupMap, distanceMin, distanceMax, pullbackMin, pullbackMax, handleDaysMin, handleDaysMax, cupDaysMin, cupDaysMax, cupDepthMin, cupDepthMax, priceMin, priceMax, mcapMin, mcapMax, sharpe3mMin, sharpe3mMax, sharpe6mMin, sharpe6mMax, sharpe1yMin, sharpe1yMax, roeMin, roeMax, eqRatioMin, eqRatioMax, growthMin, growthMax, prevGrowthMin, prevGrowthMax]);
+  }, [stocks, search, marketFilter, stageFilter, buybackOnly, sortKey, sortDir, selectedGroupIds, watchlistGroupMap, distanceMin, distanceMax, pullbackMin, pullbackMax, handleDaysMin, handleDaysMax, cupDaysMin, cupDaysMax, cupDepthMin, cupDepthMax, priceMin, priceMax, mcapMin, mcapMax, sharpe3mMin, sharpe3mMax, sharpe6mMin, sharpe6mMax, sharpe1yMin, sharpe1yMax, roeMin, roeMax, eqRatioMin, eqRatioMax, growthMin, growthMax, prevGrowthMin, prevGrowthMax, bbProgressAmtMin, bbProgressAmtMax, bbProgressShrMin, bbProgressShrMax, bbImpactMin, bbImpactMax]);
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -859,6 +868,9 @@ export default function CwhFormingPage() {
         <RangeInput label="自己資本%" min={eqRatioMin} max={eqRatioMax} setMin={setEqRatioMin} setMax={setEqRatioMax} />
         <RangeInput label="増益率%" min={growthMin} max={growthMax} setMin={setGrowthMin} setMax={setGrowthMax} />
         <RangeInput label="前期増益%" min={prevGrowthMin} max={prevGrowthMax} setMin={setPrevGrowthMin} setMax={setPrevGrowthMax} />
+        <RangeInput label="金額進捗%" min={bbProgressAmtMin} max={bbProgressAmtMax} setMin={setBbProgressAmtMin} setMax={setBbProgressAmtMax} />
+        <RangeInput label="株数進捗%" min={bbProgressShrMin} max={bbProgressShrMax} setMin={setBbProgressShrMin} setMax={setBbProgressShrMax} />
+        <RangeInput label="インパクト日" min={bbImpactMin} max={bbImpactMax} setMin={setBbImpactMin} setMax={setBbImpactMax} />
       </div>
 
       {/* Table */}
