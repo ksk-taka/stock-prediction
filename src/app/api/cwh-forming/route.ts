@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getBuybackCodesWithFallback } from "@/lib/cache/buybackCache";
 
 export const dynamic = "force-dynamic";
 
 const isVercel = !!process.env.VERCEL;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function enrichWithBuyback(stocks: any[], buybackSet: Set<string> | null) {
+  return stocks.map((s) => ({
+    ...s,
+    hasBuyback: buybackSet ? buybackSet.has(s.symbol?.replace(".T", "") ?? "") : false,
+  }));
+}
 
 export async function GET() {
   try {
@@ -48,9 +57,12 @@ async function getFromSupabase(): Promise<NextResponse | null> {
 
   if (error || !data) return null;
 
-  const stocks = typeof data.stocks === "string"
+  const rawStocks = typeof data.stocks === "string"
     ? JSON.parse(data.stocks)
     : data.stocks;
+
+  const buybackSet = await getBuybackCodesWithFallback();
+  const stocks = enrichWithBuyback(rawStocks, buybackSet);
 
   return NextResponse.json({
     stocks,
@@ -74,6 +86,9 @@ async function getFromJson(): Promise<NextResponse> {
     });
   }
 
-  const data = JSON.parse(readFileSync(jsonPath, "utf-8"));
-  return NextResponse.json(data);
+  const raw = JSON.parse(readFileSync(jsonPath, "utf-8"));
+  const buybackSet = await getBuybackCodesWithFallback();
+  const stocks = enrichWithBuyback(raw.stocks ?? [], buybackSet);
+
+  return NextResponse.json({ ...raw, stocks });
 }

@@ -12,6 +12,7 @@ import { isMarketOpen } from "@/lib/utils/date";
 import { getCachedMaster } from "@/lib/cache/jquantsCache";
 import { NIKKEI225_CODES } from "@/data/nikkei225";
 import { getCachedEdinetFinancials } from "@/lib/cache/edinetCache";
+import { getBuybackCodesWithFallback } from "@/lib/cache/buybackCache";
 
 interface PriceBar {
   date: string;
@@ -455,11 +456,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // 5d. 自社株買いキャッシュ（ファイル → Supabaseフォールバック）
+    const buybackSet = await getBuybackCodesWithFallback();
+
     // 6. 結合
     const rows = symbols.map((sym) => {
       const q = quoteMap.get(sym);
       const r = rangeMap.get(sym);
       const yutai = yutaiMap.get(sym);
+      const code = sym.replace(".T", "");
 
       // 売り推奨日の計算（権利付最終日の2営業日前）
       let sellRecommendDate: string | null = null;
@@ -554,6 +559,8 @@ export async function GET(request: NextRequest) {
           if (fr != null && so && price) return price * so * fr;
           return null;
         })(),
+        // 自社株買い
+        hasBuyback: buybackSet ? buybackSet.has(code) : null,
       };
     });
 

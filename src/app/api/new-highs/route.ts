@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getCachedStats } from "@/lib/cache/statsCache";
+import { getBuybackCodesWithFallback } from "@/lib/cache/buybackCache";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,7 @@ interface NewHighStock {
   prevDayVolume: number | null;
   avgVolume5d: number | null;
   volumeRatio: number | null;
+  hasBuyback: boolean;
 }
 
 const isVercel = !!process.env.VERCEL;
@@ -79,8 +81,9 @@ async function getFromSupabase(): Promise<NextResponse | null> {
     ? JSON.parse(data.stocks)
     : data.stocks;
 
-  // statsキャッシュから簡易NC率を補完
-  const stocks = enrichWithCachedStats(rawStocks);
+  // statsキャッシュから簡易NC率を補完 + 自社株買い情報付与
+  const buybackSet = await getBuybackCodesWithFallback();
+  const stocks = enrichWithCachedStats(rawStocks, buybackSet);
 
   return NextResponse.json({
     stocks,
@@ -91,7 +94,7 @@ async function getFromSupabase(): Promise<NextResponse | null> {
   });
 }
 
-function enrichWithCachedStats(stocks: NewHighStock[]): NewHighStock[] {
+function enrichWithCachedStats(stocks: NewHighStock[], buybackSet: Set<string> | null): NewHighStock[] {
   return stocks.map((s) => {
     const cached = getCachedStats(s.symbol);
     return {
@@ -99,6 +102,7 @@ function enrichWithCachedStats(stocks: NewHighStock[]): NewHighStock[] {
       simpleNcRatio: s.simpleNcRatio ?? cached?.simpleNcRatio ?? null,
       marketCap: s.marketCap ?? cached?.marketCap ?? null,
       currentRatio: s.currentRatio ?? cached?.currentRatio ?? null,
+      hasBuyback: buybackSet ? buybackSet.has(s.code) : false,
     };
   });
 }
@@ -153,6 +157,7 @@ function parseRow(header: string[], row: string): NewHighStock | null {
     prevDayVolume: num("prevDayVolume"),
     avgVolume5d: num("avgVolume5d"),
     volumeRatio: num("volumeRatio"),
+    hasBuyback: false,
   };
 }
 
@@ -193,5 +198,6 @@ async function getFromCsv(): Promise<NextResponse> {
     if (row) stocks.push(row);
   }
 
-  return NextResponse.json({ stocks: enrichWithCachedStats(stocks), scannedAt, file: latestFile });
+  const buybackSet = await getBuybackCodesWithFallback();
+  return NextResponse.json({ stocks: enrichWithCachedStats(stocks, buybackSet), scannedAt, file: latestFile });
 }

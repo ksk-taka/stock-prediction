@@ -31,6 +31,7 @@ interface CwhStock {
   equityRatio: number | null;
   profitGrowthRate: number | null;
   prevProfitGrowthRate: number | null;
+  hasBuyback: boolean;
 }
 
 type SortKey = keyof CwhStock;
@@ -40,6 +41,7 @@ const COLUMNS: { key: SortKey; label: string; align: "left" | "right"; tooltip?:
   { key: "symbol", label: "コード", align: "left", tooltip: "銘柄コード" },
   { key: "name", label: "銘柄名", align: "left" },
   { key: "marketSegment", label: "市場", align: "left", tooltip: "プライム(P)/スタンダード(S)/グロース(G)" },
+  { key: "hasBuyback", label: "自株買", align: "left", tooltip: "直近90日間に自社株買い実施/発表あり" },
   { key: "stage", label: "ステージ", align: "left", tooltip: "READY: BO価格まで5%以内で反発中\nFORMING: ハンドル形成中" },
   { key: "currentPrice", label: "現在値", align: "right" },
   { key: "breakoutPrice", label: "BO価格", align: "right", tooltip: "ブレイクアウト価格（右リム高値）" },
@@ -81,6 +83,7 @@ export default function CwhFormingPage() {
   const [search, setSearch] = useState("");
   const [marketFilter, setMarketFilter] = useState<Set<string>>(new Set());
   const [stageFilter, setStageFilter] = useState<string>("all"); // "all" | "handle_ready" | "handle_forming"
+  const [buybackOnly, setBuybackOnly] = useState(false);
 
   // 範囲フィルタ
   const [distanceMin, setDistanceMin] = useState("");
@@ -347,6 +350,11 @@ export default function CwhFormingPage() {
       list = list.filter((s) => s.stage === stageFilter);
     }
 
+    // 自社株買いフィルタ
+    if (buybackOnly) {
+      list = list.filter((s) => s.hasBuyback);
+    }
+
     // 範囲フィルタ共通ヘルパー (null値はフィルタ対象外 = 通過)
     const rangeFilter = (
       items: CwhStock[],
@@ -398,7 +406,7 @@ export default function CwhFormingPage() {
     });
 
     return list;
-  }, [stocks, search, marketFilter, stageFilter, sortKey, sortDir, selectedGroupIds, watchlistGroupMap, distanceMin, distanceMax, pullbackMin, pullbackMax, handleDaysMin, handleDaysMax, cupDaysMin, cupDaysMax, cupDepthMin, cupDepthMax, priceMin, priceMax, mcapMin, mcapMax, sharpe3mMin, sharpe3mMax, sharpe6mMin, sharpe6mMax, sharpe1yMin, sharpe1yMax, roeMin, roeMax, eqRatioMin, eqRatioMax, growthMin, growthMax, prevGrowthMin, prevGrowthMax]);
+  }, [stocks, search, marketFilter, stageFilter, buybackOnly, sortKey, sortDir, selectedGroupIds, watchlistGroupMap, distanceMin, distanceMax, pullbackMin, pullbackMax, handleDaysMin, handleDaysMax, cupDaysMin, cupDaysMax, cupDepthMin, cupDepthMax, priceMin, priceMax, mcapMin, mcapMax, sharpe3mMin, sharpe3mMax, sharpe6mMin, sharpe6mMax, sharpe1yMin, sharpe1yMax, roeMin, roeMax, eqRatioMin, eqRatioMax, growthMin, growthMax, prevGrowthMin, prevGrowthMax]);
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -518,6 +526,16 @@ export default function CwhFormingPage() {
           <option value="handle_ready">READY のみ</option>
           <option value="handle_forming">FORMING のみ</option>
         </select>
+
+        <label className="flex items-center gap-1 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={buybackOnly}
+            onChange={(e) => setBuybackOnly(e.target.checked)}
+            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800"
+          />
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">自株買あり</span>
+        </label>
 
         {/* Group filter dropdown */}
         {allGroups.length > 0 && (
@@ -656,6 +674,11 @@ export default function CwhFormingPage() {
                 </td>
                 <td className="max-w-[150px] truncate px-3 py-1.5">{s.name}</td>
                 <td className="px-3 py-1.5 text-center text-xs text-gray-500">{marketLabel(s.marketSegment)}</td>
+                <td className="px-3 py-1.5 text-center">
+                  {s.hasBuyback
+                    ? <span className="text-blue-600 dark:text-blue-400 font-bold">●</span>
+                    : <span className="text-gray-300 dark:text-slate-600">－</span>}
+                </td>
                 <td className="px-3 py-1.5">
                   <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${stageColor(s.stage)}`}>
                     {s.stage === "handle_ready" ? "READY" : "FORMING"}

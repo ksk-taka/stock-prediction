@@ -60,6 +60,7 @@ export interface StockTableRow {
   sharesOutstanding: number | null;
   floatingRatio: number | null;
   floatingMarketCap: number | null;
+  hasBuyback: boolean | null;
 }
 
 interface CacheEnvelope {

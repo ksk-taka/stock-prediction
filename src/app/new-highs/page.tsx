@@ -33,6 +33,7 @@ interface Stock {
   prevDayVolume: number | null;
   avgVolume5d: number | null;
   volumeRatio: number | null;
+  hasBuyback: boolean;
 }
 
 type SortKey = keyof Stock;
@@ -42,6 +43,7 @@ const COLUMNS: { key: SortKey; label: string; align: "left" | "right"; width?: s
   { key: "code", label: "コード", align: "left", tooltip: "銘柄コード（4桁）" },
   { key: "name", label: "銘柄名", align: "left", width: "min-w-[120px]" },
   { key: "market", label: "市場", align: "left", tooltip: "東証プライム(P)/スタンダード(S)/グロース(G)" },
+  { key: "hasBuyback", label: "自株買", align: "left", tooltip: "直近90日間に自社株買い実施/発表あり" },
   { key: "currentYfPrice", label: "株価", align: "right", tooltip: "Yahoo Finance取得の現在株価" },
   { key: "changePct", label: "前日比%", align: "right", tooltip: "前日終値からの変動率" },
   { key: "per", label: "PER", align: "right", tooltip: "株価収益率 = 株価 ÷ 1株利益(EPS)" },
@@ -83,6 +85,7 @@ export default function NewHighsPage() {
   const [search, setSearch] = useState("");
   const [breakoutOnly, setBreakoutOnly] = useState(true);
   const [consolidationOnly, setConsolidationOnly] = useState(false);
+  const [buybackOnly, setBuybackOnly] = useState(false);
   const [capSizeFilter, setCapSizeFilter] = useState<Set<string>>(new Set());
   // 数値範囲フィルタ
   const [perMin, setPerMin] = useState("");
@@ -272,6 +275,7 @@ export default function NewHighsPage() {
     });
     if (breakoutOnly) list = list.filter((s) => s.isTrue52wBreakout);
     if (consolidationOnly) list = list.filter((s) => s.consolidationDays >= 10);
+    if (buybackOnly) list = list.filter((s) => s.hasBuyback);
     if (capSizeFilter.size > 0) list = list.filter((s) => {
       const cs = getCapSize(s.marketCap);
       return cs !== null && capSizeFilter.has(cs);
@@ -366,7 +370,7 @@ export default function NewHighsPage() {
       return 0;
     });
     return list;
-  }, [stocks, sortKey, sortDir, marketFilter, search, breakoutOnly, consolidationOnly, capSizeFilter, selectedGroupIds, watchlistGroupMap, marketCapMin, marketCapMax, perMin, perMax, priceMin, priceMax, consolidationMin, consolidationMax, currentRatioMin, currentRatioMax, volumeRatioMin, volumeRatioMax]);
+  }, [stocks, sortKey, sortDir, marketFilter, search, breakoutOnly, consolidationOnly, buybackOnly, capSizeFilter, selectedGroupIds, watchlistGroupMap, marketCapMin, marketCapMax, perMin, perMax, priceMin, priceMax, consolidationMin, consolidationMax, currentRatioMin, currentRatioMax, volumeRatioMin, volumeRatioMax]);
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -761,6 +765,15 @@ export default function NewHighsPage() {
           />
           <span className="text-xs font-medium text-gray-500 dark:text-slate-400">もみ合いあり</span>
         </label>
+        <label className="flex items-center gap-1 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={buybackOnly}
+            onChange={(e) => setBuybackOnly(e.target.checked)}
+            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800"
+          />
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">自株買あり</span>
+        </label>
       </div>
 
       {/* フィルタ Row 2: 数値範囲フィルタ */}
@@ -958,6 +971,11 @@ export default function NewHighsPage() {
                 </td>
                 <td className="whitespace-nowrap px-3 py-2 text-gray-500 dark:text-slate-400">
                   {s.market}
+                </td>
+                <td className="whitespace-nowrap px-3 py-2 text-center">
+                  {s.hasBuyback
+                    ? <span className="text-blue-600 dark:text-blue-400 font-bold">●</span>
+                    : <span className="text-gray-300 dark:text-slate-600">－</span>}
                 </td>
                 <td className="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums">
                   {s.currentYfPrice.toLocaleString()}
