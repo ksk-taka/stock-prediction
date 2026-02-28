@@ -468,7 +468,7 @@ export default function StockTablePage() {
       return {
         symbol: s.symbol,
         code: s.symbol.replace(".T", ""),
-        name: td?.name ?? s.name,
+        name: (td?.name && td.name !== s.symbol) ? td.name : s.name,
         market: s.marketSegment ?? "",
         marketSegment: s.marketSegment,
         favorite: s.favorite,
