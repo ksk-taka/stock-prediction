@@ -132,6 +132,8 @@ export default function BuybackDetailPage() {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [search, setSearch] = useState("");
   const [activeOnly, setActiveOnly] = useState(true);
+  const [scanning, setScanning] = useState(false);
+  const [scanMessage, setScanMessage] = useState<string | null>(null);
 
   // グループ関連
   const [allGroups, setAllGroups] = useState<WatchlistGroup[]>([]);
@@ -185,6 +187,24 @@ export default function BuybackDetailPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const handleScan = async () => {
+    setScanning(true);
+    setScanMessage(null);
+    try {
+      const res = await fetch("/api/buyback-detail/scan", { method: "POST" });
+      const data = await res.json();
+      if (data.ok) {
+        setScanMessage(data.message);
+      } else {
+        setScanMessage(`エラー: ${data.error}`);
+      }
+    } catch {
+      setScanMessage("スキャンの開始に失敗しました");
+    } finally {
+      setScanning(false);
+    }
+  };
 
   const handleEditGroups = (symbol: string, event: React.MouseEvent) => {
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
@@ -326,6 +346,13 @@ export default function BuybackDetailPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={handleScan}
+            disabled={scanning}
+            className="rounded-lg border border-blue-300 bg-white px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-50 dark:border-blue-600 dark:bg-slate-800 dark:text-blue-400 dark:hover:bg-slate-700"
+          >
+            {scanning ? "スキャン中..." : "スキャン実行"}
+          </button>
           <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
             {filtered.length} / {stocks.length}
           </span>
@@ -351,6 +378,11 @@ export default function BuybackDetailPage() {
         </div>
       </div>
 
+      {scanMessage && (
+        <div className={`rounded-lg p-3 text-sm ${scanMessage.startsWith("エラー") ? "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300" : "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300"}`}>
+          {scanMessage}
+        </div>
+      )}
       {error && (
         <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
           {error}
