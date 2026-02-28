@@ -22,6 +22,7 @@ import {
   getCachedBuybackDetail,
   setCachedBuybackDetail,
   setBuybackDetailToSupabase,
+  getBuybackDetailFromSupabase,
 } from "../src/lib/cache/buybackDetailCache";
 import { getCachedBuybackCodes, getBuybackCodesWithFallback } from "../src/lib/cache/buybackCache";
 import type { BuybackDetail } from "../src/types/buyback";
@@ -67,13 +68,25 @@ async function main() {
 
   const symbols = await loadTargetSymbols();
 
-  // キャッシュ済みをスキップ
+  // キャッシュ済みをスキップ (ファイル + Supabase)
   let targets = symbols;
   if (!forceRefresh) {
+    // まずファイルキャッシュでフィルタ
     targets = symbols.filter((s) => {
       const code = s.replace(".T", "");
       return !getCachedBuybackDetail(code);
     });
+
+    // Supabaseにもあればスキップ (GHA等ファイルキャッシュがない環境用)
+    const hasSupabaseEnv = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+    if (hasSupabaseEnv && targets.length > 0) {
+      const codes = targets.map((s) => s.replace(".T", ""));
+      const sbCached = await getBuybackDetailFromSupabase(codes);
+      if (sbCached.size > 0) {
+        targets = targets.filter((s) => !sbCached.has(s.replace(".T", "")));
+      }
+    }
+
     if (targets.length < symbols.length) {
       console.log(`キャッシュ済み: ${symbols.length - targets.length} 銘柄 (スキップ)`);
     }
@@ -94,34 +107,48 @@ async function main() {
   const start = Date.now();
   const results = new Map<string, BuybackDetail>();
 
+  const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const sbBatch = new Map<string, BuybackDetail>();
+  const SB_FLUSH_SIZE = 50; // 50件ごとにSupabase保存
+
+  const flushToSupabase = async () => {
+    if (sbBatch.size > 0 && hasSupabase) {
+      await setBuybackDetailToSupabase(sbBatch);
+      console.log(`\n  → Supabase保存: ${sbBatch.size}件`);
+      sbBatch.clear();
+    }
+  };
+
   if (targets.length === 1) {
     // 単一銘柄
     const detail = await fetchBuybackDetail(targets[0]);
     if (detail) {
       results.set(detail.stockCode, detail);
       setCachedBuybackDetail(detail.stockCode, detail);
+      sbBatch.set(detail.stockCode, detail);
     }
   } else {
-    // バッチ取得
-    const batchResults = await fetchBuybackDetailBatch(targets, {
+    // バッチ取得 (onResult で逐次保存)
+    await fetchBuybackDetailBatch(targets, {
       onProgress: (done, total, symbol) => {
         process.stdout.write(`\r[${done}/${total}] ${symbol}    `);
       },
+      onResult: async (code, detail) => {
+        results.set(code, detail);
+        setCachedBuybackDetail(code, detail);
+        sbBatch.set(code, detail);
+        if (sbBatch.size >= SB_FLUSH_SIZE) {
+          await flushToSupabase();
+        }
+      },
     });
-    for (const [code, detail] of batchResults) {
-      results.set(code, detail);
-      setCachedBuybackDetail(code, detail);
-    }
     console.log(""); // 改行
   }
 
   const elapsed = ((Date.now() - start) / 1000).toFixed(1);
 
-  // Supabase保存
-  if (results.size > 0 && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    await setBuybackDetailToSupabase(results);
-    console.log(`Supabase保存完了`);
-  }
+  // 残りをSupabase保存
+  await flushToSupabase();
 
   // サマリーテーブル出力
   console.log(`\n=== 結果: ${results.size} 銘柄 (${elapsed}秒) ===\n`);

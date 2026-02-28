@@ -10,7 +10,7 @@ on:
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 90
 
     steps:
       - uses: actions/checkout@v4
@@ -28,9 +28,14 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SYMBOLS: ${{ github.event.client_payload.symbols }}
+          FORCE: ${{ github.event.client_payload.force }}
         run: |
+          FORCE_FLAG=""
+          if [ "$FORCE" = "true" ] || [ "${{ github.event_name }}" = "schedule" ]; then
+            FORCE_FLAG="--force"
+          fi
           if [ -n "$SYMBOLS" ]; then
             npx tsx scripts/fetch-buyback-detail.ts --force --symbol "$SYMBOLS"
           else
-            npx tsx scripts/fetch-buyback-detail.ts --force
+            npx tsx scripts/fetch-buyback-detail.ts $FORCE_FLAG
           fi

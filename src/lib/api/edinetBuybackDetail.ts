@@ -372,7 +372,11 @@ export async function fetchBuybackDetail(
  */
 export async function fetchBuybackDetailBatch(
   symbols: string[],
-  opts?: { scanDays?: number; onProgress?: (done: number, total: number, symbol: string) => void },
+  opts?: {
+    scanDays?: number;
+    onProgress?: (done: number, total: number, symbol: string) => void;
+    onResult?: (code: string, detail: BuybackDetail) => void | Promise<void>;
+  },
 ): Promise<Map<string, BuybackDetail>> {
   const apiKey = process.env.EDINET_API_KEY;
   if (!apiKey) throw new Error("EDINET_API_KEY が設定されていません");
@@ -395,6 +399,7 @@ export async function fetchBuybackDetailBatch(
     const detail = await fetchBuybackDetail(`${code}.T`, { existingDocs: docs });
     if (detail) {
       results.set(code, detail);
+      await opts?.onResult?.(code, detail);
     }
   }
 
