@@ -77,7 +77,15 @@ const COLUMNS: ColumnDef[] = [
   { key: "operatingMargins", label: "営業利益率", group: "指標", align: "right", defaultVisible: false },
   { key: "floatingRatio", label: "浮動株比率", group: "指標", align: "right", defaultVisible: false },
   { key: "floatingMarketCap", label: "浮動株時価総額", group: "指標", align: "right", defaultVisible: false },
-  { key: "hasBuyback", label: "自株買", group: "指標", align: "left", defaultVisible: false },
+  { key: "hasBuyback", label: "自株買", group: "自株買", align: "left", defaultVisible: false },
+  { key: "buybackProgressAmount", label: "金額進捗%", group: "自株買", align: "right", defaultVisible: false },
+  { key: "buybackProgressShares", label: "株数進捗%", group: "自株買", align: "right", defaultVisible: false },
+  { key: "buybackImpactDays", label: "インパクト日", group: "自株買", align: "right", defaultVisible: false },
+  { key: "buybackMaxAmount", label: "取得上限", group: "自株買", align: "right", defaultVisible: false },
+  { key: "buybackCumulativeAmount", label: "累計取得", group: "自株買", align: "right", defaultVisible: false },
+  { key: "buybackRemainingShares", label: "残り株数", group: "自株買", align: "right", defaultVisible: false },
+  { key: "buybackPeriodTo", label: "取得期限", group: "自株買", align: "right", defaultVisible: false },
+  { key: "buybackIsActive", label: "買付状態", group: "自株買", align: "left", defaultVisible: false },
   { key: "dividendYield", label: "配当利回り", group: "配当", align: "right", defaultVisible: true },
   { key: "latestDividend", label: "配当額", group: "配当", align: "right", defaultVisible: false },
   { key: "previousDividend", label: "前回配当", group: "配当", align: "right", defaultVisible: false },
@@ -496,6 +504,14 @@ export default function StockTablePage() {
         floatingRatio: td?.floatingRatio ?? null,
         floatingMarketCap: td?.floatingMarketCap ?? null,
         hasBuyback: td?.hasBuyback ?? null,
+        buybackProgressAmount: td?.buybackProgressAmount ?? null,
+        buybackProgressShares: td?.buybackProgressShares ?? null,
+        buybackImpactDays: td?.buybackImpactDays ?? null,
+        buybackMaxAmount: td?.buybackMaxAmount ?? null,
+        buybackCumulativeAmount: td?.buybackCumulativeAmount ?? null,
+        buybackRemainingShares: td?.buybackRemainingShares ?? null,
+        buybackPeriodTo: td?.buybackPeriodTo ?? null,
+        buybackIsActive: td?.buybackIsActive ?? null,
       };
     });
 
@@ -1066,6 +1082,32 @@ export default function StockTablePage() {
         return row.hasBuyback
           ? <span className="text-blue-600 dark:text-blue-400 font-bold">●</span>
           : <span className="text-gray-300 dark:text-slate-600">－</span>;
+      case "buybackProgressAmount":
+        if (row.buybackProgressAmount == null) return "－";
+        return <span className={row.buybackProgressAmount >= 80 ? "text-green-600 dark:text-green-400 font-semibold" : row.buybackProgressAmount >= 50 ? "text-blue-600 dark:text-blue-400" : ""}>{row.buybackProgressAmount.toFixed(1)}%</span>;
+      case "buybackProgressShares":
+        if (row.buybackProgressShares == null) return "－";
+        return <span className={row.buybackProgressShares >= 80 ? "text-green-600 dark:text-green-400 font-semibold" : row.buybackProgressShares >= 50 ? "text-blue-600 dark:text-blue-400" : ""}>{row.buybackProgressShares.toFixed(1)}%</span>;
+      case "buybackImpactDays":
+        if (row.buybackImpactDays == null) return "－";
+        return <span className={row.buybackImpactDays <= 20 ? "text-red-600 dark:text-red-400 font-bold" : row.buybackImpactDays <= 60 ? "text-orange-600 dark:text-orange-400 font-semibold" : ""}>{row.buybackImpactDays}日</span>;
+      case "buybackMaxAmount":
+        if (row.buybackMaxAmount == null) return "－";
+        return `${(row.buybackMaxAmount / 1e8).toFixed(row.buybackMaxAmount / 1e8 >= 100 ? 0 : 1)}億`;
+      case "buybackCumulativeAmount":
+        if (row.buybackCumulativeAmount == null) return "－";
+        return `${(row.buybackCumulativeAmount / 1e8).toFixed(row.buybackCumulativeAmount / 1e8 >= 100 ? 0 : 1)}億`;
+      case "buybackRemainingShares":
+        if (row.buybackRemainingShares == null) return "－";
+        return `${(row.buybackRemainingShares / 10000).toFixed(row.buybackRemainingShares / 10000 >= 100 ? 0 : 1)}万`;
+      case "buybackPeriodTo":
+        if (!row.buybackPeriodTo) return "－";
+        return <span className="text-xs">{row.buybackPeriodTo}</span>;
+      case "buybackIsActive":
+        if (row.buybackIsActive == null) return "－";
+        return row.buybackIsActive
+          ? <span className="rounded-full bg-green-100 px-2 py-0.5 text-green-700 dark:bg-green-900/30 dark:text-green-300 text-xs">実施中</span>
+          : <span className="rounded-full bg-gray-100 px-2 py-0.5 text-gray-500 dark:bg-slate-700 dark:text-slate-400 text-xs">完了</span>;
       case "yutaiContent":
         if (!row.yutaiContent) return "－";
         return <span className="text-xs max-w-48 truncate block" title={row.yutaiContent}>{row.yutaiContent}</span>;

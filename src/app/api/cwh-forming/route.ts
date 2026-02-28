@@ -1,17 +1,30 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getBuybackCodesWithFallback } from "@/lib/cache/buybackCache";
+import { getBuybackDetailBatchWithFallback } from "@/lib/cache/buybackDetailCache";
+import type { BuybackDetail } from "@/types/buyback";
 
 export const dynamic = "force-dynamic";
 
 const isVercel = !!process.env.VERCEL;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function enrichWithBuyback(stocks: any[], buybackSet: Set<string> | null) {
-  return stocks.map((s) => ({
-    ...s,
-    hasBuyback: buybackSet ? buybackSet.has(s.symbol?.replace(".T", "") ?? "") : false,
-  }));
+function enrichWithBuyback(stocks: any[], buybackSet: Set<string> | null, detailMap: Map<string, BuybackDetail>) {
+  return stocks.map((s) => {
+    const code = s.symbol?.replace(".T", "") ?? "";
+    const bd = detailMap.get(code);
+    return {
+      ...s,
+      hasBuyback: buybackSet ? buybackSet.has(code) : false,
+      buybackProgressAmount: bd?.progressAmount ?? null,
+      buybackProgressShares: bd?.progressShares ?? null,
+      buybackImpactDays: null as number | null, // YF volume がないためページ側で未計算
+      buybackMaxAmount: bd?.latestReport?.maxAmount ?? null,
+      buybackCumulativeAmount: bd?.latestReport?.cumulativeAmount ?? null,
+      buybackPeriodTo: bd?.latestReport?.acquisitionPeriodTo ?? null,
+      buybackIsActive: bd?.isActive ?? null,
+    };
+  });
 }
 
 export async function GET() {
@@ -62,7 +75,9 @@ async function getFromSupabase(): Promise<NextResponse | null> {
     : data.stocks;
 
   const buybackSet = await getBuybackCodesWithFallback();
-  const stocks = enrichWithBuyback(rawStocks, buybackSet);
+  const codes = rawStocks.map((s: { symbol?: string }) => s.symbol?.replace(".T", "") ?? "").filter(Boolean);
+  const detailMap = await getBuybackDetailBatchWithFallback(codes);
+  const stocks = enrichWithBuyback(rawStocks, buybackSet, detailMap);
 
   return NextResponse.json({
     stocks,
@@ -88,7 +103,10 @@ async function getFromJson(): Promise<NextResponse> {
 
   const raw = JSON.parse(readFileSync(jsonPath, "utf-8"));
   const buybackSet = await getBuybackCodesWithFallback();
-  const stocks = enrichWithBuyback(raw.stocks ?? [], buybackSet);
+  const rawStocks = raw.stocks ?? [];
+  const codes = rawStocks.map((s: { symbol?: string }) => s.symbol?.replace(".T", "") ?? "").filter(Boolean);
+  const detailMap = await getBuybackDetailBatchWithFallback(codes);
+  const stocks = enrichWithBuyback(rawStocks, buybackSet, detailMap);
 
   return NextResponse.json({ ...raw, stocks });
 }

@@ -4,8 +4,8 @@
  */
 import { get, set, del } from "idb-keyval";
 
-const CACHE_KEY = "stock-table-v3";
-const CACHE_VERSION = 3; // revenueGrowth/operatingMargins追加
+const CACHE_KEY = "stock-table-v4";
+const CACHE_VERSION = 4; // buyback detail追加
 const CACHE_TTL = 6 * 60 * 60 * 1000; // 6時間
 
 // page.tsx 側と同じ型 (re-export用にここでも定義)
@@ -61,6 +61,14 @@ export interface StockTableRow {
   floatingRatio: number | null;
   floatingMarketCap: number | null;
   hasBuyback: boolean | null;
+  buybackProgressAmount: number | null;   // 金額進捗率 (0-100%)
+  buybackProgressShares: number | null;   // 株数進捗率 (0-100%)
+  buybackImpactDays: number | null;       // インパクト日数
+  buybackMaxAmount: number | null;        // 取得上限金額 (円)
+  buybackCumulativeAmount: number | null; // 累計取得金額 (円)
+  buybackRemainingShares: number | null;  // 残り株数
+  buybackPeriodTo: string | null;         // 取得期限 YYYY-MM-DD
+  buybackIsActive: boolean | null;        // 実施中かどうか
 }
 
 interface CacheEnvelope {

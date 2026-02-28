@@ -13,6 +13,8 @@ import { getCachedMaster } from "@/lib/cache/jquantsCache";
 import { NIKKEI225_CODES } from "@/data/nikkei225";
 import { getCachedEdinetFinancials } from "@/lib/cache/edinetCache";
 import { getBuybackCodesWithFallback } from "@/lib/cache/buybackCache";
+import { getBuybackDetailBatchWithFallback } from "@/lib/cache/buybackDetailCache";
+import type { BuybackDetail } from "@/types/buyback";
 
 interface PriceBar {
   date: string;
@@ -459,6 +461,16 @@ export async function GET(request: NextRequest) {
     // 5d. 自社株買いキャッシュ（ファイル → Supabaseフォールバック）
     const buybackSet = await getBuybackCodesWithFallback();
 
+    // 5e. 自社株買い詳細キャッシュ
+    const buybackDetailMap = new Map<string, BuybackDetail>();
+    try {
+      const codes = symbols.map((s) => s.replace(".T", ""));
+      const detailBatch = await getBuybackDetailBatchWithFallback(codes);
+      for (const [code, detail] of detailBatch) {
+        buybackDetailMap.set(code, detail);
+      }
+    } catch { /* ignore */ }
+
     // 6. 結合
     const rows = symbols.map((sym) => {
       const q = quoteMap.get(sym);
@@ -561,6 +573,35 @@ export async function GET(request: NextRequest) {
         })(),
         // 自社株買い
         hasBuyback: buybackSet ? buybackSet.has(code) : null,
+        // 自社株買い詳細
+        ...(() => {
+          const bd = buybackDetailMap.get(code);
+          if (!bd) return {
+            buybackProgressAmount: null, buybackProgressShares: null,
+            buybackImpactDays: null, buybackMaxAmount: null,
+            buybackCumulativeAmount: null, buybackRemainingShares: null,
+            buybackPeriodTo: null, buybackIsActive: null,
+          };
+          const maxS = bd.latestReport?.maxShares ?? null;
+          const cumS = bd.latestReport?.cumulativeShares ?? null;
+          const remaining = maxS != null && cumS != null ? maxS - cumS : null;
+          // impactDays: avgDailyVolume は quote から取得
+          const avgVol = q?.averageDailyVolume3Month ?? null;
+          let impact: number | null = null;
+          if (remaining != null && remaining > 0 && avgVol != null && avgVol > 0) {
+            impact = Math.ceil(remaining / (avgVol * 0.25));
+          }
+          return {
+            buybackProgressAmount: bd.progressAmount,
+            buybackProgressShares: bd.progressShares,
+            buybackImpactDays: impact,
+            buybackMaxAmount: bd.latestReport?.maxAmount ?? null,
+            buybackCumulativeAmount: bd.latestReport?.cumulativeAmount ?? null,
+            buybackRemainingShares: remaining,
+            buybackPeriodTo: bd.latestReport?.acquisitionPeriodTo ?? null,
+            buybackIsActive: bd.isActive,
+          };
+        })(),
       };
     });
 

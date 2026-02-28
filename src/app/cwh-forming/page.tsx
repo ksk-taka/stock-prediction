@@ -32,33 +32,57 @@ interface CwhStock {
   profitGrowthRate: number | null;
   prevProfitGrowthRate: number | null;
   hasBuyback: boolean;
+  // 自社株買い詳細
+  buybackProgressAmount: number | null;
+  buybackProgressShares: number | null;
+  buybackImpactDays: number | null;
+  buybackMaxAmount: number | null;
+  buybackCumulativeAmount: number | null;
+  buybackPeriodTo: string | null;
+  buybackIsActive: boolean | null;
 }
 
 type SortKey = keyof CwhStock;
 type SortDir = "asc" | "desc";
 
-const COLUMNS: { key: SortKey; label: string; align: "left" | "right"; tooltip?: string }[] = [
-  { key: "symbol", label: "コード", align: "left", tooltip: "銘柄コード" },
-  { key: "name", label: "銘柄名", align: "left" },
-  { key: "marketSegment", label: "市場", align: "left", tooltip: "プライム(P)/スタンダード(S)/グロース(G)" },
-  { key: "hasBuyback", label: "自株買", align: "left", tooltip: "直近90日間に自社株買い実施/発表あり" },
-  { key: "stage", label: "ステージ", align: "left", tooltip: "READY: BO価格まで5%以内で反発中\nFORMING: ハンドル形成中" },
-  { key: "currentPrice", label: "現在値", align: "right" },
-  { key: "breakoutPrice", label: "BO価格", align: "right", tooltip: "ブレイクアウト価格（右リム高値）" },
-  { key: "distancePct", label: "BO距離%", align: "right", tooltip: "現在値からブレイクアウト価格までの距離\n小さいほどブレイクアウトに近い" },
-  { key: "pullbackPct", label: "押し目%", align: "right", tooltip: "ハンドル部分の押し目率（右リムからの最大下落%）\n1-12%が有効なハンドル" },
-  { key: "marketCap", label: "時価総額", align: "right", tooltip: "時価総額（億円）" },
-  { key: "sharpe3m", label: "SR3m", align: "right", tooltip: "シャープレシオ（3ヶ月、年率化）" },
-  { key: "sharpe6m", label: "SR6m", align: "right", tooltip: "シャープレシオ（6ヶ月、年率化）" },
-  { key: "sharpe1y", label: "SR1y", align: "right", tooltip: "シャープレシオ（1年、年率化）" },
-  { key: "roe", label: "ROE%", align: "right", tooltip: "ROE（自己資本利益率）" },
-  { key: "equityRatio", label: "自己資本%", align: "right", tooltip: "自己資本比率" },
-  { key: "profitGrowthRate", label: "増益率%", align: "right", tooltip: "直近期の増益率（YoY）" },
-  { key: "prevProfitGrowthRate", label: "前期増益%", align: "right", tooltip: "前期の増益率（前々期→前期）" },
-  { key: "handleDays", label: "ハンドル日", align: "right", tooltip: "右リムからの経過日数" },
-  { key: "cupDays", label: "カップ日", align: "right", tooltip: "左リムから右リムまでの日数（15-120日）" },
-  { key: "cupDepthPct", label: "深さ%", align: "right", tooltip: "カップの深さ（リムから底までの下落率%）\n8-50%が有効" },
-  { key: "rightRimDate", label: "右リム日", align: "right", tooltip: "右リム（カップ完成）の日付" },
+interface ColumnDef {
+  key: SortKey;
+  label: string;
+  group: string;
+  align: "left" | "right";
+  tooltip?: string;
+  defaultVisible: boolean;
+}
+
+const COLUMNS: ColumnDef[] = [
+  { key: "symbol", label: "コード", group: "基本", align: "left", tooltip: "銘柄コード", defaultVisible: true },
+  { key: "name", label: "銘柄名", group: "基本", align: "left", defaultVisible: true },
+  { key: "marketSegment", label: "市場", group: "基本", align: "left", tooltip: "プライム(P)/スタンダード(S)/グロース(G)", defaultVisible: true },
+  { key: "hasBuyback", label: "自株買", group: "自株買", align: "left", tooltip: "直近90日間に自社株買い実施/発表あり", defaultVisible: true },
+  { key: "stage", label: "ステージ", group: "基本", align: "left", tooltip: "READY: BO価格まで5%以内で反発中\nFORMING: ハンドル形成中", defaultVisible: true },
+  { key: "currentPrice", label: "現在値", group: "基本", align: "right", defaultVisible: true },
+  { key: "breakoutPrice", label: "BO価格", group: "CWH", align: "right", tooltip: "ブレイクアウト価格（右リム高値）", defaultVisible: true },
+  { key: "distancePct", label: "BO距離%", group: "CWH", align: "right", tooltip: "現在値からブレイクアウト価格までの距離", defaultVisible: true },
+  { key: "pullbackPct", label: "押し目%", group: "CWH", align: "right", tooltip: "ハンドル部分の押し目率", defaultVisible: true },
+  { key: "marketCap", label: "時価総額", group: "指標", align: "right", tooltip: "時価総額（億円）", defaultVisible: true },
+  { key: "sharpe3m", label: "SR3m", group: "指標", align: "right", tooltip: "シャープレシオ（3ヶ月）", defaultVisible: true },
+  { key: "sharpe6m", label: "SR6m", group: "指標", align: "right", tooltip: "シャープレシオ（6ヶ月）", defaultVisible: true },
+  { key: "sharpe1y", label: "SR1y", group: "指標", align: "right", tooltip: "シャープレシオ（1年）", defaultVisible: true },
+  { key: "roe", label: "ROE%", group: "指標", align: "right", tooltip: "ROE（自己資本利益率）", defaultVisible: true },
+  { key: "equityRatio", label: "自己資本%", group: "指標", align: "right", tooltip: "自己資本比率", defaultVisible: true },
+  { key: "profitGrowthRate", label: "増益率%", group: "指標", align: "right", tooltip: "直近期の増益率（YoY）", defaultVisible: true },
+  { key: "prevProfitGrowthRate", label: "前期増益%", group: "指標", align: "right", tooltip: "前期の増益率", defaultVisible: true },
+  { key: "handleDays", label: "ハンドル日", group: "CWH", align: "right", tooltip: "右リムからの経過日数", defaultVisible: true },
+  { key: "cupDays", label: "カップ日", group: "CWH", align: "right", tooltip: "左リムから右リムまでの日数", defaultVisible: true },
+  { key: "cupDepthPct", label: "深さ%", group: "CWH", align: "right", tooltip: "カップの深さ", defaultVisible: true },
+  { key: "rightRimDate", label: "右リム日", group: "CWH", align: "right", tooltip: "右リム（カップ完成）の日付", defaultVisible: true },
+  // 自社株買い詳細
+  { key: "buybackProgressAmount", label: "金額進捗%", group: "自株買", align: "right", tooltip: "金額ベースの取得進捗率", defaultVisible: false },
+  { key: "buybackProgressShares", label: "株数進捗%", group: "自株買", align: "right", tooltip: "株数ベースの取得進捗率", defaultVisible: false },
+  { key: "buybackMaxAmount", label: "取得上限", group: "自株買", align: "right", tooltip: "取得上限金額（億円）", defaultVisible: false },
+  { key: "buybackCumulativeAmount", label: "累計取得", group: "自株買", align: "right", tooltip: "累計取得金額（億円）", defaultVisible: false },
+  { key: "buybackPeriodTo", label: "取得期限", group: "自株買", align: "right", tooltip: "取得期間の終了日", defaultVisible: false },
+  { key: "buybackIsActive", label: "買付状態", group: "自株買", align: "left", tooltip: "実施中 / 完了", defaultVisible: false },
 ];
 
 function formatNum(v: number, digits = 1): string {
@@ -84,6 +108,25 @@ export default function CwhFormingPage() {
   const [marketFilter, setMarketFilter] = useState<Set<string>>(new Set());
   const [stageFilter, setStageFilter] = useState<string>("all"); // "all" | "handle_ready" | "handle_forming"
   const [buybackOnly, setBuybackOnly] = useState(false);
+
+  // カラム表示切替
+  const COLUMNS_STORAGE_KEY = "cwh-forming-visible-columns";
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("cwh-forming-visible-columns");
+        if (saved) {
+          const arr = JSON.parse(saved);
+          if (Array.isArray(arr) && arr.length > 0) return new Set(arr as string[]);
+        }
+      } catch { /* ignore */ }
+    }
+    const s = new Set<string>();
+    COLUMNS.forEach((c) => { if (c.defaultVisible) s.add(c.key); });
+    return s;
+  });
+  const [showColumnPicker, setShowColumnPicker] = useState(false);
+  const columnPickerRef = useRef<HTMLDivElement>(null);
 
   // 範囲フィルタ
   const [distanceMin, setDistanceMin] = useState("");
@@ -131,6 +174,38 @@ export default function CwhFormingPage() {
   const [scanning, setScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState<{ stage: string; current: number; total: number; message: string } | null>(null);
   const pollingRef = useRef<{ interval: ReturnType<typeof setInterval>; timeout: ReturnType<typeof setTimeout> } | null>(null);
+
+  // カラム表示切替: localStorage 保存
+  useEffect(() => {
+    try {
+      localStorage.setItem(COLUMNS_STORAGE_KEY, JSON.stringify(Array.from(visibleColumns)));
+    } catch { /* ignore */ }
+  }, [visibleColumns, COLUMNS_STORAGE_KEY]);
+
+  // カラムピッカー: 外側クリックで閉じる
+  useEffect(() => {
+    if (!showColumnPicker) return;
+    function handleClick(e: MouseEvent) {
+      if (columnPickerRef.current && !columnPickerRef.current.contains(e.target as Node)) setShowColumnPicker(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showColumnPicker]);
+
+  const columnGroups = useMemo(() => {
+    const map = new Map<string, ColumnDef[]>();
+    for (const col of COLUMNS) {
+      const arr = map.get(col.group) ?? [];
+      arr.push(col);
+      map.set(col.group, arr);
+    }
+    return map;
+  }, []);
+
+  const displayColumns = useMemo(
+    () => COLUMNS.filter((c) => visibleColumns.has(c.key)),
+    [visibleColumns],
+  );
 
   // ウォッチリストグループ取得
   useEffect(() => {
@@ -453,6 +528,92 @@ export default function CwhFormingPage() {
     return "text-gray-500 dark:text-slate-400";
   }
 
+  function sharpeColor(v: number | null): string {
+    if (v == null) return "text-gray-500 dark:text-slate-400";
+    return v > 0 ? "text-green-600 dark:text-green-400" : v < 0 ? "text-red-500 dark:text-red-400" : "text-gray-500 dark:text-slate-400";
+  }
+
+  function growthColor(v: number | null): string {
+    if (v == null) return "text-gray-500 dark:text-slate-400";
+    return v > 0 ? "text-green-600 dark:text-green-400" : v < 0 ? "text-red-500 dark:text-red-400" : "text-gray-500 dark:text-slate-400";
+  }
+
+  function renderCwhCell(s: CwhStock, key: SortKey): React.ReactNode {
+    switch (key) {
+      case "symbol":
+        return <Link href={`/stock/${s.symbol}`} className="text-blue-600 hover:underline dark:text-blue-400">{s.symbol.replace(".T", "")}</Link>;
+      case "name":
+        return <span className="max-w-[150px] truncate block">{s.name}</span>;
+      case "marketSegment":
+        return <span className="text-gray-500">{marketLabel(s.marketSegment)}</span>;
+      case "hasBuyback":
+        return s.hasBuyback
+          ? <span className="inline-flex items-center gap-1">
+              <Link href="/buyback-detail" className="text-blue-600 dark:text-blue-400 font-bold hover:underline" title="自社株買い詳細ページへ">●</Link>
+              <button onClick={() => handleBuybackScan(s.symbol)} disabled={buybackScanning === s.symbol} className="text-[10px] text-gray-400 hover:text-blue-500 disabled:opacity-50" title="この銘柄の自社株買い詳細をEDINETから取得">
+                {buybackScanning === s.symbol ? "..." : "解析"}
+              </button>
+            </span>
+          : <span className="text-gray-300 dark:text-slate-600">－</span>;
+      case "stage":
+        return <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${stageColor(s.stage)}`}>{s.stage === "handle_ready" ? "READY" : "FORMING"}</span>;
+      case "currentPrice":
+        return s.currentPrice.toLocaleString();
+      case "breakoutPrice":
+        return s.breakoutPrice.toLocaleString();
+      case "distancePct":
+        return <span className={distanceColor(s.distancePct)}>{formatNum(s.distancePct)}</span>;
+      case "pullbackPct":
+        return formatNum(s.pullbackPct);
+      case "marketCap":
+        return <span className="text-gray-500 dark:text-slate-400">{s.marketCap != null ? `${(s.marketCap / 1e8).toLocaleString("ja-JP", { maximumFractionDigits: 0 })}` : "-"}</span>;
+      case "sharpe3m":
+        return <span className={sharpeColor(s.sharpe3m)}>{s.sharpe3m != null ? formatNum(s.sharpe3m, 2) : "-"}</span>;
+      case "sharpe6m":
+        return <span className={sharpeColor(s.sharpe6m)}>{s.sharpe6m != null ? formatNum(s.sharpe6m, 2) : "-"}</span>;
+      case "sharpe1y":
+        return <span className={sharpeColor(s.sharpe1y)}>{s.sharpe1y != null ? formatNum(s.sharpe1y, 2) : "-"}</span>;
+      case "roe":
+        return <span className={s.roe != null && s.roe >= 15 ? "text-green-600 dark:text-green-400 font-semibold" : s.roe != null && s.roe >= 10 ? "text-green-600 dark:text-green-400" : "text-gray-500 dark:text-slate-400"}>{s.roe != null ? formatNum(s.roe) : "-"}</span>;
+      case "equityRatio":
+        return <span className="text-gray-500 dark:text-slate-400">{s.equityRatio != null ? formatNum(s.equityRatio) : "-"}</span>;
+      case "profitGrowthRate":
+        return <span className={growthColor(s.profitGrowthRate)}>{s.profitGrowthRate != null ? formatNum(s.profitGrowthRate) : "-"}</span>;
+      case "prevProfitGrowthRate":
+        return <span className={growthColor(s.prevProfitGrowthRate)}>{s.prevProfitGrowthRate != null ? formatNum(s.prevProfitGrowthRate) : "-"}</span>;
+      case "handleDays":
+        return String(s.handleDays);
+      case "cupDays":
+        return String(s.cupDays);
+      case "cupDepthPct":
+        return formatNum(s.cupDepthPct);
+      case "rightRimDate":
+        return <span className="text-gray-500 dark:text-slate-400">{s.rightRimDate}</span>;
+      // 自社株買い詳細カラム
+      case "buybackProgressAmount":
+        if (s.buybackProgressAmount == null) return "－";
+        return <span className={s.buybackProgressAmount >= 80 ? "text-green-600 dark:text-green-400 font-semibold" : s.buybackProgressAmount >= 50 ? "text-blue-600 dark:text-blue-400" : ""}>{s.buybackProgressAmount.toFixed(1)}%</span>;
+      case "buybackProgressShares":
+        if (s.buybackProgressShares == null) return "－";
+        return <span className={s.buybackProgressShares >= 80 ? "text-green-600 dark:text-green-400 font-semibold" : s.buybackProgressShares >= 50 ? "text-blue-600 dark:text-blue-400" : ""}>{s.buybackProgressShares.toFixed(1)}%</span>;
+      case "buybackMaxAmount":
+        if (s.buybackMaxAmount == null) return "－";
+        return `${(s.buybackMaxAmount / 1e8).toFixed(s.buybackMaxAmount / 1e8 >= 100 ? 0 : 1)}億`;
+      case "buybackCumulativeAmount":
+        if (s.buybackCumulativeAmount == null) return "－";
+        return `${(s.buybackCumulativeAmount / 1e8).toFixed(s.buybackCumulativeAmount / 1e8 >= 100 ? 0 : 1)}億`;
+      case "buybackPeriodTo":
+        return s.buybackPeriodTo ? <span className="text-gray-500 dark:text-slate-400">{s.buybackPeriodTo}</span> : "－";
+      case "buybackIsActive":
+        if (s.buybackIsActive == null) return "－";
+        return s.buybackIsActive
+          ? <span className="rounded-full bg-green-100 px-2 py-0.5 text-green-700 dark:bg-green-900/30 dark:text-green-300">実施中</span>
+          : <span className="rounded-full bg-gray-100 px-2 py-0.5 text-gray-500 dark:bg-slate-700 dark:text-slate-400">完了</span>;
+      default:
+        return "-";
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
@@ -498,6 +659,57 @@ export default function CwhFormingPage() {
             watchlistGroupMap={watchlistGroupMap}
             filenamePrefix="cwh-forming"
           />
+          {/* カラム表示切替 */}
+          <div className="relative" ref={columnPickerRef}>
+            <button
+              onClick={() => setShowColumnPicker(!showColumnPicker)}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            >
+              カラム
+            </button>
+            {showColumnPicker && (
+              <div className="absolute right-0 z-30 mt-1 max-h-80 w-56 overflow-y-auto rounded-lg border border-gray-200 bg-white p-2 shadow-lg dark:border-slate-600 dark:bg-slate-800">
+                {[...columnGroups.entries()].map(([group, cols]) => (
+                  <div key={group} className="mb-1">
+                    <button
+                      onClick={() => {
+                        setVisibleColumns((prev) => {
+                          const next = new Set(prev);
+                          const allVisible = cols.every((c) => next.has(c.key));
+                          for (const c of cols) {
+                            if (allVisible) next.delete(c.key);
+                            else next.add(c.key);
+                          }
+                          return next;
+                        });
+                      }}
+                      className="mb-0.5 text-xs font-semibold text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-white"
+                    >
+                      {group}
+                    </button>
+                    {cols.map((c) => (
+                      <label key={c.key} className="flex items-center gap-1.5 px-1 py-0.5 text-xs">
+                        <input
+                          type="checkbox"
+                          checked={visibleColumns.has(c.key)}
+                          onChange={(e) => {
+                            setVisibleColumns((prev) => {
+                              const next = new Set(prev);
+                              if (e.target.checked) next.add(c.key);
+                              else next.delete(c.key);
+                              return next;
+                            });
+                          }}
+                          className="rounded border-gray-300"
+                        />
+                        {c.label}
+                      </label>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           <button
             onClick={handleScan}
             disabled={scanning}
@@ -655,7 +867,7 @@ export default function CwhFormingPage() {
           <thead className="bg-gray-50 dark:bg-slate-800">
             <tr>
               <th className="w-8 px-1 py-2" />
-              {COLUMNS.map((col) => (
+              {displayColumns.map((col) => (
                 <th
                   key={col.key}
                   onClick={() => handleSort(col.key)}
@@ -686,70 +898,11 @@ export default function CwhFormingPage() {
                     )}
                   </button>
                 </td>
-                <td className="px-3 py-1.5 font-mono text-xs">
-                  <Link
-                    href={`/stock/${s.symbol}`}
-                    className="text-blue-600 hover:underline dark:text-blue-400"
-                  >
-                    {s.symbol.replace(".T", "")}
-                  </Link>
-                </td>
-                <td className="max-w-[150px] truncate px-3 py-1.5">{s.name}</td>
-                <td className="px-3 py-1.5 text-center text-xs text-gray-500">{marketLabel(s.marketSegment)}</td>
-                <td className="px-3 py-1.5 text-center">
-                  {s.hasBuyback
-                    ? <span className="inline-flex items-center gap-1">
-                        <Link href="/buyback-detail" className="text-blue-600 dark:text-blue-400 font-bold hover:underline" title="自社株買い詳細ページへ">●</Link>
-                        <button
-                          onClick={() => handleBuybackScan(s.symbol)}
-                          disabled={buybackScanning === s.symbol}
-                          className="text-[10px] text-gray-400 hover:text-blue-500 disabled:opacity-50"
-                          title="この銘柄の自社株買い詳細をEDINETから取得"
-                        >
-                          {buybackScanning === s.symbol ? "..." : "解析"}
-                        </button>
-                      </span>
-                    : <span className="text-gray-300 dark:text-slate-600">－</span>}
-                </td>
-                <td className="px-3 py-1.5">
-                  <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${stageColor(s.stage)}`}>
-                    {s.stage === "handle_ready" ? "READY" : "FORMING"}
-                  </span>
-                </td>
-                <td className="px-3 py-1.5 text-right font-mono">{s.currentPrice.toLocaleString()}</td>
-                <td className="px-3 py-1.5 text-right font-mono">{s.breakoutPrice.toLocaleString()}</td>
-                <td className={`px-3 py-1.5 text-right font-mono ${distanceColor(s.distancePct)}`}>
-                  {formatNum(s.distancePct)}
-                </td>
-                <td className="px-3 py-1.5 text-right font-mono">{formatNum(s.pullbackPct)}</td>
-                <td className="px-3 py-1.5 text-right font-mono text-xs text-gray-500 dark:text-slate-400">
-                  {s.marketCap != null ? `${(s.marketCap / 1e8).toLocaleString("ja-JP", { maximumFractionDigits: 0 })}` : "-"}
-                </td>
-                <td className={`px-3 py-1.5 text-right font-mono text-xs ${s.sharpe3m != null && s.sharpe3m > 0 ? "text-green-600 dark:text-green-400" : s.sharpe3m != null && s.sharpe3m < 0 ? "text-red-500 dark:text-red-400" : "text-gray-500 dark:text-slate-400"}`}>
-                  {s.sharpe3m != null ? formatNum(s.sharpe3m, 2) : "-"}
-                </td>
-                <td className={`px-3 py-1.5 text-right font-mono text-xs ${s.sharpe6m != null && s.sharpe6m > 0 ? "text-green-600 dark:text-green-400" : s.sharpe6m != null && s.sharpe6m < 0 ? "text-red-500 dark:text-red-400" : "text-gray-500 dark:text-slate-400"}`}>
-                  {s.sharpe6m != null ? formatNum(s.sharpe6m, 2) : "-"}
-                </td>
-                <td className={`px-3 py-1.5 text-right font-mono text-xs ${s.sharpe1y != null && s.sharpe1y > 0 ? "text-green-600 dark:text-green-400" : s.sharpe1y != null && s.sharpe1y < 0 ? "text-red-500 dark:text-red-400" : "text-gray-500 dark:text-slate-400"}`}>
-                  {s.sharpe1y != null ? formatNum(s.sharpe1y, 2) : "-"}
-                </td>
-                <td className={`px-3 py-1.5 text-right font-mono text-xs ${s.roe != null && s.roe >= 15 ? "text-green-600 dark:text-green-400 font-semibold" : s.roe != null && s.roe >= 10 ? "text-green-600 dark:text-green-400" : "text-gray-500 dark:text-slate-400"}`}>
-                  {s.roe != null ? formatNum(s.roe) : "-"}
-                </td>
-                <td className="px-3 py-1.5 text-right font-mono text-xs text-gray-500 dark:text-slate-400">
-                  {s.equityRatio != null ? formatNum(s.equityRatio) : "-"}
-                </td>
-                <td className={`px-3 py-1.5 text-right font-mono text-xs ${s.profitGrowthRate != null && s.profitGrowthRate > 0 ? "text-green-600 dark:text-green-400" : s.profitGrowthRate != null && s.profitGrowthRate < 0 ? "text-red-500 dark:text-red-400" : "text-gray-500 dark:text-slate-400"}`}>
-                  {s.profitGrowthRate != null ? formatNum(s.profitGrowthRate) : "-"}
-                </td>
-                <td className={`px-3 py-1.5 text-right font-mono text-xs ${s.prevProfitGrowthRate != null && s.prevProfitGrowthRate > 0 ? "text-green-600 dark:text-green-400" : s.prevProfitGrowthRate != null && s.prevProfitGrowthRate < 0 ? "text-red-500 dark:text-red-400" : "text-gray-500 dark:text-slate-400"}`}>
-                  {s.prevProfitGrowthRate != null ? formatNum(s.prevProfitGrowthRate) : "-"}
-                </td>
-                <td className="px-3 py-1.5 text-right font-mono">{s.handleDays}</td>
-                <td className="px-3 py-1.5 text-right font-mono">{s.cupDays}</td>
-                <td className="px-3 py-1.5 text-right font-mono">{formatNum(s.cupDepthPct)}</td>
-                <td className="px-3 py-1.5 text-right text-xs text-gray-500 dark:text-slate-400">{s.rightRimDate}</td>
+                {displayColumns.map((col) => (
+                  <td key={col.key} className={`px-3 py-1.5 whitespace-nowrap text-xs ${col.align === "right" ? "text-right font-mono" : ""}`}>
+                    {renderCwhCell(s, col.key)}
+                  </td>
+                ))}
               </tr>
             ))}
           </tbody>
