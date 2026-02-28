@@ -6,6 +6,11 @@ import GroupAssignPopup from "@/components/GroupAssignPopup";
 import BatchGroupAssignPopup from "@/components/BatchGroupAssignPopup";
 import CsvExportButton from "@/components/CsvExportButton";
 import type { WatchlistGroup } from "@/types";
+import {
+  getBuybackDetailClientCache,
+  setBuybackDetailClientCache,
+  clearBuybackDetailClientCache,
+} from "@/lib/cache/buybackDetailClientCache";
 
 interface BuybackReport {
   reportPeriodFrom: string | null;
@@ -171,6 +176,17 @@ export default function BuybackDetailPage() {
   }, [showGroupDropdown]);
 
   const loadData = useCallback(async () => {
+    // 1. IndexedDB キャッシュを先に表示
+    try {
+      const cached = await getBuybackDetailClientCache();
+      if (cached && cached.stocks.length > 0) {
+        setStocks(cached.stocks as Stock[]);
+        setTotalBuybackCodes(cached.totalBuybackCodes);
+        setLoading(false);
+      }
+    } catch { /* ignore */ }
+
+    // 2. APIから最新データ取得（バックグラウンド更新）
     try {
       const res = await fetch("/api/buyback-detail");
       const data = await res.json();
@@ -178,6 +194,10 @@ export default function BuybackDetailPage() {
       setTotalBuybackCodes(data.totalBuybackCodes ?? 0);
       if (data.error) setError(data.error);
       else setError(null);
+      // キャッシュ保存
+      if (data.stocks?.length > 0) {
+        setBuybackDetailClientCache(data.stocks, data.totalBuybackCodes ?? 0);
+      }
     } catch {
       setError("データの取得に失敗しました");
     } finally {
@@ -202,6 +222,8 @@ export default function BuybackDetailPage() {
       const data = await res.json();
       if (data.ok) {
         setScanMessage(data.message);
+        // スキャン開始後はキャッシュクリア（次回リロードで最新取得）
+        clearBuybackDetailClientCache();
       } else {
         setScanMessage(`エラー: ${data.error}`);
       }
