@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { spawn, type ChildProcess } from "child_process";
 import { join } from "path";
 
@@ -6,16 +6,26 @@ export const dynamic = "force-dynamic";
 
 const isVercel = !!process.env.VERCEL;
 
-export async function POST() {
-  if (isVercel) {
-    return await triggerGitHubAction();
+export async function POST(req: NextRequest) {
+  let symbols: string[] | undefined;
+  try {
+    const body = await req.json();
+    if (Array.isArray(body.symbols) && body.symbols.length > 0) {
+      symbols = body.symbols as string[];
+    }
+  } catch {
+    // body なし → 全銘柄スキャン
   }
-  return await spawnLocalScan();
+
+  if (isVercel) {
+    return await triggerGitHubAction(symbols);
+  }
+  return await spawnLocalScan(symbols);
 }
 
 // ── Vercel: GitHub Actions トリガー ──
 
-async function triggerGitHubAction() {
+async function triggerGitHubAction(symbols?: string[]) {
   const ghToken = process.env.GITHUB_PAT;
   const repo = process.env.GITHUB_REPO ?? "ksk-taka/stock-prediction";
 
@@ -38,6 +48,7 @@ async function triggerGitHubAction() {
         },
         body: JSON.stringify({
           event_type: "scan-buyback-detail",
+          client_payload: symbols ? { symbols: symbols.join(",") } : {},
         }),
       },
     );
@@ -47,10 +58,10 @@ async function triggerGitHubAction() {
       throw new Error(`GitHub API ${res.status}: ${text}`);
     }
 
-    return NextResponse.json({
-      ok: true,
-      message: "自社株買い詳細スキャンを開始しました。完了まで数十分かかります。",
-    });
+    const msg = symbols
+      ? `${symbols.length}銘柄の詳細スキャンを開始しました。`
+      : "自社株買い詳細スキャンを開始しました。完了まで数十分かかります。";
+    return NextResponse.json({ ok: true, message: msg });
   } catch (err) {
     return NextResponse.json(
       { error: `GitHub Actions の起動に失敗しました: ${err}` },
@@ -66,7 +77,7 @@ const g = globalThis as unknown as {
   __buybackDetailRunning?: boolean;
 };
 
-async function spawnLocalScan() {
+async function spawnLocalScan(symbols?: string[]) {
   if (g.__buybackDetailRunning && g.__buybackDetailChild && !g.__buybackDetailChild.killed) {
     return NextResponse.json(
       { error: "スキャンは既に実行中です" },
@@ -80,7 +91,11 @@ async function spawnLocalScan() {
     const result = await new Promise<{ exitCode: number; stderr: string }>((resolve, reject) => {
       const cwd = process.cwd();
       const tsxBin = join(cwd, "node_modules", ".bin", "tsx");
-      const child = spawn(tsxBin, ["scripts/fetch-buyback-detail.ts", "--force"], {
+      const scriptArgs = ["scripts/fetch-buyback-detail.ts", "--force"];
+      if (symbols && symbols.length > 0) {
+        scriptArgs.push("--symbol", symbols.join(","));
+      }
+      const child = spawn(tsxBin, scriptArgs, {
         cwd,
         stdio: ["ignore", "ignore", "pipe"],
         shell: true,
@@ -115,7 +130,10 @@ async function spawnLocalScan() {
       );
     }
 
-    return NextResponse.json({ ok: true, message: "自社株買い詳細スキャン完了" });
+    const msg = symbols
+      ? `${symbols.length}銘柄の詳細スキャン完了`
+      : "自社株買い詳細スキャン完了";
+    return NextResponse.json({ ok: true, message: msg });
   } catch (err) {
     return NextResponse.json(
       { error: String(err) },

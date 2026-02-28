@@ -124,6 +124,9 @@ export default function CwhFormingPage() {
   const [showGroupDropdown, setShowGroupDropdown] = useState(false);
   const groupDropdownRef = useRef<HTMLDivElement>(null);
 
+  // 自社株買い詳細スキャン
+  const [buybackScanning, setBuybackScanning] = useState<string | null>(null); // scanning symbol or null
+
   // スキャン関連
   const [scanning, setScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState<{ stage: string; current: number; total: number; message: string } | null>(null);
@@ -256,6 +259,25 @@ export default function CwhFormingPage() {
     } catch {
       setError("スキャンの実行に失敗しました");
       setScanning(false);
+    }
+  };
+
+  const handleBuybackScan = async (symbol: string) => {
+    setBuybackScanning(symbol);
+    try {
+      const res = await fetch("/api/buyback-detail/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbols: [symbol] }),
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        setError(`自社株買い詳細取得エラー: ${data.error}`);
+      }
+    } catch {
+      setError("自社株買い詳細の取得に失敗しました");
+    } finally {
+      setBuybackScanning(null);
     }
   };
 
@@ -676,7 +698,17 @@ export default function CwhFormingPage() {
                 <td className="px-3 py-1.5 text-center text-xs text-gray-500">{marketLabel(s.marketSegment)}</td>
                 <td className="px-3 py-1.5 text-center">
                   {s.hasBuyback
-                    ? <Link href="/buyback-detail" className="text-blue-600 dark:text-blue-400 font-bold hover:underline" title="自社株買い詳細ページへ">●</Link>
+                    ? <span className="inline-flex items-center gap-1">
+                        <Link href="/buyback-detail" className="text-blue-600 dark:text-blue-400 font-bold hover:underline" title="自社株買い詳細ページへ">●</Link>
+                        <button
+                          onClick={() => handleBuybackScan(s.symbol)}
+                          disabled={buybackScanning === s.symbol}
+                          className="text-[10px] text-gray-400 hover:text-blue-500 disabled:opacity-50"
+                          title="この銘柄の自社株買い詳細をEDINETから取得"
+                        >
+                          {buybackScanning === s.symbol ? "..." : "解析"}
+                        </button>
+                      </span>
                     : <span className="text-gray-300 dark:text-slate-600">－</span>}
                 </td>
                 <td className="px-3 py-1.5">

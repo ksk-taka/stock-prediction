@@ -24,4 +24,10 @@ jobs:
           EDINET_API_KEY: ${{ secrets.EDINET_API_KEY }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npx tsx scripts/fetch-buyback-detail.ts --force
+          SYMBOLS: ${{ github.event.client_payload.symbols }}
+        run: |
+          if [ -n "$SYMBOLS" ]; then
+            npx tsx scripts/fetch-buyback-detail.ts --force --symbol "$SYMBOLS"
+          else
+            npx tsx scripts/fetch-buyback-detail.ts --force
+          fi

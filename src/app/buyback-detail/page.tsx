@@ -134,6 +134,7 @@ export default function BuybackDetailPage() {
   const [activeOnly, setActiveOnly] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState<string | null>(null);
+  const [scanSymbols, setScanSymbols] = useState("");
 
   // グループ関連
   const [allGroups, setAllGroups] = useState<WatchlistGroup[]>([]);
@@ -188,11 +189,16 @@ export default function BuybackDetailPage() {
     loadData();
   }, [loadData]);
 
-  const handleScan = async () => {
+  const handleScan = async (symbols?: string[]) => {
     setScanning(true);
     setScanMessage(null);
     try {
-      const res = await fetch("/api/buyback-detail/scan", { method: "POST" });
+      const body = symbols ? { symbols } : {};
+      const res = await fetch("/api/buyback-detail/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
       const data = await res.json();
       if (data.ok) {
         setScanMessage(data.message);
@@ -204,6 +210,16 @@ export default function BuybackDetailPage() {
     } finally {
       setScanning(false);
     }
+  };
+
+  const handleTargetedScan = () => {
+    const syms = scanSymbols
+      .split(/[,\s、]+/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((s) => (s.endsWith(".T") ? s : `${s}.T`));
+    if (syms.length === 0) return;
+    handleScan(syms);
   };
 
   const handleEditGroups = (symbol: string, event: React.MouseEvent) => {
@@ -346,12 +362,30 @@ export default function BuybackDetailPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1">
+            <input
+              type="text"
+              placeholder="7203,6758..."
+              value={scanSymbols}
+              onChange={(e) => setScanSymbols(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && scanSymbols.trim() && handleTargetedScan()}
+              className="w-32 rounded-lg border border-gray-300 px-2 py-1.5 text-xs focus:border-blue-400 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+              title="銘柄コードをカンマ区切りで入力"
+            />
+            <button
+              onClick={handleTargetedScan}
+              disabled={scanning || !scanSymbols.trim()}
+              className="rounded-lg border border-blue-300 bg-white px-2 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-50 dark:border-blue-600 dark:bg-slate-800 dark:text-blue-400 dark:hover:bg-slate-700"
+            >
+              指定スキャン
+            </button>
+          </div>
           <button
-            onClick={handleScan}
+            onClick={() => handleScan()}
             disabled={scanning}
             className="rounded-lg border border-blue-300 bg-white px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-50 dark:border-blue-600 dark:bg-slate-800 dark:text-blue-400 dark:hover:bg-slate-700"
           >
-            {scanning ? "スキャン中..." : "スキャン実行"}
+            {scanning ? "スキャン中..." : "全銘柄スキャン"}
           </button>
           <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
             {filtered.length} / {stocks.length}

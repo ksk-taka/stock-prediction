@@ -7,7 +7,8 @@
  *
  * Usage:
  *   npx tsx scripts/fetch-buyback-detail.ts                   # buyback銘柄(キャッシュなし)
- *   npx tsx scripts/fetch-buyback-detail.ts --symbol 7203.T   # 特定銘柄
+ *   npx tsx scripts/fetch-buyback-detail.ts --symbol 7203.T          # 特定銘柄
+ *   npx tsx scripts/fetch-buyback-detail.ts --symbol 7203.T,6758.T  # 複数銘柄(カンマ区切り)
  *   npx tsx scripts/fetch-buyback-detail.ts --favorites        # お気に入り
  *   npx tsx scripts/fetch-buyback-detail.ts --force            # キャッシュ無視
  *   npx tsx scripts/fetch-buyback-detail.ts --dry-run          # 対象銘柄表示
@@ -36,7 +37,10 @@ const dryRun = args.includes("--dry-run");
 // ── メイン ──
 
 async function loadTargetSymbols(): Promise<string[]> {
-  if (symbolArg) return [symbolArg];
+  if (symbolArg) {
+    // カンマ区切りで複数銘柄対応
+    return symbolArg.split(",").map((s) => s.trim()).filter(Boolean);
+  }
 
   if (favoritesOnly) {
     const { readFileSync } = await import("fs");
