@@ -141,6 +141,26 @@ export default function BuybackDetailPage() {
   const [scanMessage, setScanMessage] = useState<string | null>(null);
   const [scanSymbols, setScanSymbols] = useState("");
 
+  // 範囲フィルタ
+  const [maxAmountMin, setMaxAmountMin] = useState("");
+  const [maxAmountMax, setMaxAmountMax] = useState("");
+  const [cumAmountMin, setCumAmountMin] = useState("");
+  const [cumAmountMax, setCumAmountMax] = useState("");
+  const [progAmountMin, setProgAmountMin] = useState("");
+  const [progAmountMax, setProgAmountMax] = useState("");
+  const [maxSharesMin, setMaxSharesMin] = useState("");
+  const [maxSharesMax, setMaxSharesMax] = useState("");
+  const [cumSharesMin, setCumSharesMin] = useState("");
+  const [cumSharesMax, setCumSharesMax] = useState("");
+  const [progSharesMin, setProgSharesMin] = useState("");
+  const [progSharesMax, setProgSharesMax] = useState("");
+  const [remSharesMin, setRemSharesMin] = useState("");
+  const [remSharesMax, setRemSharesMax] = useState("");
+  const [avgVolMin, setAvgVolMin] = useState("");
+  const [avgVolMax, setAvgVolMax] = useState("");
+  const [impactMin, setImpactMin] = useState("");
+  const [impactMax, setImpactMax] = useState("");
+
   // グループ関連
   const [allGroups, setAllGroups] = useState<WatchlistGroup[]>([]);
   const [selectedGroupIds, setSelectedGroupIds] = useState<Set<number>>(new Set());
@@ -327,6 +347,33 @@ export default function BuybackDetailPage() {
       list = list.filter((s) => s.isActive);
     }
 
+    // 範囲フィルタ (null値はフィルタ対象外 = 通過)
+    const rf = (
+      items: Stock[],
+      getter: (s: Stock) => number | null,
+      min: string,
+      max: string,
+    ): Stock[] => {
+      if (min === "" && max === "") return items;
+      const lo = min !== "" ? parseFloat(min) : -Infinity;
+      const hi = max !== "" ? parseFloat(max) : Infinity;
+      return items.filter((s) => {
+        const v = getter(s);
+        if (v == null) return false;
+        return v >= lo && v <= hi;
+      });
+    };
+
+    list = rf(list, (s) => s.latestReport?.maxAmount != null ? s.latestReport.maxAmount / 1e8 : null, maxAmountMin, maxAmountMax);
+    list = rf(list, (s) => s.latestReport?.cumulativeAmount != null ? s.latestReport.cumulativeAmount / 1e8 : null, cumAmountMin, cumAmountMax);
+    list = rf(list, (s) => s.progressAmount, progAmountMin, progAmountMax);
+    list = rf(list, (s) => s.latestReport?.maxShares != null ? s.latestReport.maxShares / 10000 : null, maxSharesMin, maxSharesMax);
+    list = rf(list, (s) => s.latestReport?.cumulativeShares != null ? s.latestReport.cumulativeShares / 10000 : null, cumSharesMin, cumSharesMax);
+    list = rf(list, (s) => s.progressShares, progSharesMin, progSharesMax);
+    list = rf(list, (s) => s.remainingShares != null ? s.remainingShares / 10000 : null, remSharesMin, remSharesMax);
+    list = rf(list, (s) => s.avgDailyVolume != null ? s.avgDailyVolume / 10000 : null, avgVolMin, avgVolMax);
+    list = rf(list, (s) => s.impactDays, impactMin, impactMax);
+
     list = [...list].sort((a, b) => {
       const av = getVal(a, sortKey);
       const bv = getVal(b, sortKey);
@@ -346,7 +393,7 @@ export default function BuybackDetailPage() {
     });
 
     return list;
-  }, [stocks, search, activeOnly, sortKey, sortDir, selectedGroupIds, watchlistGroupMap]);
+  }, [stocks, search, activeOnly, sortKey, sortDir, selectedGroupIds, watchlistGroupMap, maxAmountMin, maxAmountMax, cumAmountMin, cumAmountMax, progAmountMin, progAmountMax, maxSharesMin, maxSharesMax, cumSharesMin, cumSharesMax, progSharesMin, progSharesMax, remSharesMin, remSharesMax, avgVolMin, avgVolMax, impactMin, impactMax]);
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -497,6 +544,19 @@ export default function BuybackDetailPage() {
             )}
           </div>
         )}
+      </div>
+
+      {/* 範囲フィルタ */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-600 dark:text-slate-400">
+        <RangeInput label="上限(億)" min={maxAmountMin} max={maxAmountMax} setMin={setMaxAmountMin} setMax={setMaxAmountMax} />
+        <RangeInput label="累計(億)" min={cumAmountMin} max={cumAmountMax} setMin={setCumAmountMin} setMax={setCumAmountMax} />
+        <RangeInput label="金額進捗%" min={progAmountMin} max={progAmountMax} setMin={setProgAmountMin} setMax={setProgAmountMax} />
+        <RangeInput label="上限(万株)" min={maxSharesMin} max={maxSharesMax} setMin={setMaxSharesMin} setMax={setMaxSharesMax} />
+        <RangeInput label="累計(万株)" min={cumSharesMin} max={cumSharesMax} setMin={setCumSharesMin} setMax={setCumSharesMax} />
+        <RangeInput label="株数進捗%" min={progSharesMin} max={progSharesMax} setMin={setProgSharesMin} setMax={setProgSharesMax} />
+        <RangeInput label="残り(万株)" min={remSharesMin} max={remSharesMax} setMin={setRemSharesMin} setMax={setRemSharesMax} />
+        <RangeInput label="出来高(万)" min={avgVolMin} max={avgVolMax} setMin={setAvgVolMin} setMax={setAvgVolMax} />
+        <RangeInput label="インパクト日" min={impactMin} max={impactMax} setMin={setImpactMin} setMax={setImpactMax} />
       </div>
 
       {/* Table */}
@@ -675,6 +735,43 @@ export default function BuybackDetailPage() {
           onClose={() => setShowBatchGroupPopup(false)}
         />
       )}
+    </div>
+  );
+}
+
+// ── Range Input Component ──
+
+function RangeInput({
+  label,
+  min,
+  max,
+  setMin,
+  setMax,
+}: {
+  label: string;
+  min: string;
+  max: string;
+  setMin: (v: string) => void;
+  setMax: (v: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <span className="min-w-[70px] text-right">{label}</span>
+      <input
+        type="number"
+        placeholder="min"
+        value={min}
+        onChange={(e) => setMin(e.target.value)}
+        className="w-16 rounded border border-gray-300 px-1.5 py-1 text-xs dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+      />
+      <span>-</span>
+      <input
+        type="number"
+        placeholder="max"
+        value={max}
+        onChange={(e) => setMax(e.target.value)}
+        className="w-16 rounded border border-gray-300 px-1.5 py-1 text-xs dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+      />
     </div>
   );
 }
