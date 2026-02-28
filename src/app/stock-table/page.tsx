@@ -405,8 +405,11 @@ export default function StockTablePage() {
     async (symbolList: string[]) => {
       if (symbolList.length === 0) return;
 
-      // 既にフェッチ済みのシンボルを除外
-      const missing = symbolList.filter((s) => !tableDataRef.current.has(s));
+      // 既にフェッチ済みのシンボルを除外 (price=0 はデータ未取得扱い)
+      const missing = symbolList.filter((s) => {
+        const cached = tableDataRef.current.get(s);
+        return !cached || cached.price === 0;
+      });
       if (missing.length === 0) return; // 全てキャッシュ済み → 何もしない
 
       // 新しいfetch世代を開始（古い並行fetchを無効化）
@@ -468,7 +471,7 @@ export default function StockTablePage() {
       return {
         symbol: s.symbol,
         code: s.symbol.replace(".T", ""),
-        name: (td?.name && td.name !== s.symbol) ? td.name : s.name,
+        name: s.name || td?.name || s.symbol,
         market: s.marketSegment ?? "",
         marketSegment: s.marketSegment,
         favorite: s.favorite,
