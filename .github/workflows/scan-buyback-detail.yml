@@ -3,6 +3,9 @@ name: Scan Buyback Detail
 on:
   repository_dispatch:
     types: [scan-buyback-detail]
+  schedule:
+    # 毎月1日 10:00 JST (01:00 UTC) に全銘柄スキャン
+    - cron: "0 1 1 * *"
 
 jobs:
   scan:
