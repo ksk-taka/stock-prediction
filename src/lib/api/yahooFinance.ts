@@ -586,7 +586,8 @@ export async function getQuoteBatch(symbols: string[]) {
   if (symbols.length === 0) return [];
 
   // yahoo-finance2のバッチquote（配列版）を使用
-  const results = await yfQueue.add(() => yf.quote(symbols));
+  // バリデーションエラーで銘柄が除外されるのを防ぐ
+  const results = await yfQueue.add(() => yf.quote(symbols, {}, { validateResult: false }));
   const arr = Array.isArray(results) ? results : [results];
 
   return arr.map((result) => {

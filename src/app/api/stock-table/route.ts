@@ -132,6 +132,10 @@ export async function GET(request: NextRequest) {
       }
     }
     const quoteMap = new Map(quotes.map((q) => [q.symbol, q]));
+    if (quotes.length < symbols.length) {
+      const missing = symbols.filter((s) => !quoteMap.has(s));
+      console.warn(`[stock-table] YF quote: ${quotes.length}/${symbols.length} returned. Missing: ${missing.slice(0, 10).join(",")}`);
+    }
 
     // 1b. J-Quants master → TOPIX ScaleCat マップ
     const topixMap = new Map<string, string>();
