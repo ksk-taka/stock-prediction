@@ -52,6 +52,8 @@ const createSampleRow = (symbol: string): StockTableRow => ({
   earningsDate: "2024-08-01",
   fiscalYearEnd: "3月",
   marketCap: 100000000000,
+  sharpe3m: 0.8,
+  sharpe6m: 1.2,
   sharpe1y: 1.5,
   roe: 12.5,
   latestDividend: 50,
@@ -92,7 +94,7 @@ const createSampleRow = (symbol: string): StockTableRow => ({
 });
 
 describe("tableCache", () => {
-  const CACHE_VERSION = 4;
+  const CACHE_VERSION = 5;
   const CACHE_TTL = 6 * 60 * 60 * 1000; // 6時間
 
   beforeEach(() => {
@@ -247,7 +249,7 @@ describe("tableCache", () => {
 
       expect(set).toHaveBeenCalledTimes(1);
       const [key, envelope] = vi.mocked(set).mock.calls[0];
-      expect(key).toBe("stock-table-v4");
+      expect(key).toBe("stock-table-v5");
       expect(envelope.version).toBe(CACHE_VERSION);
       expect(envelope.timestamp).toBe(Date.now());
       expect(Object.keys(envelope.data)).toHaveLength(2);
@@ -279,7 +281,7 @@ describe("tableCache", () => {
     it("キャッシュを削除する", async () => {
       await clearTableCache();
 
-      expect(del).toHaveBeenCalledWith("stock-table-v4");
+      expect(del).toHaveBeenCalledWith("stock-table-v5");
     });
 
     it("削除エラーは無視する", async () => {

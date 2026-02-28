@@ -4,8 +4,8 @@
  */
 import { get, set, del } from "idb-keyval";
 
-const CACHE_KEY = "stock-table-v4";
-const CACHE_VERSION = 4; // buyback detail追加
+const CACHE_KEY = "stock-table-v5";
+const CACHE_VERSION = 5; // sharpe3m/6m + prevProfitGrowthRate追加
 const CACHE_TTL = 6 * 60 * 60 * 1000; // 6時間
 
 // page.tsx 側と同じ型 (re-export用にここでも定義)
@@ -33,6 +33,8 @@ export interface StockTableRow {
   earningsDate: string | null;
   fiscalYearEnd: string | null;
   marketCap: number | null;
+  sharpe3m: number | null;
+  sharpe6m: number | null;
   sharpe1y: number | null;
   roe: number | null;
   latestDividend: number | null;

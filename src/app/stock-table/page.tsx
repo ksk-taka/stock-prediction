@@ -65,7 +65,9 @@ const COLUMNS: ColumnDef[] = [
   { key: "cnPer", label: "簡易CNPER", group: "指標", align: "right", defaultVisible: true },
   { key: "earningsDate", label: "決算発表日", group: "指標", align: "right", defaultVisible: true },
   { key: "fiscalYearEnd", label: "決算日", group: "指標", align: "right", defaultVisible: false },
-  { key: "sharpe1y", label: "Sharpe", group: "指標", align: "right", defaultVisible: false },
+  { key: "sharpe3m", label: "SR3m", group: "指標", align: "right", defaultVisible: false },
+  { key: "sharpe6m", label: "SR6m", group: "指標", align: "right", defaultVisible: false },
+  { key: "sharpe1y", label: "SR1y", group: "指標", align: "right", defaultVisible: false },
   { key: "roe", label: "ROE", group: "指標", align: "right", defaultVisible: false },
   { key: "currentRatio", label: "流動比率", group: "指標", align: "right", defaultVisible: false },
   { key: "psr", label: "PSR", group: "指標", align: "right", defaultVisible: false },
@@ -266,6 +268,10 @@ export default function StockTablePage() {
   // 数値範囲フィルタ
   const [ncRatioMin, setNcRatioMin] = useState("");
   const [ncRatioMax, setNcRatioMax] = useState("");
+  const [sharpe3mMin, setSharpe3mMin] = useState("");
+  const [sharpe3mMax, setSharpe3mMax] = useState("");
+  const [sharpe6mMin, setSharpe6mMin] = useState("");
+  const [sharpe6mMax, setSharpe6mMax] = useState("");
   const [sharpeMin, setSharpeMin] = useState("");
   const [sharpeMax, setSharpeMax] = useState("");
   const [increaseMin, setIncreaseMin] = useState("");
@@ -487,6 +493,8 @@ export default function StockTablePage() {
         earningsDate: td?.earningsDate ?? null,
         fiscalYearEnd: td?.fiscalYearEnd ?? null,
         marketCap: td?.marketCap ?? null,
+        sharpe3m: td?.sharpe3m ?? null,
+        sharpe6m: td?.sharpe6m ?? null,
         sharpe1y: td?.sharpe1y ?? null,
         roe: td?.roe ?? null,
         latestDividend: td?.latestDividend ?? null,
@@ -570,15 +578,22 @@ export default function StockTablePage() {
     }
 
     // シャープレシオ フィルタ (min/max)
-    if (sharpeMin !== "" || sharpeMax !== "") {
-      const lo = sharpeMin !== "" ? parseFloat(sharpeMin) : NaN;
-      const hi = sharpeMax !== "" ? parseFloat(sharpeMax) : NaN;
-      rows = rows.filter((r) => {
-        if (r.sharpe1y == null) return false;
-        if (!isNaN(lo) && r.sharpe1y < lo) return false;
-        if (!isNaN(hi) && r.sharpe1y > hi) return false;
-        return true;
-      });
+    {
+      const srf = (items: MergedRow[], getter: (r: MergedRow) => number | null | undefined, min: string, max: string): MergedRow[] => {
+        const lo = min !== "" ? parseFloat(min) : NaN;
+        const hi = max !== "" ? parseFloat(max) : NaN;
+        if (isNaN(lo) && isNaN(hi)) return items;
+        return items.filter((r) => {
+          const v = getter(r);
+          if (v == null) return false;
+          if (!isNaN(lo) && v < lo) return false;
+          if (!isNaN(hi) && v > hi) return false;
+          return true;
+        });
+      };
+      rows = srf(rows, (r) => r.sharpe3m, sharpe3mMin, sharpe3mMax);
+      rows = srf(rows, (r) => r.sharpe6m, sharpe6mMin, sharpe6mMax);
+      rows = srf(rows, (r) => r.sharpe1y, sharpeMin, sharpeMax);
     }
 
     // 増配額フィルタ
@@ -776,7 +791,7 @@ export default function StockTablePage() {
     });
 
     return rows;
-  }, [filteredStocks, tableData, sortKey, sortDir, capSizeFilter, ncRatioMin, ncRatioMax, sharpeMin, sharpeMax, increaseMin, roeMin, roeMax, currentRatioMin, currentRatioMax, psrMin, psrMax, pegMin, pegMax, equityRatioMin, equityRatioMax, profitGrowthMin, profitGrowthMax, prevProfitGrowthMin, prevProfitGrowthMax, revenueGrowthMin, operatingMarginsMin, listingYearsMax, priceMin, priceMax, yutaiOnly, buybackOnly, bbProgressAmtMin, bbProgressAmtMax, bbProgressShrMin, bbProgressShrMax, bbImpactMin, bbImpactMax, earningsFrom, earningsTo, topixFilter, nikkei225Only, marketCapMin, marketCapMax]);
+  }, [filteredStocks, tableData, sortKey, sortDir, capSizeFilter, ncRatioMin, ncRatioMax, sharpe3mMin, sharpe3mMax, sharpe6mMin, sharpe6mMax, sharpeMin, sharpeMax, increaseMin, roeMin, roeMax, currentRatioMin, currentRatioMax, psrMin, psrMax, pegMin, pegMax, equityRatioMin, equityRatioMax, profitGrowthMin, profitGrowthMax, prevProfitGrowthMin, prevProfitGrowthMax, revenueGrowthMin, operatingMarginsMin, listingYearsMax, priceMin, priceMax, yutaiOnly, buybackOnly, bbProgressAmtMin, bbProgressAmtMax, bbProgressShrMin, bbProgressShrMax, bbImpactMin, bbImpactMax, earningsFrom, earningsTo, topixFilter, nikkei225Only, marketCapMin, marketCapMax]);
 
   // ── ソート切り替え ──
   function handleSort(key: SortKey) {
@@ -952,17 +967,21 @@ export default function StockTablePage() {
       case "cnPer":
         if (row.cnPer == null) return "－";
         return formatNum(row.cnPer);
-      case "sharpe1y":
-        if (row.sharpe1y == null) return "－";
+      case "sharpe3m":
+      case "sharpe6m":
+      case "sharpe1y": {
+        const sv = row[col.key as "sharpe3m" | "sharpe6m" | "sharpe1y"];
+        if (sv == null) return "－";
         return (
           <span className={
-            row.sharpe1y > 1 ? "text-green-600 dark:text-green-400"
-              : row.sharpe1y < 0 ? "text-red-600 dark:text-red-400"
+            sv > 1 ? "text-green-600 dark:text-green-400"
+              : sv < 0 ? "text-red-600 dark:text-red-400"
               : ""
           }>
-            {row.sharpe1y > 0 ? "+" : ""}{row.sharpe1y.toFixed(2)}
+            {sv > 0 ? "+" : ""}{sv.toFixed(2)}
           </span>
         );
+      }
       case "roe":
         if (row.roe == null) return "－";
         return (
@@ -1640,7 +1659,19 @@ export default function StockTablePage() {
       {/* 数値範囲フィルタ */}
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-1">
-          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">Sharpe</span>
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">SR3m</span>
+          <input type="number" step="0.1" value={sharpe3mMin} onChange={(e) => setSharpe3mMin(e.target.value)} placeholder="" className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
+          <span className="text-xs text-gray-400">〜</span>
+          <input type="number" step="0.1" value={sharpe3mMax} onChange={(e) => setSharpe3mMax(e.target.value)} placeholder="" className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">SR6m</span>
+          <input type="number" step="0.1" value={sharpe6mMin} onChange={(e) => setSharpe6mMin(e.target.value)} placeholder="" className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
+          <span className="text-xs text-gray-400">〜</span>
+          <input type="number" step="0.1" value={sharpe6mMax} onChange={(e) => setSharpe6mMax(e.target.value)} placeholder="" className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">SR1y</span>
           <input type="number" step="0.1" value={sharpeMin} onChange={(e) => setSharpeMin(e.target.value)} placeholder="0.5" className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
           <span className="text-xs text-gray-400">〜</span>
           <input type="number" step="0.1" value={sharpeMax} onChange={(e) => setSharpeMax(e.target.value)} placeholder="" className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
@@ -1832,9 +1863,9 @@ export default function StockTablePage() {
           <input type="number" step="1" value={bbImpactMax} onChange={(e) => setBbImpactMax(e.target.value)} placeholder="60" className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
           <span className="text-xs text-gray-400">日</span>
         </div>
-        {(priceMin || priceMax || ncRatioMin || ncRatioMax || sharpeMin || sharpeMax || increaseMin || roeMin || roeMax || currentRatioMin || currentRatioMax || psrMin || psrMax || pegMin || pegMax || equityRatioMin || equityRatioMax || profitGrowthMin || profitGrowthMax || prevProfitGrowthMin || prevProfitGrowthMax || revenueGrowthMin || operatingMarginsMin || listingYearsMax || yutaiOnly || buybackOnly || bbProgressAmtMin || bbProgressAmtMax || bbProgressShrMin || bbProgressShrMax || bbImpactMin || bbImpactMax || topixFilter.size > 0 || nikkei225Only || marketCapMin || marketCapMax) && (
+        {(priceMin || priceMax || ncRatioMin || ncRatioMax || sharpe3mMin || sharpe3mMax || sharpe6mMin || sharpe6mMax || sharpeMin || sharpeMax || increaseMin || roeMin || roeMax || currentRatioMin || currentRatioMax || psrMin || psrMax || pegMin || pegMax || equityRatioMin || equityRatioMax || profitGrowthMin || profitGrowthMax || prevProfitGrowthMin || prevProfitGrowthMax || revenueGrowthMin || operatingMarginsMin || listingYearsMax || yutaiOnly || buybackOnly || bbProgressAmtMin || bbProgressAmtMax || bbProgressShrMin || bbProgressShrMax || bbImpactMin || bbImpactMax || topixFilter.size > 0 || nikkei225Only || marketCapMin || marketCapMax) && (
           <button
-            onClick={() => { setPriceMin(""); setPriceMax(""); setNcRatioMin(""); setNcRatioMax(""); setSharpeMin(""); setSharpeMax(""); setIncreaseMin(""); setRoeMin(""); setRoeMax(""); setCurrentRatioMin(""); setCurrentRatioMax(""); setPsrMin(""); setPsrMax(""); setPegMin(""); setPegMax(""); setEquityRatioMin(""); setEquityRatioMax(""); setProfitGrowthMin(""); setProfitGrowthMax(""); setPrevProfitGrowthMin(""); setPrevProfitGrowthMax(""); setRevenueGrowthMin(""); setOperatingMarginsMin(""); setListingYearsMax(""); setYutaiOnly(false); setBuybackOnly(false); setBbProgressAmtMin(""); setBbProgressAmtMax(""); setBbProgressShrMin(""); setBbProgressShrMax(""); setBbImpactMin(""); setBbImpactMax(""); setTopixFilter(new Set()); setNikkei225Only(false); setMarketCapMin(""); setMarketCapMax(""); }}
+            onClick={() => { setPriceMin(""); setPriceMax(""); setNcRatioMin(""); setNcRatioMax(""); setSharpe3mMin(""); setSharpe3mMax(""); setSharpe6mMin(""); setSharpe6mMax(""); setSharpeMin(""); setSharpeMax(""); setIncreaseMin(""); setRoeMin(""); setRoeMax(""); setCurrentRatioMin(""); setCurrentRatioMax(""); setPsrMin(""); setPsrMax(""); setPegMin(""); setPegMax(""); setEquityRatioMin(""); setEquityRatioMax(""); setProfitGrowthMin(""); setProfitGrowthMax(""); setPrevProfitGrowthMin(""); setPrevProfitGrowthMax(""); setRevenueGrowthMin(""); setOperatingMarginsMin(""); setListingYearsMax(""); setYutaiOnly(false); setBuybackOnly(false); setBbProgressAmtMin(""); setBbProgressAmtMax(""); setBbProgressShrMin(""); setBbProgressShrMax(""); setBbImpactMin(""); setBbImpactMax(""); setTopixFilter(new Set()); setNikkei225Only(false); setMarketCapMin(""); setMarketCapMax(""); }}
             className="rounded-full px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
           >
             クリア

@@ -6,7 +6,7 @@ import { getCachedYutaiBatch, getYutaiFromSupabase } from "@/lib/cache/yutaiCach
 import { getRoeHistory } from "@/lib/api/roeHistory";
 import { getFcfHistory } from "@/lib/api/fcfHistory";
 import type { DividendSummary } from "@/types";
-import { calcSharpeRatioFromPrices } from "@/lib/utils/indicators";
+import { calcMultiPeriodSharpe } from "@/lib/utils/indicators";
 import type { PriceData } from "@/types";
 import { isMarketOpen } from "@/lib/utils/date";
 import { getCachedMaster } from "@/lib/cache/jquantsCache";
@@ -166,7 +166,9 @@ export async function GET(request: NextRequest) {
 
     // 2. Supabase price_history からレンジ計算 + シャープレシオ算出
     const rangeMap = new Map<string, ReturnType<typeof computeRanges>>();
-    const sharpeMap = new Map<string, number | null>();
+    const sharpe3mMap = new Map<string, number | null>();
+    const sharpe6mMap = new Map<string, number | null>();
+    const sharpe1yMap = new Map<string, number | null>();
     try {
       const supabase = createServiceClient();
       const { data: priceRows } = await supabase
@@ -182,7 +184,10 @@ export async function GET(request: NextRequest) {
               ? JSON.parse(row.prices)
               : row.prices;
           rangeMap.set(row.symbol, computeRanges(prices));
-          sharpeMap.set(row.symbol, calcSharpeRatioFromPrices(prices));
+          const sr = calcMultiPeriodSharpe(prices);
+          sharpe3mMap.set(row.symbol, sr.sharpe3m);
+          sharpe6mMap.set(row.symbol, sr.sharpe6m);
+          sharpe1yMap.set(row.symbol, sr.sharpe1y);
         }
       }
     } catch {
@@ -511,7 +516,9 @@ export async function GET(request: NextRequest) {
         lastYearLow: r?.lastYearLow ?? null,
         earningsDate: q?.earningsDate ?? null,
         fiscalYearEnd: fyeMap.get(sym) ?? null,
-        sharpe1y: sharpeMap.get(sym) ?? null,
+        sharpe3m: sharpe3mMap.get(sym) ?? null,
+        sharpe6m: sharpe6mMap.get(sym) ?? null,
+        sharpe1y: sharpe1yMap.get(sym) ?? null,
         roe: roeMap.get(sym) ?? null,
         latestDividend: divMap.get(sym)?.latestAmount ?? null,
         previousDividend: divMap.get(sym)?.previousAmount ?? null,
