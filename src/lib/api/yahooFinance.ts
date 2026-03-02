@@ -579,8 +579,48 @@ export function computeDividendTrend(
   return { consecutiveYears: consecutive, latestGrowthPct, summary };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapQuoteResult(result: any) {
+  const r = result as Record<string, unknown>;
+  const earningsTs =
+    r.earningsTimestamp ?? r.earningsTimestampStart ?? r.earningsTimestampEnd;
+  return {
+    symbol: result.symbol as string,
+    name:
+      (r.shortName as string | null) ??
+      (r.longName as string | null) ??
+      (result.symbol as string),
+    price: (result.regularMarketPrice as number) ?? 0,
+    previousClose: (r.regularMarketPreviousClose as number) ?? 0,
+    change: (result.regularMarketChange as number) ?? 0,
+    changePercent: (result.regularMarketChangePercent as number) ?? 0,
+    volume: (result.regularMarketVolume as number) ?? 0,
+    per: (r.trailingPE as number) ?? null,
+    pbr: (r.priceToBook as number) ?? null,
+    eps: (r.epsTrailingTwelveMonths as number) ?? null,
+    dayHigh: (r.regularMarketDayHigh as number) ?? null,
+    dayLow: (r.regularMarketDayLow as number) ?? null,
+    yearHigh: (r.fiftyTwoWeekHigh as number) ?? null,
+    yearLow: (r.fiftyTwoWeekLow as number) ?? null,
+    marketCap: (r.marketCap as number) ?? 0,
+    dividendYield: (r.trailingAnnualDividendYield as number) ?? null,
+    averageDailyVolume3Month: (r.averageDailyVolume3Month as number) ?? null,
+    sharesOutstanding: (r.sharesOutstanding as number) ?? null,
+    psr: (r.priceToSalesTrailing12Months as number) ?? null,
+    earningsDate:
+      earningsTs instanceof Date
+        ? earningsTs.toISOString().split("T")[0]
+        : null,
+    firstTradeDate:
+      r.firstTradeDateMilliseconds instanceof Date
+        ? (r.firstTradeDateMilliseconds as Date).toISOString().split("T")[0]
+        : null,
+  };
+}
+
 /**
  * 複数銘柄の株価情報をバッチ取得（テーブル表示用）
+ * バッチquoteで欠落した銘柄は個別リトライする
  */
 export async function getQuoteBatch(symbols: string[]) {
   if (symbols.length === 0) return [];
@@ -590,43 +630,36 @@ export async function getQuoteBatch(symbols: string[]) {
   const results = await yfQueue.add(() => yf.quote(symbols, {}, { validateResult: false }));
   const arr = Array.isArray(results) ? results : [results];
 
-  return arr.map((result) => {
-    const r = result as Record<string, unknown>;
-    const earningsTs =
-      r.earningsTimestamp ?? r.earningsTimestampStart ?? r.earningsTimestampEnd;
-    return {
-      symbol: result.symbol,
-      name:
-        (r.shortName as string | null) ??
-        (r.longName as string | null) ??
-        result.symbol,
-      price: result.regularMarketPrice ?? 0,
-      previousClose: (r.regularMarketPreviousClose as number) ?? 0,
-      change: result.regularMarketChange ?? 0,
-      changePercent: result.regularMarketChangePercent ?? 0,
-      volume: result.regularMarketVolume ?? 0,
-      per: (r.trailingPE as number) ?? null,
-      pbr: (r.priceToBook as number) ?? null,
-      eps: (r.epsTrailingTwelveMonths as number) ?? null,
-      dayHigh: (r.regularMarketDayHigh as number) ?? null,
-      dayLow: (r.regularMarketDayLow as number) ?? null,
-      yearHigh: (r.fiftyTwoWeekHigh as number) ?? null,
-      yearLow: (r.fiftyTwoWeekLow as number) ?? null,
-      marketCap: (r.marketCap as number) ?? 0,
-      dividendYield: (r.trailingAnnualDividendYield as number) ?? null,
-      averageDailyVolume3Month: (r.averageDailyVolume3Month as number) ?? null,
-      sharesOutstanding: (r.sharesOutstanding as number) ?? null,
-      psr: (r.priceToSalesTrailing12Months as number) ?? null,
-      earningsDate:
-        earningsTs instanceof Date
-          ? earningsTs.toISOString().split("T")[0]
-          : null,
-      firstTradeDate:
-        r.firstTradeDateMilliseconds instanceof Date
-          ? (r.firstTradeDateMilliseconds as Date).toISOString().split("T")[0]
-          : null,
-    };
-  });
+  const mapped = arr.map(mapQuoteResult);
+
+  // バッチquoteで欠落した銘柄を検出して個別リトライ
+  if (mapped.length < symbols.length) {
+    const fetched = new Set(mapped.map((q) => q.symbol));
+    const missing = symbols.filter((s) => !fetched.has(s));
+    if (missing.length > 0) {
+      console.log(`[getQuoteBatch] Retrying ${missing.length} missing symbols individually...`);
+      const retryResults = await Promise.allSettled(
+        missing.map((sym) =>
+          yfQueue.add(() => yf.quote(sym, {}, { validateResult: false }))
+        )
+      );
+      for (const r of retryResults) {
+        if (r.status === "fulfilled" && r.value) {
+          const single = Array.isArray(r.value) ? r.value[0] : r.value;
+          if (single?.symbol) {
+            mapped.push(mapQuoteResult(single));
+          }
+        }
+      }
+      const finalFetched = new Set(mapped.map((q) => q.symbol));
+      const stillMissing = missing.filter((s) => !finalFetched.has(s));
+      if (stillMissing.length > 0) {
+        console.warn(`[getQuoteBatch] Still missing after retry: ${stillMissing.join(",")}`);
+      }
+    }
+  }
+
+  return mapped;
 }
 
 /**
