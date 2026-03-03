@@ -176,6 +176,16 @@ export default function TurnaroundPage() {
   const [pbrMax, setPbrMax] = useState("");
   const [revenueGrowthMin, setRevenueGrowthMin] = useState("");
   const [revenueGrowthMax, setRevenueGrowthMax] = useState("");
+  const [fyMin, setFyMin] = useState("");
+  const [fyMax, setFyMax] = useState("");
+  const [priorLossMin, setPriorLossMin] = useState("");
+  const [priorLossMax, setPriorLossMax] = useState("");
+  const [profitMin, setProfitMin] = useState("");
+  const [profitMax, setProfitMax] = useState("");
+  const [changePctMin, setChangePctMin] = useState("");
+  const [changePctMax, setChangePctMax] = useState("");
+  const [volumeMin, setVolumeMin] = useState("");
+  const [volumeMax, setVolumeMax] = useState("");
 
   // マウント時にIndexedDBから復元
   useEffect(() => {
@@ -296,6 +306,11 @@ export default function TurnaroundPage() {
       if (!rangeFilter(r.per, perMin, perMax)) return false;
       if (!rangeFilter(r.pbr, pbrMin, pbrMax)) return false;
       if (!rangeFilter(r.revenueGrowthPct, revenueGrowthMin, revenueGrowthMax)) return false;
+      if (!rangeFilter(r.turnaroundFiscalYear, fyMin, fyMax)) return false;
+      if (!rangeFilter(r.priorLossAmountMM, priorLossMin, priorLossMax)) return false;
+      if (!rangeFilter(r.turnaroundProfitAmountMM, profitMin, profitMax)) return false;
+      if (!rangeFilter(r.changePercent, changePctMin, changePctMax)) return false;
+      if (!rangeFilter(r.volume, volumeMin, volumeMax)) return false;
       return true;
     });
 
@@ -319,6 +334,8 @@ export default function TurnaroundPage() {
     lossYearsMin, lossYearsMax, marketCapMin, marketCapMax,
     priceMin, priceMax, perMin, perMax, pbrMin, pbrMax,
     revenueGrowthMin, revenueGrowthMax,
+    fyMin, fyMax, priorLossMin, priorLossMax, profitMin, profitMax,
+    changePctMin, changePctMax, volumeMin, volumeMax,
   ]);
 
   const handleSort = (key: SortKey) => {
@@ -339,6 +356,11 @@ export default function TurnaroundPage() {
     setPerMin(""); setPerMax("");
     setPbrMin(""); setPbrMax("");
     setRevenueGrowthMin(""); setRevenueGrowthMax("");
+    setFyMin(""); setFyMax("");
+    setPriorLossMin(""); setPriorLossMax("");
+    setProfitMin(""); setProfitMax("");
+    setChangePctMin(""); setChangePctMax("");
+    setVolumeMin(""); setVolumeMax("");
   };
 
   // CSV出力
@@ -503,11 +525,16 @@ export default function TurnaroundPage() {
             ))}
 
             <RangeInput label="連続赤字" min={lossYearsMin} max={lossYearsMax} setMin={setLossYearsMin} setMax={setLossYearsMax} />
-            <RangeInput label="時価総額(億)" min={marketCapMin} max={marketCapMax} setMin={setMarketCapMin} setMax={setMarketCapMax} />
+            <RangeInput label="黒転FY" min={fyMin} max={fyMax} setMin={setFyMin} setMax={setFyMax} />
+            <RangeInput label="OP前年(百万)" min={priorLossMin} max={priorLossMax} setMin={setPriorLossMin} setMax={setPriorLossMax} />
+            <RangeInput label="OP黒転(百万)" min={profitMin} max={profitMax} setMin={setProfitMin} setMax={setProfitMax} />
+            <RangeInput label="売上変化%" min={revenueGrowthMin} max={revenueGrowthMax} setMin={setRevenueGrowthMin} setMax={setRevenueGrowthMax} />
             <RangeInput label="株価" min={priceMin} max={priceMax} setMin={setPriceMin} setMax={setPriceMax} />
+            <RangeInput label="前日比%" min={changePctMin} max={changePctMax} setMin={setChangePctMin} setMax={setChangePctMax} />
+            <RangeInput label="時価総額(億)" min={marketCapMin} max={marketCapMax} setMin={setMarketCapMin} setMax={setMarketCapMax} />
             <RangeInput label="PER" min={perMin} max={perMax} setMin={setPerMin} setMax={setPerMax} />
             <RangeInput label="PBR" min={pbrMin} max={pbrMax} setMin={setPbrMin} setMax={setPbrMax} />
-            <RangeInput label="売上変化%" min={revenueGrowthMin} max={revenueGrowthMax} setMin={setRevenueGrowthMin} setMax={setRevenueGrowthMax} />
+            <RangeInput label="出来高" min={volumeMin} max={volumeMax} setMin={setVolumeMin} setMax={setVolumeMax} />
 
             <button
               onClick={resetFilters}
