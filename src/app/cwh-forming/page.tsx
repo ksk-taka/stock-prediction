@@ -31,6 +31,9 @@ interface CwhStock {
   equityRatio: number | null;
   profitGrowthRate: number | null;
   prevProfitGrowthRate: number | null;
+  // 出来高
+  volume: number | null;
+  avgVolume5d: number | null;
   hasBuyback: boolean;
   // 自社株買い詳細
   buybackProgressAmount: number | null;
@@ -65,6 +68,8 @@ const COLUMNS: ColumnDef[] = [
   { key: "distancePct", label: "BO距離%", group: "CWH", align: "right", tooltip: "現在値からブレイクアウト価格までの距離", defaultVisible: true },
   { key: "pullbackPct", label: "押し目%", group: "CWH", align: "right", tooltip: "ハンドル部分の押し目率", defaultVisible: true },
   { key: "marketCap", label: "時価総額", group: "指標", align: "right", tooltip: "時価総額（億円）", defaultVisible: true },
+  { key: "volume", label: "前日出来高", group: "指標", align: "right", tooltip: "前日の出来高", defaultVisible: true },
+  { key: "avgVolume5d", label: "5日平均", group: "指標", align: "right", tooltip: "直近5日間の出来高平均", defaultVisible: true },
   { key: "sharpe3m", label: "SR3m", group: "指標", align: "right", tooltip: "シャープレシオ（3ヶ月）", defaultVisible: true },
   { key: "sharpe6m", label: "SR6m", group: "指標", align: "right", tooltip: "シャープレシオ（6ヶ月）", defaultVisible: true },
   { key: "sharpe1y", label: "SR1y", group: "指標", align: "right", tooltip: "シャープレシオ（1年）", defaultVisible: true },
@@ -576,6 +581,10 @@ export default function CwhFormingPage() {
         return formatNum(s.pullbackPct);
       case "marketCap":
         return <span className="text-gray-500 dark:text-slate-400">{s.marketCap != null ? `${(s.marketCap / 1e8).toLocaleString("ja-JP", { maximumFractionDigits: 0 })}` : "-"}</span>;
+      case "volume":
+        return <span className="text-gray-500 dark:text-slate-400">{s.volume != null ? s.volume.toLocaleString("ja-JP") : "-"}</span>;
+      case "avgVolume5d":
+        return <span className="text-gray-500 dark:text-slate-400">{s.avgVolume5d != null ? s.avgVolume5d.toLocaleString("ja-JP") : "-"}</span>;
       case "sharpe3m":
         return <span className={sharpeColor(s.sharpe3m)}>{s.sharpe3m != null ? formatNum(s.sharpe3m, 2) : "-"}</span>;
       case "sharpe6m":

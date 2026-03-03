@@ -71,6 +71,9 @@ export interface CwhFormingRow {
   equityRatio: number | null;
   profitGrowthRate: number | null;
   prevProfitGrowthRate: number | null;
+  // 出来高
+  volume: number | null;
+  avgVolume5d: number | null;
 }
 
 // ── CLI ──
@@ -365,6 +368,11 @@ async function main() {
       equityRatio: metrics?.equityRatio ?? null,
       profitGrowthRate: metrics?.profitGrowthRate ?? null,
       prevProfitGrowthRate: metrics?.prevProfitGrowthRate ?? null,
+      // 出来高 (prices は日付昇順)
+      volume: r.prices.length >= 1 ? r.prices[r.prices.length - 1].volume : null,
+      avgVolume5d: r.prices.length >= 5
+        ? Math.round(r.prices.slice(-5).reduce((sum, p) => sum + p.volume, 0) / 5)
+        : null,
     };
   });
 
