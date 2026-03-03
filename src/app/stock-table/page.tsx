@@ -30,7 +30,6 @@ interface Stock {
 interface MergedRow extends StockTableRow {
   code: string;
   market: string;
-  marketSegment?: string;
   favorite?: boolean;
 }
 
@@ -539,7 +538,7 @@ export default function StockTablePage() {
         code: s.symbol.replace(".T", ""),
         name: s.name || td?.name || s.symbol,
         market: s.marketSegment ?? "",
-        marketSegment: s.marketSegment,
+        marketSegment: s.marketSegment ?? null,
         favorite: s.favorite,
         price: td?.price ?? 0,
         changePercent: td?.changePercent ?? 0,
