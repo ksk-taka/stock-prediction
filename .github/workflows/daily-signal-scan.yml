@@ -33,3 +33,9 @@ jobs:
           else
             npx tsx scripts/daily-signal-scan.ts --supabase
           fi
+
+      - name: Pre-compute stock table data
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npx tsx scripts/precompute-stock-table.ts --supabase

@@ -456,13 +456,55 @@ export default function StockTablePage() {
     [],
   );
 
+  // 事前計算データ取得フラグ (1回だけ試す)
+  const precomputedTriedRef = useRef(false);
+
+  // 事前計算データを一括取得 (GHA daily job で Supabase に保存済み)
+  const fetchPrecomputed = useCallback(async (): Promise<boolean> => {
+    try {
+      const res = await fetch("/api/stock-table/precomputed");
+      if (!res.ok) return false;
+      const data = await res.json();
+      if (!data.rows || data.rows.length === 0 || !data.computedAt) return false;
+
+      // 24時間以内のデータのみ採用
+      const computedAt = new Date(data.computedAt).getTime();
+      if (Date.now() - computedAt > 24 * 60 * 60 * 1000) return false;
+
+      const newMap = new Map<string, StockTableRow>();
+      for (const row of data.rows) {
+        newMap.set(row.symbol, row);
+      }
+      setTableData(newMap);
+      setTableCache(newMap);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
   // フィルタが変わったらデータ取得（未取得分のみ）
   // cacheRestored を待つことで、IndexedDB復元前にfetchが走るのを防ぐ
   useEffect(() => {
     if (loadingStocks || !cacheRestored) return;
     const syms = filteredStocks.map((s) => s.symbol);
+
+    // IndexedDBキャッシュがない場合、まず事前計算データを試す
+    if (!precomputedTriedRef.current && tableDataRef.current.size === 0) {
+      precomputedTriedRef.current = true;
+      setLoadingData(true);
+      fetchPrecomputed().then((success) => {
+        if (!success) {
+          fetchTableData(syms);
+        } else {
+          setLoadingData(false);
+        }
+      });
+      return;
+    }
+
     fetchTableData(syms);
-  }, [filteredStocks, loadingStocks, cacheRestored, fetchTableData]);
+  }, [filteredStocks, loadingStocks, cacheRestored, fetchTableData, fetchPrecomputed]);
 
   // ── マージ＆ソート ──
   const mergedRows = useMemo(() => {
