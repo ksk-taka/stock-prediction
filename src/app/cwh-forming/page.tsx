@@ -162,6 +162,10 @@ export default function CwhFormingPage() {
   const [growthMax, setGrowthMax] = useState("");
   const [prevGrowthMin, setPrevGrowthMin] = useState("");
   const [prevGrowthMax, setPrevGrowthMax] = useState("");
+  const [volumeMin, setVolumeMin] = useState("");
+  const [volumeMax, setVolumeMax] = useState("");
+  const [avgVol5dMin, setAvgVol5dMin] = useState("");
+  const [avgVol5dMax, setAvgVol5dMax] = useState("");
   const [bbProgressAmtMin, setBbProgressAmtMin] = useState("");
   const [bbProgressAmtMax, setBbProgressAmtMax] = useState("");
   const [bbProgressShrMin, setBbProgressShrMin] = useState("");
@@ -489,6 +493,8 @@ export default function CwhFormingPage() {
     list = rangeFilter(list, (s) => s.cupDepthPct, cupDepthMin, cupDepthMax);
     list = rangeFilter(list, (s) => s.currentPrice, priceMin, priceMax);
     list = rangeFilter(list, (s) => s.marketCap != null ? s.marketCap / 1e8 : null, mcapMin, mcapMax); // 億円換算
+    list = rangeFilter(list, (s) => s.volume, volumeMin, volumeMax);
+    list = rangeFilter(list, (s) => s.avgVolume5d, avgVol5dMin, avgVol5dMax);
     list = rangeFilter(list, (s) => s.sharpe3m, sharpe3mMin, sharpe3mMax);
     list = rangeFilter(list, (s) => s.sharpe6m, sharpe6mMin, sharpe6mMax);
     list = rangeFilter(list, (s) => s.sharpe1y, sharpe1yMin, sharpe1yMax);
@@ -517,7 +523,7 @@ export default function CwhFormingPage() {
     });
 
     return list;
-  }, [stocks, search, marketFilter, stageFilter, buybackOnly, sortKey, sortDir, selectedGroupIds, watchlistGroupMap, distanceMin, distanceMax, pullbackMin, pullbackMax, handleDaysMin, handleDaysMax, cupDaysMin, cupDaysMax, cupDepthMin, cupDepthMax, priceMin, priceMax, mcapMin, mcapMax, sharpe3mMin, sharpe3mMax, sharpe6mMin, sharpe6mMax, sharpe1yMin, sharpe1yMax, roeMin, roeMax, eqRatioMin, eqRatioMax, growthMin, growthMax, prevGrowthMin, prevGrowthMax, bbProgressAmtMin, bbProgressAmtMax, bbProgressShrMin, bbProgressShrMax, bbImpactMin, bbImpactMax]);
+  }, [stocks, search, marketFilter, stageFilter, buybackOnly, sortKey, sortDir, selectedGroupIds, watchlistGroupMap, distanceMin, distanceMax, pullbackMin, pullbackMax, handleDaysMin, handleDaysMax, cupDaysMin, cupDaysMax, cupDepthMin, cupDepthMax, priceMin, priceMax, mcapMin, mcapMax, volumeMin, volumeMax, avgVol5dMin, avgVol5dMax, sharpe3mMin, sharpe3mMax, sharpe6mMin, sharpe6mMax, sharpe1yMin, sharpe1yMax, roeMin, roeMax, eqRatioMin, eqRatioMax, growthMin, growthMax, prevGrowthMin, prevGrowthMax, bbProgressAmtMin, bbProgressAmtMax, bbProgressShrMin, bbProgressShrMax, bbImpactMin, bbImpactMax]);
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -870,6 +876,8 @@ export default function CwhFormingPage() {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-600 dark:text-slate-400">
         <RangeInput label="株価" min={priceMin} max={priceMax} setMin={setPriceMin} setMax={setPriceMax} />
         <RangeInput label="時価総額(億)" min={mcapMin} max={mcapMax} setMin={setMcapMin} setMax={setMcapMax} />
+        <RangeInput label="前日出来高" min={volumeMin} max={volumeMax} setMin={setVolumeMin} setMax={setVolumeMax} />
+        <RangeInput label="5日平均出来高" min={avgVol5dMin} max={avgVol5dMax} setMin={setAvgVol5dMin} setMax={setAvgVol5dMax} />
         <RangeInput label="SR3m" min={sharpe3mMin} max={sharpe3mMax} setMin={setSharpe3mMin} setMax={setSharpe3mMax} />
         <RangeInput label="SR6m" min={sharpe6mMin} max={sharpe6mMax} setMin={setSharpe6mMin} setMax={setSharpe6mMax} />
         <RangeInput label="SR1y" min={sharpe1yMin} max={sharpe1yMax} setMin={setSharpe1yMin} setMax={setSharpe1yMax} />
