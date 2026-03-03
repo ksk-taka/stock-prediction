@@ -4,8 +4,8 @@
  */
 import { get, set, del } from "idb-keyval";
 
-const CACHE_KEY = "stock-table-v5";
-const CACHE_VERSION = 5; // sharpe3m/6m + prevProfitGrowthRate追加
+const CACHE_KEY = "stock-table-v6";
+const CACHE_VERSION = 6; // marketSegment追加 (watchlist待ち解消)
 const CACHE_TTL = 6 * 60 * 60 * 1000; // 6時間
 
 // page.tsx 側と同じ型 (re-export用にここでも定義)
@@ -72,6 +72,7 @@ export interface StockTableRow {
   buybackRemainingShares: number | null;  // 残り株数
   buybackPeriodTo: string | null;         // 取得期限 YYYY-MM-DD
   buybackIsActive: boolean | null;        // 実施中かどうか
+  marketSegment: string | null;           // プライム/スタンダード/グロース
 }
 
 interface CacheEnvelope {

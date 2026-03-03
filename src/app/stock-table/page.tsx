@@ -232,10 +232,24 @@ export default function StockTablePage() {
   const [cacheRestored, setCacheRestored] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
 
-  // マウント時にIndexedDBから復元
+  // マウント時にIndexedDBから復元 → テーブルデータから即座にstocksを生成
   useEffect(() => {
     getTableCache().then((cached) => {
-      if (cached) setTableData(cached);
+      if (cached && cached.size > 0) {
+        setTableData(cached);
+        // テーブルデータから暫定stocks生成 (watchlist API待ちを解消)
+        const derived: Stock[] = [];
+        cached.forEach((row) => {
+          derived.push({
+            symbol: row.symbol,
+            name: row.name,
+            market: "JP",
+            marketSegment: row.marketSegment ?? undefined,
+          });
+        });
+        setStocks(derived);
+        setLoadingStocks(false);
+      }
       setCacheRestored(true);
     });
   }, []);
@@ -355,7 +369,7 @@ export default function StockTablePage() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [showGroupDropdown, showMarketDropdown, showCapDropdown, showTopixDropdown]);
 
-  // ── ウォッチリスト読み込み ──
+  // ── ウォッチリスト読み込み (バックグラウンド: groups/favorite を後からマージ) ──
   useEffect(() => {
     (async () => {
       try {
@@ -472,11 +486,21 @@ export default function StockTablePage() {
       if (Date.now() - computedAt > 24 * 60 * 60 * 1000) return false;
 
       const newMap = new Map<string, StockTableRow>();
+      const derived: Stock[] = [];
       for (const row of data.rows) {
         newMap.set(row.symbol, row);
+        derived.push({
+          symbol: row.symbol,
+          name: row.name,
+          market: "JP",
+          marketSegment: row.marketSegment ?? undefined,
+        });
       }
       setTableData(newMap);
       setTableCache(newMap);
+      // stocksも設定 (watchlist API完了前でも表示可能に)
+      setStocks(derived);
+      setLoadingStocks(false);
       return true;
     } catch {
       return false;

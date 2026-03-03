@@ -91,10 +91,11 @@ const createSampleRow = (symbol: string): StockTableRow => ({
   buybackRemainingShares: null,
   buybackPeriodTo: null,
   buybackIsActive: null,
+  marketSegment: "プライム",
 });
 
 describe("tableCache", () => {
-  const CACHE_VERSION = 5;
+  const CACHE_VERSION = 6;
   const CACHE_TTL = 6 * 60 * 60 * 1000; // 6時間
 
   beforeEach(() => {
@@ -249,7 +250,7 @@ describe("tableCache", () => {
 
       expect(set).toHaveBeenCalledTimes(1);
       const [key, envelope] = vi.mocked(set).mock.calls[0];
-      expect(key).toBe("stock-table-v5");
+      expect(key).toBe("stock-table-v6");
       expect(envelope.version).toBe(CACHE_VERSION);
       expect(envelope.timestamp).toBe(Date.now());
       expect(Object.keys(envelope.data)).toHaveLength(2);
@@ -281,7 +282,7 @@ describe("tableCache", () => {
     it("キャッシュを削除する", async () => {
       await clearTableCache();
 
-      expect(del).toHaveBeenCalledWith("stock-table-v5");
+      expect(del).toHaveBeenCalledWith("stock-table-v6");
     });
 
     it("削除エラーは無視する", async () => {

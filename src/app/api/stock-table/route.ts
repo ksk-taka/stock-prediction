@@ -467,7 +467,22 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 5d. 自社株買いキャッシュ（ファイル → Supabaseフォールバック）
+    // 5d. market_segment (watchlist待ち解消のため行に含める)
+    const segmentMap = new Map<string, string>();
+    try {
+      const sbSeg = createServiceClient();
+      const { data: segRows } = await sbSeg
+        .from("stocks")
+        .select("symbol, market_segment")
+        .in("symbol", symbols);
+      if (segRows) {
+        for (const r of segRows) {
+          if (r.market_segment) segmentMap.set(r.symbol, r.market_segment);
+        }
+      }
+    } catch { /* ignore */ }
+
+    // 5e. 自社株買いキャッシュ（ファイル → Supabaseフォールバック）
     const buybackSet = await getBuybackCodesWithFallback();
 
     // 5e. 自社株買い詳細キャッシュ
@@ -582,6 +597,8 @@ export async function GET(request: NextRequest) {
           if (fr != null && so && price) return price * so * fr;
           return null;
         })(),
+        // 市場区分
+        marketSegment: segmentMap.get(sym) ?? null,
         // 自社株買い
         hasBuyback: buybackSet ? buybackSet.has(code) : null,
         // 自社株買い詳細

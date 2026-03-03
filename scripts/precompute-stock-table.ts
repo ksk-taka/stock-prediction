@@ -123,6 +123,7 @@ function daysUntil(dateStr: string): number {
 interface StockInfo {
   symbol: string;
   name: string;
+  marketSegment: string | null;
 }
 
 async function getAllStocks(supabase: SupabaseClient, favoritesOnly: boolean): Promise<StockInfo[]> {
@@ -132,7 +133,7 @@ async function getAllStocks(supabase: SupabaseClient, favoritesOnly: boolean): P
   for (let from = 0; ; from += PAGE_SIZE) {
     let query = supabase
       .from("stocks")
-      .select("symbol, name")
+      .select("symbol, name, market_segment")
       .order("created_at", { ascending: true })
       .range(from, from + PAGE_SIZE - 1);
 
@@ -142,9 +143,9 @@ async function getAllStocks(supabase: SupabaseClient, favoritesOnly: boolean): P
 
     const { data, error } = await query;
     if (error) throw error;
-    const rows = (data ?? []) as Array<{ symbol: string; name: string }>;
+    const rows = (data ?? []) as Array<{ symbol: string; name: string; market_segment: string | null }>;
     for (const r of rows) {
-      allStocks.push({ symbol: r.symbol, name: r.name });
+      allStocks.push({ symbol: r.symbol, name: r.name, marketSegment: r.market_segment });
     }
     if (rows.length < PAGE_SIZE) break;
   }
@@ -158,6 +159,7 @@ async function buildRowsForBatch(
   supabase: SupabaseClient,
   topixMap: Map<string, string>,
   buybackSet: Set<string> | null,
+  stockInfoMap: Map<string, StockInfo>,
 ): Promise<StockTableRow[]> {
   // 1. Yahoo Finance バッチquote
   let quotes: Awaited<ReturnType<typeof getQuoteBatch>> = [];
@@ -519,6 +521,7 @@ async function buildRowsForBatch(
         if (fr != null && so && price) return price * so * fr;
         return null;
       })(),
+      marketSegment: stockInfoMap.get(sym)?.marketSegment ?? null,
       hasBuyback: buybackSet ? buybackSet.has(code) : null,
       ...(() => {
         const bd = buybackDetailMap.get(code);
@@ -587,6 +590,12 @@ async function main() {
   const buybackSet = await getBuybackCodesWithFallback();
   console.log(`  Buyback codes: ${buybackSet?.size ?? 0}`);
 
+  // stockInfoMap 構築
+  const stockInfoMap = new Map<string, StockInfo>();
+  for (const s of stocks) {
+    stockInfoMap.set(s.symbol, s);
+  }
+
   // バッチ処理
   const allSymbols = stocks.map((s) => s.symbol);
   const totalBatches = Math.ceil(allSymbols.length / BATCH_SIZE);
@@ -598,7 +607,7 @@ async function main() {
     const batchNum = Math.floor(i / BATCH_SIZE) + 1;
 
     try {
-      const rows = await buildRowsForBatch(batch, supabase, topixMap, buybackSet);
+      const rows = await buildRowsForBatch(batch, supabase, topixMap, buybackSet, stockInfoMap);
       allRows.push(...rows);
       processedCount += batch.length;
 
