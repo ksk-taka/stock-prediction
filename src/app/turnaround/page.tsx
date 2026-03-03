@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
 import { formatMarketCap } from "@/lib/utils/format";
+import { getTurnaroundCache, setTurnaroundCache } from "@/lib/cache/turnaroundCache";
 import type { TurnaroundScreenRow } from "@/app/api/turnaround-screen/route";
 
 // ── 型定義 ──
@@ -150,6 +151,7 @@ export default function TurnaroundPage() {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [loadingStocks, setLoadingStocks] = useState(true);
   const [tableData, setTableData] = useState<Map<string, TurnaroundScreenRow>>(new Map());
+  const [cacheRestored, setCacheRestored] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
   const [loadedCount, setLoadedCount] = useState(0);
   const [fetchTotal, setFetchTotal] = useState(0);
@@ -174,6 +176,14 @@ export default function TurnaroundPage() {
   const [pbrMax, setPbrMax] = useState("");
   const [revenueGrowthMin, setRevenueGrowthMin] = useState("");
   const [revenueGrowthMax, setRevenueGrowthMax] = useState("");
+
+  // マウント時にIndexedDBから復元
+  useEffect(() => {
+    getTurnaroundCache().then((cached) => {
+      if (cached) setTableData(cached);
+      setCacheRestored(true);
+    });
+  }, []);
 
   // ウォッチリスト読み込み
   useEffect(() => {
@@ -228,6 +238,7 @@ export default function TurnaroundPage() {
 
       if (fetchGenRef.current === gen) {
         setLoadingData(false);
+        setTurnaroundCache(existing);
       }
     },
     [lossYearsMin],
@@ -235,11 +246,11 @@ export default function TurnaroundPage() {
 
   // ウォッチリスト読み込み後にデータ取得開始
   useEffect(() => {
-    if (!loadingStocks) {
+    if (!loadingStocks && cacheRestored) {
       const allSymbols = stocks.map((s) => s.symbol);
       fetchTableData(allSymbols);
     }
-  }, [loadingStocks, stocks, fetchTableData]);
+  }, [loadingStocks, cacheRestored, stocks, fetchTableData]);
 
   // マーケットセグメント マップ
   const segmentMap = useMemo(() => {
