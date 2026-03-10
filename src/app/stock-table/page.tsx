@@ -294,6 +294,8 @@ export default function StockTablePage() {
   const [currentRatioMax, setCurrentRatioMax] = useState("");
   const [psrMin, setPsrMin] = useState("");
   const [psrMax, setPsrMax] = useState("");
+  const [pbrMin, setPbrMin] = useState("");
+  const [pbrMax, setPbrMax] = useState("");
   const [pegMin, setPegMin] = useState("");
   const [pegMax, setPegMax] = useState("");
   const [equityRatioMin, setEquityRatioMin] = useState("");
@@ -709,6 +711,18 @@ export default function StockTablePage() {
       });
     }
 
+    // PBRフィルタ
+    if (pbrMin !== "" || pbrMax !== "") {
+      const min = pbrMin !== "" ? parseFloat(pbrMin) : NaN;
+      const max = pbrMax !== "" ? parseFloat(pbrMax) : NaN;
+      rows = rows.filter((r) => {
+        if (r.pbr == null) return false;
+        if (!isNaN(min) && r.pbr < min) return false;
+        if (!isNaN(max) && r.pbr > max) return false;
+        return true;
+      });
+    }
+
     // PEGフィルタ
     if (pegMin !== "" || pegMax !== "") {
       const min = pegMin !== "" ? parseFloat(pegMin) : NaN;
@@ -859,7 +873,7 @@ export default function StockTablePage() {
     });
 
     return rows;
-  }, [filteredStocks, tableData, sortKey, sortDir, capSizeFilter, ncRatioMin, ncRatioMax, sharpe3mMin, sharpe3mMax, sharpe6mMin, sharpe6mMax, sharpeMin, sharpeMax, increaseMin, roeMin, roeMax, currentRatioMin, currentRatioMax, psrMin, psrMax, pegMin, pegMax, equityRatioMin, equityRatioMax, profitGrowthMin, profitGrowthMax, prevProfitGrowthMin, prevProfitGrowthMax, revenueGrowthMin, operatingMarginsMin, listingYearsMax, priceMin, priceMax, yutaiOnly, buybackOnly, bbProgressAmtMin, bbProgressAmtMax, bbProgressShrMin, bbProgressShrMax, bbImpactMin, bbImpactMax, earningsFrom, earningsTo, topixFilter, nikkei225Only, marketCapMin, marketCapMax]);
+  }, [filteredStocks, tableData, sortKey, sortDir, capSizeFilter, ncRatioMin, ncRatioMax, sharpe3mMin, sharpe3mMax, sharpe6mMin, sharpe6mMax, sharpeMin, sharpeMax, increaseMin, roeMin, roeMax, currentRatioMin, currentRatioMax, psrMin, psrMax, pbrMin, pbrMax, pegMin, pegMax, equityRatioMin, equityRatioMax, profitGrowthMin, profitGrowthMax, prevProfitGrowthMin, prevProfitGrowthMax, revenueGrowthMin, operatingMarginsMin, listingYearsMax, priceMin, priceMax, yutaiOnly, buybackOnly, bbProgressAmtMin, bbProgressAmtMax, bbProgressShrMin, bbProgressShrMax, bbImpactMin, bbImpactMax, earningsFrom, earningsTo, topixFilter, nikkei225Only, marketCapMin, marketCapMax]);
 
   // ── ソート切り替え ──
   function handleSort(key: SortKey) {
@@ -1818,6 +1832,27 @@ export default function StockTablePage() {
             placeholder=""
             className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
           />
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-slate-400">PBR</span>
+          <input
+            type="number"
+            step="0.1"
+            value={pbrMin}
+            onChange={(e) => setPbrMin(e.target.value)}
+            placeholder=""
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">〜</span>
+          <input
+            type="number"
+            step="0.1"
+            value={pbrMax}
+            onChange={(e) => setPbrMax(e.target.value)}
+            placeholder=""
+            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+          <span className="text-xs text-gray-400">倍</span>
         </div>
         <div className="flex items-center gap-1">
           <span className="text-xs font-medium text-gray-500 dark:text-slate-400">PEG</span>
